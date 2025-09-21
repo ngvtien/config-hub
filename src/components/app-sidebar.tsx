@@ -1,4 +1,3 @@
-import { useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { useSidebarState } from '@/hooks/use-sidebar-state'
 import { 
@@ -14,19 +13,20 @@ import { cn } from '@/lib/utils'
 
 interface AppSidebarProps {
   className?: string
+  currentPage?: string
+  onNavigate?: (page: string) => void
 }
 
 const menuItems = [
-  { icon: Home, label: 'Dashboard', href: '/' },
-  { icon: Users, label: 'Users', href: '/users' },
-  { icon: FileText, label: 'Documents', href: '/documents' },
-  { icon: BarChart3, label: 'Analytics', href: '/analytics' },
-  { icon: Settings, label: 'Settings', href: '/settings' },
+  { icon: Home, label: 'Dashboard', page: 'dashboard' },
+  { icon: Users, label: 'Users', page: 'users' },
+  { icon: FileText, label: 'Documents', page: 'documents' },
+  { icon: BarChart3, label: 'Analytics', page: 'analytics' },
+  { icon: Settings, label: 'Settings', page: 'settings' },
 ]
 
-export function AppSidebar({ className }: AppSidebarProps) {
+export function AppSidebar({ className, currentPage = 'dashboard', onNavigate }: AppSidebarProps) {
   const { isCollapsed, toggleCollapse } = useSidebarState()
-  const [activeItem, setActiveItem] = useState('Dashboard')
 
   return (
     <div 
@@ -60,7 +60,7 @@ export function AppSidebar({ className }: AppSidebarProps) {
         <ul className="space-y-1">
           {menuItems.map((item) => {
             const Icon = item.icon
-            const isActive = activeItem === item.label
+            const isActive = currentPage === item.page
             
             return (
               <li key={item.label}>
@@ -70,7 +70,7 @@ export function AppSidebar({ className }: AppSidebarProps) {
                     "w-full justify-start",
                     isCollapsed ? "px-2" : "px-3"
                   )}
-                  onClick={() => setActiveItem(item.label)}
+                  onClick={() => onNavigate?.(item.page)}
                 >
                   <Icon className={cn("h-4 w-4", !isCollapsed && "mr-2")} />
                   {!isCollapsed && (

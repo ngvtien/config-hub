@@ -2,6 +2,10 @@ import { useState } from 'react'
 import { AppLayout } from '@/components/app-layout'
 import { TypographyShowcase } from '@/components/typography-showcase'
 import { ZoomDemo } from '@/components/zoom-demo'
+import { SettingsPage } from '@/components/settings-page'
+import { UsersPage } from '@/components/users-page'
+import { DocumentsPage } from '@/components/documents-page'
+import { AnalyticsPage } from '@/components/analytics-page'
 import { useZoomShortcuts } from '@/hooks/use-zoom-shortcuts'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -20,6 +24,14 @@ function App() {
     switch (currentPage) {
       case 'typography':
         return <TypographyShowcase />
+      case 'settings':
+        return <SettingsPage onBack={() => setCurrentPage('dashboard')} />
+      case 'users':
+        return <UsersPage onBack={() => setCurrentPage('dashboard')} />
+      case 'documents':
+        return <DocumentsPage onBack={() => setCurrentPage('dashboard')} />
+      case 'analytics':
+        return <AnalyticsPage onBack={() => setCurrentPage('dashboard')} />
       default:
         return (
           <div className="max-w-4xl mx-auto space-y-6">
@@ -146,8 +158,25 @@ const config: TypographyConfig = {
     }
   }
 
+  const getPageTitle = () => {
+    switch (currentPage) {
+      case 'typography':
+        return 'Typography System'
+      case 'settings':
+        return 'Settings'
+      case 'users':
+        return 'Users'
+      case 'documents':
+        return 'Documents'
+      case 'analytics':
+        return 'Analytics'
+      default:
+        return 'Dashboard'
+    }
+  }
+
   return (
-    <AppLayout title={currentPage === 'typography' ? 'Typography System' : 'Dashboard'}>
+    <AppLayout title={getPageTitle()} currentPage={currentPage} onNavigate={setCurrentPage}>
       {currentPage === 'typography' && (
         <div className="mb-4">
           <Button 

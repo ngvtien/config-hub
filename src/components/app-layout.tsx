@@ -8,16 +8,18 @@ import { cn } from '@/lib/utils'
 interface AppLayoutProps {
   children: React.ReactNode
   title?: string
+  currentPage?: string
+  onNavigate?: (page: string) => void
 }
 
-export function AppLayout({ children, title }: AppLayoutProps) {
+export function AppLayout({ children, title, currentPage, onNavigate }: AppLayoutProps) {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
 
   return (
     <div className="flex h-screen bg-background">
       {/* Desktop Sidebar */}
       <div className="hidden md:flex">
-        <AppSidebar />
+        <AppSidebar currentPage={currentPage} onNavigate={onNavigate} />
       </div>
 
       {/* Mobile Menu Button */}
@@ -55,7 +57,7 @@ export function AppLayout({ children, title }: AppLayoutProps) {
               </Button>
             </div>
             <div className="h-full">
-              <AppSidebar />
+              <AppSidebar currentPage={currentPage} onNavigate={onNavigate} />
             </div>
           </div>
         </div>

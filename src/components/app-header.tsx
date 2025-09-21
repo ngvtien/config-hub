@@ -2,6 +2,7 @@ import { Button } from '@/components/ui/button'
 import { ThemeToggle } from '@/components/theme-toggle'
 import { ZoomControls } from '@/components/zoom-controls'
 import { HelpButton } from '@/components/help/help-button'
+import { EnvironmentSelector } from '@/components/environment-selector'
 import { Bell, Search, Menu } from 'lucide-react'
 import { Separator } from '@/components/ui/separator'
 
@@ -38,6 +39,8 @@ export function AppHeader({
       </div>
       
       <div className="flex items-center gap-2">
+        <EnvironmentSelector />
+        <Separator orientation="vertical" className="h-6" />
         <Button variant="ghost" size="sm">
           <Search className="h-4 w-4" />
         </Button>
