@@ -8,6 +8,17 @@ interface Window {
     getShouldUseDarkColors: () => Promise<boolean>
     onThemeUpdated: (callback: (isDark: boolean) => void) => void
     
+    // Zoom management
+    getZoomLevel: () => Promise<number>
+    setZoomLevel: (zoomLevel: number) => Promise<number>
+    zoomIn: () => Promise<number>
+    zoomOut: () => Promise<number>
+    zoomReset: () => Promise<number>
+    
+    // Sidebar state management
+    getSidebarState: () => Promise<boolean>
+    setSidebarState: (isCollapsed: boolean) => Promise<boolean>
+    
     // General IPC
     on: (channel: string, listener: (...args: any[]) => void) => void
     off: (channel: string, listener: (...args: any[]) => void) => void

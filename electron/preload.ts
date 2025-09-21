@@ -10,6 +10,17 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.on('theme-updated', (_, isDark) => callback(isDark))
   },
   
+  // Zoom management
+  getZoomLevel: () => ipcRenderer.invoke('get-zoom-level'),
+  setZoomLevel: (zoomLevel: number) => ipcRenderer.invoke('set-zoom-level', zoomLevel),
+  zoomIn: () => ipcRenderer.invoke('zoom-in'),
+  zoomOut: () => ipcRenderer.invoke('zoom-out'),
+  zoomReset: () => ipcRenderer.invoke('zoom-reset'),
+  
+  // Sidebar state management
+  getSidebarState: () => ipcRenderer.invoke('get-sidebar-state'),
+  setSidebarState: (isCollapsed: boolean) => ipcRenderer.invoke('set-sidebar-state', isCollapsed),
+  
   // General IPC
   on: (channel: string, listener: (...args: any[]) => void) => {
     ipcRenderer.on(channel, (event, ...args) => listener(...args))

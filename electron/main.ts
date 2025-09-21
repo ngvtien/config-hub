@@ -96,6 +96,10 @@ async function createWindow() {
   // Show window when ready to prevent visual flash
   win.once('ready-to-show', () => {
     win?.show()
+    
+    // Restore zoom level
+    const savedZoom = zoomStateKeeper.get().zoomLevel
+    win?.webContents.setZoomLevel(savedZoom)
   })
 
   // Save window state on resize/move
@@ -182,6 +186,111 @@ ipcMain.handle('get-should-use-dark-colors', () => {
 // Listen for theme changes
 nativeTheme.on('updated', () => {
   win?.webContents.send('theme-updated', nativeTheme.shouldUseDarkColors)
+})
+
+// Zoom management
+const zoomStateKeeper = {
+  file: path.join(app.getPath('userData'), 'zoom-state.json'),
+  
+  get(): { zoomLevel: number } {
+    try {
+      const data = fs.readFileSync(this.file, 'utf8')
+      const parsed = JSON.parse(data)
+      // Ensure zoom level is within reasonable bounds
+      const zoomLevel = Math.max(-5, Math.min(5, parsed.zoomLevel || 0))
+      return { zoomLevel }
+    } catch {
+      return { zoomLevel: 0 }
+    }
+  },
+  
+  set(zoomLevel: number) {
+    try {
+      // Clamp zoom level to reasonable bounds
+      const clampedZoom = Math.max(-5, Math.min(5, zoomLevel))
+      fs.writeFileSync(this.file, JSON.stringify({ zoomLevel: clampedZoom }))
+    } catch (error) {
+      console.error('Failed to save zoom state:', error)
+    }
+  }
+}
+
+// Sidebar state management
+const sidebarStateKeeper = {
+  file: path.join(app.getPath('userData'), 'sidebar-state.json'),
+  
+  get(): { isCollapsed: boolean } {
+    try {
+      const data = fs.readFileSync(this.file, 'utf8')
+      const parsed = JSON.parse(data)
+      return { isCollapsed: parsed.isCollapsed || false }
+    } catch {
+      return { isCollapsed: false }
+    }
+  },
+  
+  set(isCollapsed: boolean) {
+    try {
+      fs.writeFileSync(this.file, JSON.stringify({ isCollapsed }))
+    } catch (error) {
+      console.error('Failed to save sidebar state:', error)
+    }
+  }
+}
+
+ipcMain.handle('get-zoom-level', () => {
+  return zoomStateKeeper.get().zoomLevel
+})
+
+ipcMain.handle('set-zoom-level', (_, zoomLevel: number) => {
+  if (!win) return 0
+  
+  const clampedZoom = Math.max(-5, Math.min(5, zoomLevel))
+  win.webContents.setZoomLevel(clampedZoom)
+  zoomStateKeeper.set(clampedZoom)
+  
+  return clampedZoom
+})
+
+ipcMain.handle('zoom-in', () => {
+  if (!win) return 0
+  
+  const currentZoom = win.webContents.getZoomLevel()
+  const newZoom = Math.min(5, currentZoom + 0.5)
+  win.webContents.setZoomLevel(newZoom)
+  zoomStateKeeper.set(newZoom)
+  
+  return newZoom
+})
+
+ipcMain.handle('zoom-out', () => {
+  if (!win) return 0
+  
+  const currentZoom = win.webContents.getZoomLevel()
+  const newZoom = Math.max(-5, currentZoom - 0.5)
+  win.webContents.setZoomLevel(newZoom)
+  zoomStateKeeper.set(newZoom)
+  
+  return newZoom
+})
+
+ipcMain.handle('zoom-reset', () => {
+  if (!win) return 0
+  
+  win.webContents.setZoomLevel(0)
+  zoomStateKeeper.set(0)
+  
+  return 0
+})
+
+// Sidebar state management
+ipcMain.handle('get-sidebar-state', () => {
+  return sidebarStateKeeper.get().isCollapsed
+})
+
+ipcMain.handle('set-sidebar-state', (_, isCollapsed: boolean) => {
+  sidebarStateKeeper.set(isCollapsed)
+  return isCollapsed
 })
 
 // New window example arg: new windows url
