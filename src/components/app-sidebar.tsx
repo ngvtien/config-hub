@@ -6,6 +6,7 @@ import {
   Users, 
   FileText, 
   BarChart3, 
+  GitBranch,
   ChevronLeft,
   ChevronRight
 } from 'lucide-react'
@@ -19,6 +20,7 @@ interface AppSidebarProps {
 
 const menuItems = [
   { icon: Home, label: 'Dashboard', page: 'dashboard' },
+  { icon: GitBranch, label: 'ArgoCD', page: 'argocd' },
   { icon: Users, label: 'Users', page: 'users' },
   { icon: FileText, label: 'Documents', page: 'documents' },
   { icon: BarChart3, label: 'Analytics', page: 'analytics' },

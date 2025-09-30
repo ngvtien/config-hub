@@ -6,6 +6,7 @@ import { SettingsPage } from '@/components/settings-page'
 import { UsersPage } from '@/components/users-page'
 import { DocumentsPage } from '@/components/documents-page'
 import { AnalyticsPage } from '@/components/analytics-page'
+import { ArgoCDPage } from '@/components/argocd-page'
 import { useZoomShortcuts } from '@/hooks/use-zoom-shortcuts'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -24,6 +25,8 @@ function App() {
     switch (currentPage) {
       case 'typography':
         return <TypographyShowcase />
+      case 'argocd':
+        return <ArgoCDPage />
       case 'settings':
         return <SettingsPage onBack={() => setCurrentPage('dashboard')} />
       case 'users':
@@ -162,6 +165,8 @@ const config: TypographyConfig = {
     switch (currentPage) {
       case 'typography':
         return 'Typography System'
+      case 'argocd':
+        return 'ArgoCD Applications'
       case 'settings':
         return 'Settings'
       case 'users':

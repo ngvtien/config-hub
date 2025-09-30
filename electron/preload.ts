@@ -21,6 +21,46 @@ contextBridge.exposeInMainWorld('electronAPI', {
   getSidebarState: () => ipcRenderer.invoke('get-sidebar-state'),
   setSidebarState: (isCollapsed: boolean) => ipcRenderer.invoke('set-sidebar-state', isCollapsed),
   
+  // ArgoCD API (secure IPC-based)
+  argocd: {
+    storeCredentials: (environment: string, config: any) => 
+      ipcRenderer.invoke('argocd:store-credentials', environment, config),
+    testConnection: (environment: string) => 
+      ipcRenderer.invoke('argocd:test-connection', environment),
+    getApplications: (environment: string) => 
+      ipcRenderer.invoke('argocd:get-applications', environment),
+    getApplication: (environment: string, name: string, namespace?: string) => 
+      ipcRenderer.invoke('argocd:get-application', environment, name, namespace),
+    getApplicationLogs: (environment: string, name: string, options?: any) => 
+      ipcRenderer.invoke('argocd:get-application-logs', environment, name, options),
+    getApplicationEvents: (environment: string, name: string, namespace?: string) => 
+      ipcRenderer.invoke('argocd:get-application-events', environment, name, namespace),
+    syncApplication: (environment: string, name: string, options?: any) => 
+      ipcRenderer.invoke('argocd:sync-application', environment, name, options),
+    clearCache: () => 
+      ipcRenderer.invoke('argocd:clear-cache')
+  },
+  
+  // HashiCorp Vault API (secure IPC-based)
+  vault: {
+    storeCredentials: (environment: string, config: any) => 
+      ipcRenderer.invoke('vault:store-credentials', environment, config),
+    testConnection: (environment: string) => 
+      ipcRenderer.invoke('vault:test-connection', environment),
+    getSecret: (environment: string, secretPath: string) => 
+      ipcRenderer.invoke('vault:get-secret', environment, secretPath),
+    listSecrets: (environment: string, secretPath?: string) => 
+      ipcRenderer.invoke('vault:list-secrets', environment, secretPath),
+    putSecret: (environment: string, secretPath: string, secretData: Record<string, any>) => 
+      ipcRenderer.invoke('vault:put-secret', environment, secretPath, secretData),
+    deleteSecret: (environment: string, secretPath: string) => 
+      ipcRenderer.invoke('vault:delete-secret', environment, secretPath),
+    getHealth: (environment: string) => 
+      ipcRenderer.invoke('vault:get-health', environment),
+    clearCache: () => 
+      ipcRenderer.invoke('vault:clear-cache')
+  },
+  
   // General IPC
   on: (channel: string, listener: (...args: any[]) => void) => {
     ipcRenderer.on(channel, (event, ...args) => listener(...args))

@@ -3,6 +3,8 @@ import { createRequire } from 'node:module'
 import { fileURLToPath } from 'node:url'
 import path from 'node:path'
 import fs from 'node:fs'
+import { setupArgoCDHandlers } from './argocd-handler'
+import { setupVaultHandlers } from './vault-handler'
 
 const require = createRequire(import.meta.url)
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
@@ -135,7 +137,11 @@ async function createWindow() {
   })
 }
 
-app.whenReady().then(createWindow)
+app.whenReady().then(() => {
+  createWindow()
+  setupArgoCDHandlers()
+  setupVaultHandlers()
+})
 
 app.on('window-all-closed', () => {
   win = null

@@ -35,6 +35,20 @@ export interface EnvironmentSettings {
       status: 'connected' | 'disconnected'
     }>
   }
+  vault: {
+    serverUrl: string
+    authMethod: 'token' | 'userpass' | 'ldap' | 'kubernetes' | 'aws' | 'azure'
+    token: string
+    username: string
+    password: string
+    namespace: string
+    mountPath: string
+    roleId: string
+    secretId: string
+    kubernetesRole: string
+    awsRole: string
+    azureRole: string
+  }
 }
 
 const defaultSettings: EnvironmentSettings = {
@@ -62,6 +76,20 @@ const defaultSettings: EnvironmentSettings = {
     password: '',
     defaultNamespace: 'default',
     repositories: []
+  },
+  vault: {
+    serverUrl: '',
+    authMethod: 'token',
+    token: '',
+    username: '',
+    password: '',
+    namespace: '',
+    mountPath: 'secret',
+    roleId: '',
+    secretId: '',
+    kubernetesRole: '',
+    awsRole: '',
+    azureRole: ''
   }
 }
 
