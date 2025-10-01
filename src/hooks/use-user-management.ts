@@ -1,16 +1,20 @@
 import { useState, useEffect } from 'react'
 import { SystemUser } from '@/types/user'
+import { useHandlersReady } from './use-handlers-ready'
 
 export function useUserManagement() {
   const [currentUser, setCurrentUser] = useState<SystemUser | null>(null)
   const [availableUsers, setAvailableUsers] = useState<SystemUser[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const handlersReady = useHandlersReady()
 
-  // Load current user on mount
+  // Load current user when handlers are ready
   useEffect(() => {
-    loadCurrentUser()
-  }, [])
+    if (handlersReady) {
+      loadCurrentUser()
+    }
+  }, [handlersReady])
 
   const loadCurrentUser = async () => {
     try {
