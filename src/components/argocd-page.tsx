@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { useArgoCD } from '@/hooks/use-argocd'
 import { useArgoCDCredentials } from '@/hooks/use-argocd-credentials'
 import { ApplicationFilter, ApplicationSearchResult } from '@/types/argocd'
@@ -222,7 +222,7 @@ export function ArgoCDPage() {
 
       {/* Applications Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {displayApplications.map(({ application, productName, customerName, version }) => {
+        {displayApplications.map(({ application }) => {
           const syncBadge = getStatusBadge(application.status.sync.status, 'sync')
           const healthBadge = getStatusBadge(application.status.health.status, 'health')
           const SyncIcon = syncBadge.icon
@@ -252,31 +252,19 @@ export function ArgoCDPage() {
               </CardHeader>
               
               <CardContent className="space-y-3">
-                {/* Product/Customer Info */}
-                {(productName || customerName) && (
-                  <div className="space-y-1">
-                    {productName && (
-                      <div className="flex items-center gap-2 text-sm">
-                        <span className="font-medium">Product:</span>
-                        <span>{productName}</span>
-                      </div>
-                    )}
-                    {customerName && (
-                      <div className="flex items-center gap-2 text-sm">
-                        <span className="font-medium">Customer:</span>
-                        <span>{customerName}</span>
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                {/* Version */}
-                {version && (
+                {/* Application Info */}
+                <div className="space-y-1">
                   <div className="flex items-center gap-2 text-sm">
-                    <GitBranch className="h-3 w-3" />
-                    <span>{version}</span>
+                    <span className="font-medium">Namespace:</span>
+                    <span>{application.metadata.namespace}</span>
                   </div>
-                )}
+                  {application.spec.source.targetRevision && (
+                    <div className="flex items-center gap-2 text-sm">
+                      <GitBranch className="h-3 w-3" />
+                      <span>{application.spec.source.targetRevision}</span>
+                    </div>
+                  )}
+                </div>
 
                 <Separator />
 

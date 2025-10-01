@@ -23,7 +23,13 @@ import {
   Lightbulb,
   HelpCircle,
   Monitor,
-  Save
+  Save,
+  Users,
+  Shield,
+  Key,
+  Lock,
+  GitBranch,
+  Database
 } from 'lucide-react'
 
 interface HelpDialogProps {
@@ -87,6 +93,18 @@ export function HelpDialog({ open, onOpenChange, initialSection = 'overview' }: 
                 <div className="flex items-center gap-2">
                   <PanelLeftClose className="h-4 w-4 text-muted-foreground" />
                   <span className="text-sm">Collapsible sidebar</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Users className="h-4 w-4 text-muted-foreground" />
+                  <span className="text-sm">User management</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <GitBranch className="h-4 w-4 text-muted-foreground" />
+                  <span className="text-sm">ArgoCD integration</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Lock className="h-4 w-4 text-muted-foreground" />
+                  <span className="text-sm">HashiCorp Vault</span>
                 </div>
                 <div className="flex items-center gap-2">
                   <Save className="h-4 w-4 text-muted-foreground" />
@@ -425,6 +443,288 @@ export function HelpDialog({ open, onOpenChange, initialSection = 'overview' }: 
               </div>
             </CardContent>
           </Card>
+        </div>
+      )
+    },
+    
+    'user-management': {
+      title: 'User Management',
+      icon: Users,
+      content: (
+        <div className="space-y-4">
+          <p className="text-body">
+            Manage system users and user contexts within the application.
+          </p>
+          
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">Features</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <div className="flex items-start gap-3">
+                <Shield className="h-4 w-4 mt-0.5" />
+                <div>
+                  <h4 className="text-sm font-medium">Current User Detection</h4>
+                  <p className="text-xs text-muted-foreground">Automatically detects current system user, domain, and admin privileges</p>
+                </div>
+              </div>
+              
+              <div className="flex items-start gap-3">
+                <Users className="h-4 w-4 mt-0.5" />
+                <div>
+                  <h4 className="text-sm font-medium">Available Users</h4>
+                  <p className="text-xs text-muted-foreground">Lists other users on the system (requires admin privileges)</p>
+                </div>
+              </div>
+              
+              <div className="flex items-start gap-3">
+                <Key className="h-4 w-4 mt-0.5" />
+                <div>
+                  <h4 className="text-sm font-medium">User Context Switching</h4>
+                  <p className="text-xs text-muted-foreground">Experimental feature to switch user contexts with credentials</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+          
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">How to Access</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-2">
+              <div className="flex items-center gap-2">
+                <span className="text-sm">Click the user area in the sidebar footer</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-sm">Or navigate to Users from the sidebar menu</span>
+              </div>
+            </CardContent>
+          </Card>
+          
+          <div className="bg-amber-50 dark:bg-amber-950/20 p-3 rounded-lg border border-amber-200 dark:border-amber-800">
+            <p className="text-sm text-amber-800 dark:text-amber-200">
+              <strong>Note:</strong> Some features require administrator privileges and work best on Windows domain environments.
+            </p>
+          </div>
+        </div>
+      )
+    },
+    
+    'argocd-integration': {
+      title: 'ArgoCD Integration',
+      icon: GitBranch,
+      content: (
+        <div className="space-y-4">
+          <p className="text-body">
+            Connect to and manage ArgoCD applications directly from the desktop app.
+          </p>
+          
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">Features</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <div className="flex items-start gap-3">
+                <GitBranch className="h-4 w-4 mt-0.5" />
+                <div>
+                  <h4 className="text-sm font-medium">Application Management</h4>
+                  <p className="text-xs text-muted-foreground">View, sync, and manage ArgoCD applications</p>
+                </div>
+              </div>
+              
+              <div className="flex items-start gap-3">
+                <Monitor className="h-4 w-4 mt-0.5" />
+                <div>
+                  <h4 className="text-sm font-medium">Real-time Status</h4>
+                  <p className="text-xs text-muted-foreground">Monitor sync and health status of applications</p>
+                </div>
+              </div>
+              
+              <div className="flex items-start gap-3">
+                <Settings className="h-4 w-4 mt-0.5" />
+                <div>
+                  <h4 className="text-sm font-medium">Parameter Management</h4>
+                  <p className="text-xs text-muted-foreground">Edit and compare application parameters</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+          
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">Setup</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-2">
+              <div className="text-xs space-y-1">
+                <div>1. Go to Settings → ArgoCD Configuration</div>
+                <div>2. Enter your ArgoCD server URL and authentication token</div>
+                <div>3. Test the connection and save</div>
+                <div>4. Navigate to ArgoCD page to view applications</div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )
+    },
+    
+    'vault-integration': {
+      title: 'HashiCorp Vault',
+      icon: Lock,
+      content: (
+        <div className="space-y-4">
+          <p className="text-body">
+            Securely manage secrets and credentials using HashiCorp Vault integration.
+          </p>
+          
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">Supported Authentication</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <div className="flex items-start gap-3">
+                <Key className="h-4 w-4 mt-0.5" />
+                <div>
+                  <h4 className="text-sm font-medium">Token Authentication</h4>
+                  <p className="text-xs text-muted-foreground">Direct token-based access</p>
+                </div>
+              </div>
+              
+              <div className="flex items-start gap-3">
+                <Users className="h-4 w-4 mt-0.5" />
+                <div>
+                  <h4 className="text-sm font-medium">Username/Password</h4>
+                  <p className="text-xs text-muted-foreground">Traditional username and password authentication</p>
+                </div>
+              </div>
+              
+              <div className="flex items-start gap-3">
+                <Shield className="h-4 w-4 mt-0.5" />
+                <div>
+                  <h4 className="text-sm font-medium">LDAP Integration</h4>
+                  <p className="text-xs text-muted-foreground">Enterprise LDAP authentication</p>
+                </div>
+              </div>
+              
+              <div className="flex items-start gap-3">
+                <Database className="h-4 w-4 mt-0.5" />
+                <div>
+                  <h4 className="text-sm font-medium">Cloud Providers</h4>
+                  <p className="text-xs text-muted-foreground">AWS, Azure, and Kubernetes authentication</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+          
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">Secret Management</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-2">
+              <div className="text-xs space-y-1">
+                <div>• Read and write secrets to KV stores</div>
+                <div>• List available secret paths</div>
+                <div>• Delete secrets securely</div>
+                <div>• Monitor Vault health status</div>
+                <div>• Support for multiple environments</div>
+              </div>
+            </CardContent>
+          </Card>
+          
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">Setup</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-2">
+              <div className="text-xs space-y-1">
+                <div>1. Go to Settings → Vault Configuration</div>
+                <div>2. Enter Vault server URL and choose auth method</div>
+                <div>3. Provide credentials based on selected method</div>
+                <div>4. Configure mount path and namespace (if needed)</div>
+                <div>5. Test connection and save configuration</div>
+              </div>
+            </CardContent>
+          </Card>
+          
+          <div className="bg-green-50 dark:bg-green-950/20 p-3 rounded-lg border border-green-200 dark:border-green-800">
+            <p className="text-sm text-green-800 dark:text-green-200">
+              <strong>Security:</strong> All Vault operations are performed securely through the main process with encrypted credential storage.
+            </p>
+          </div>
+        </div>
+      )
+    },
+    
+    'environment-management': {
+      title: 'Environment Management',
+      icon: Settings,
+      content: (
+        <div className="space-y-4">
+          <p className="text-body">
+            Manage different environments and instances for your integrations and configurations.
+          </p>
+          
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">Available Environments</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <div className="grid grid-cols-2 gap-3">
+                <div className="flex items-center gap-2">
+                  <Badge variant="outline">DEV</Badge>
+                  <span className="text-sm">Development</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Badge variant="outline">SIT</Badge>
+                  <span className="text-sm">System Integration Test</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Badge variant="outline">UAT</Badge>
+                  <span className="text-sm">User Acceptance Test</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Badge variant="outline">PROD</Badge>
+                  <span className="text-sm">Production</span>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+          
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">Instance Support</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-2">
+              <p className="text-sm text-muted-foreground">
+                Each environment supports multiple instances (0-3) for different configurations:
+              </p>
+              <div className="text-xs space-y-1">
+                <div>• Separate ArgoCD configurations per environment/instance</div>
+                <div>• Independent Vault connections</div>
+                <div>• Isolated settings and credentials</div>
+                <div>• Environment-specific user contexts</div>
+              </div>
+            </CardContent>
+          </Card>
+          
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">How to Switch</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-2">
+              <div className="text-xs space-y-1">
+                <div>1. Use the environment selector in the header</div>
+                <div>2. Choose your target environment (DEV/SIT/UAT/PROD)</div>
+                <div>3. Select the instance number (0-3)</div>
+                <div>4. Configure settings for each environment separately</div>
+              </div>
+            </CardContent>
+          </Card>
+          
+          <div className="bg-blue-50 dark:bg-blue-950/20 p-3 rounded-lg border border-blue-200 dark:border-blue-800">
+            <p className="text-sm text-blue-800 dark:text-blue-200">
+              <strong>Tip:</strong> Your environment selection is automatically saved and restored when you restart the app.
+            </p>
+          </div>
         </div>
       )
     }

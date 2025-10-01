@@ -1,10 +1,10 @@
-import React, { useState } from 'react'
+import { useState } from 'react'
 import { useArgoCDApplication } from '@/hooks/use-argocd'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import { Separator } from '@/components/ui/separator'
-import { 
+
+import {
   Dialog,
   DialogContent,
   DialogDescription,
@@ -12,7 +12,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog'
-import { 
+import {
   ArrowLeft,
   RefreshCw,
   GitBranch,
@@ -24,8 +24,7 @@ import {
   FileText,
   Calendar,
   Settings,
-  Eye,
-  GitCompare
+  Eye
 } from 'lucide-react'
 
 interface ArgoCDApplicationDetailProps {
@@ -34,10 +33,10 @@ interface ArgoCDApplicationDetailProps {
   onBack: () => void
 }
 
-export function ArgoCDApplicationDetail({ 
-  applicationName, 
-  namespace, 
-  onBack 
+export function ArgoCDApplicationDetail({
+  applicationName,
+  namespace,
+  onBack
 }: ArgoCDApplicationDetailProps) {
   const {
     application,
@@ -47,8 +46,7 @@ export function ArgoCDApplicationDetail({
     loading,
     error,
     fetchApplication,
-    syncApplication,
-    compareParameters
+    syncApplication
   } = useArgoCDApplication(applicationName, namespace)
 
   const [showLogs, setShowLogs] = useState(false)
@@ -231,8 +229,8 @@ export function ArgoCDApplicationDetail({
               <div>
                 <p className="text-sm font-medium text-muted-foreground">Last Sync</p>
                 <p className="text-sm font-medium">
-                  {application.status.operationState?.finishedAt ? 
-                    new Date(application.status.operationState.finishedAt).toLocaleString() : 
+                  {application.status.operationState?.finishedAt ?
+                    new Date(application.status.operationState.finishedAt).toLocaleString() :
                     'Never'
                   }
                 </p>
@@ -411,7 +409,7 @@ export function ArgoCDApplicationDetail({
                   </div>
                   <div className="flex items-center gap-2">
                     {resource.health && (
-                      <Badge 
+                      <Badge
                         variant={resource.health.status === 'Healthy' ? 'default' : 'destructive'}
                       >
                         {resource.health.status}

@@ -1,5 +1,6 @@
 import { Button } from '@/components/ui/button'
 import { useSidebarState } from '@/hooks/use-sidebar-state'
+import { useUserManagement } from '@/hooks/use-user-management'
 import { 
   Home, 
   Settings, 
@@ -8,7 +9,8 @@ import {
   BarChart3, 
   GitBranch,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  User
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -29,6 +31,7 @@ const menuItems = [
 
 export function AppSidebar({ className, currentPage = 'dashboard', onNavigate }: AppSidebarProps) {
   const { isCollapsed, toggleCollapse } = useSidebarState()
+  const { currentUser, isLoading } = useUserManagement()
 
   return (
     <div 
@@ -85,24 +88,44 @@ export function AppSidebar({ className, currentPage = 'dashboard', onNavigate }:
         </ul>
       </nav>
 
-      {/* Footer */}
+      {/* Footer - User Menu */}
       <div className="p-2 border-t">
-        <div className={cn(
-          "flex items-center",
-          isCollapsed ? "justify-center" : "px-2"
-        )}>
-          <div className="w-8 h-8 bg-primary rounded-full flex items-center justify-center">
-            <span className="text-primary-foreground text-sm font-medium">
-              U
-            </span>
-          </div>
-          {!isCollapsed && (
-            <div className="ml-2 flex-1 min-w-0">
-              <p className="text-sm font-medium truncate">User Name</p>
-              <p className="text-xs text-muted-foreground truncate">user@example.com</p>
-            </div>
+        <Button
+          variant={currentPage === 'users' ? "secondary" : "ghost"}
+          className={cn(
+            "w-full h-auto p-2 justify-start hover:bg-accent transition-colors",
+            isCollapsed ? "px-2" : "px-2",
+            currentPage === 'users' && "bg-secondary"
           )}
-        </div>
+          onClick={() => onNavigate?.('users')}
+          disabled={isLoading}
+          title={isCollapsed ? `${currentUser?.fullName || currentUser?.username || 'User'} - Click to manage users` : undefined}
+        >
+          <div className={cn(
+            "flex items-center",
+            isCollapsed ? "justify-center" : "w-full"
+          )}>
+            <div className="w-8 h-8 bg-primary rounded-full flex items-center justify-center">
+              {currentUser ? (
+                <span className="text-primary-foreground text-sm font-medium">
+                  {currentUser.username.charAt(0).toUpperCase()}
+                </span>
+              ) : (
+                <User className="w-4 h-4 text-primary-foreground" />
+              )}
+            </div>
+            {!isCollapsed && (
+              <div className="ml-2 flex-1 min-w-0 text-left">
+                <p className="text-sm font-medium truncate">
+                  {currentUser?.fullName || currentUser?.username || 'Loading...'}
+                </p>
+                <p className="text-xs text-muted-foreground truncate">
+                  {currentUser?.domain ? `${currentUser.domain}\\${currentUser.username}` : currentUser?.username || 'Click to view details'}
+                </p>
+              </div>
+            )}
+          </div>
+        </Button>
       </div>
     </div>
   )

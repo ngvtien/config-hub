@@ -1,4 +1,4 @@
-import axios, { AxiosInstance, AxiosRequestConfig } from 'axios'
+import axios, { AxiosInstance } from 'axios'
 import { 
   ArgoCDApplication, 
   ArgoCDApplicationList, 
@@ -18,10 +18,8 @@ export interface ArgoCDConfig {
 
 export class ArgoCDClient {
   private client: AxiosInstance
-  private config: ArgoCDConfig
 
   constructor(config: ArgoCDConfig) {
-    this.config = config
     this.client = axios.create({
       baseURL: `${config.serverUrl}/api/v1`,
       headers: {

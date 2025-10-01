@@ -17,7 +17,10 @@ import {
   Settings,
   ExternalLink,
   BookOpen,
-  Lightbulb
+  Lightbulb,
+  Users,
+  GitBranch,
+  Lock
 } from 'lucide-react'
 
 interface HelpCommandPaletteProps {
@@ -53,6 +56,10 @@ export function HelpCommandPalette({ open, onOpenChange, onNavigate }: HelpComma
     { id: 'zoom', title: 'Zoom Controls', category: 'Features', icon: ZoomIn, shortcut: 'Ctrl+Plus/Minus' },
     { id: 'sidebar', title: 'Sidebar Management', category: 'Features', icon: PanelLeftClose },
     { id: 'typography', title: 'Typography System', category: 'Features', icon: Type },
+    { id: 'user-management', title: 'User Management', category: 'Features', icon: Users },
+    { id: 'environment-management', title: 'Environment Management', category: 'Features', icon: Settings },
+    { id: 'argocd-integration', title: 'ArgoCD Integration', category: 'Integrations', icon: GitBranch },
+    { id: 'vault-integration', title: 'HashiCorp Vault', category: 'Integrations', icon: Lock },
     { id: 'shortcuts', title: 'All Shortcuts', category: 'Keyboard Shortcuts', icon: Keyboard, shortcut: '?' },
     { id: 'zoom-shortcuts', title: 'Zoom Shortcuts', category: 'Keyboard Shortcuts', icon: ZoomIn, shortcut: 'Ctrl+0/+/-' },
     { id: 'preferences', title: 'App Preferences', category: 'Settings & Preferences', icon: Settings },
@@ -107,6 +114,14 @@ export function HelpCommandPalette({ open, onOpenChange, onNavigate }: HelpComma
               <CommandItem onSelect={() => window.open('https://ui.shadcn.com')}>
                 <ExternalLink className="mr-2 h-4 w-4" />
                 <span>shadcn/ui Components</span>
+              </CommandItem>
+              <CommandItem onSelect={() => window.open('https://argo-cd.readthedocs.io/')}>
+                <GitBranch className="mr-2 h-4 w-4" />
+                <span>ArgoCD Documentation</span>
+              </CommandItem>
+              <CommandItem onSelect={() => window.open('https://developer.hashicorp.com/vault/docs')}>
+                <Lock className="mr-2 h-4 w-4" />
+                <span>HashiCorp Vault Docs</span>
               </CommandItem>
               <CommandItem onSelect={() => window.open('https://fonts.google.com/specimen/Inter')}>
                 <ExternalLink className="mr-2 h-4 w-4" />

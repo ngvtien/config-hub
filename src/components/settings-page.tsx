@@ -513,22 +513,7 @@ export function SettingsPage({ onBack }: SettingsPageProps) {
     </div>
   )
 
-  const renderContent = () => {
-    switch (activeSection) {
-      case 'general':
-        return renderGeneralSettings()
-      case 'git':
-        return renderGitSettings()
-      case 'argocd':
-        return renderArgoCDSettings()
-      case 'helm':
-        return renderHelmOCISettings()
-      case 'vault':
-        return renderVaultSettings()
-      default:
-        return renderGeneralSettings()
-    }
-  }
+
 
   return (
     <div className="max-w-6xl mx-auto space-y-6">

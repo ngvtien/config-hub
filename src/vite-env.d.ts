@@ -36,6 +36,14 @@ interface VaultResponse<T = any> {
   connected?: boolean
 }
 
+interface SystemUser {
+  username: string
+  fullName?: string
+  domain?: string
+  isAdmin?: boolean
+  groups?: string[]
+}
+
 interface Window {
   electronAPI: {
     // Theme management
@@ -87,6 +95,14 @@ interface Window {
       deleteSecret: (environment: string, secretPath: string) => Promise<VaultResponse>
       getHealth: (environment: string) => Promise<VaultResponse<any>>
       clearCache: () => Promise<VaultResponse>
+    }
+    
+    // User Management API
+    user: {
+      getCurrentUser: () => Promise<SystemUser>
+      getAvailableUsers: () => Promise<SystemUser[]>
+      switchUser: (username: string, password?: string) => Promise<boolean>
+      isAdmin: () => Promise<boolean>
     }
     
     // General IPC

@@ -11,7 +11,7 @@ import {
 export class ArgoCDService {
   // Check if we're in Electron environment
   private get isElectron(): boolean {
-    return typeof window !== 'undefined' && window.electronAPI
+    return typeof window !== 'undefined' && !!window.electronAPI
   }
 
   // Get ArgoCD config from settings

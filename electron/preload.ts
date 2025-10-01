@@ -61,6 +61,18 @@ contextBridge.exposeInMainWorld('electronAPI', {
       ipcRenderer.invoke('vault:clear-cache')
   },
   
+  // User Management API
+  user: {
+    getCurrentUser: () => 
+      ipcRenderer.invoke('user:get-current'),
+    getAvailableUsers: () => 
+      ipcRenderer.invoke('user:get-available'),
+    switchUser: (username: string, password?: string) => 
+      ipcRenderer.invoke('user:switch', username, password),
+    isAdmin: () => 
+      ipcRenderer.invoke('user:is-admin')
+  },
+  
   // General IPC
   on: (channel: string, listener: (...args: any[]) => void) => {
     ipcRenderer.on(channel, (event, ...args) => listener(...args))

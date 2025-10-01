@@ -5,6 +5,7 @@ import path from 'node:path'
 import fs from 'node:fs'
 import { setupArgoCDHandlers } from './argocd-handler'
 import { setupVaultHandlers } from './vault-handler'
+import { setupUserHandlers } from './user-handler'
 
 const require = createRequire(import.meta.url)
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
@@ -141,6 +142,7 @@ app.whenReady().then(() => {
   createWindow()
   setupArgoCDHandlers()
   setupVaultHandlers()
+  setupUserHandlers()
 })
 
 app.on('window-all-closed', () => {
