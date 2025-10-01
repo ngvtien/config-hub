@@ -25,6 +25,13 @@ interface SettingsPageProps {
   onBack?: () => void
 }
 
+interface SettingsSection {
+  id: string
+  label: string
+  icon: any
+  serviceIcon?: string
+}
+
 export function SettingsPage({ onBack }: SettingsPageProps) {
   const { environment, instance, getContextKey } = useEnvironment()
   const { settings, updateSection } = useEnvironmentSettings()
@@ -33,12 +40,12 @@ export function SettingsPage({ onBack }: SettingsPageProps) {
   // Automatically store Vault credentials when settings change
   useVaultCredentials()
 
-  const sections = [
+  const sections: SettingsSection[] = [
     { id: 'general', label: 'General', icon: Settings },
-    { id: 'git', label: 'Git Repositories', icon: GitBranch },
-    { id: 'argocd', label: 'ArgoCD', icon: Container },
-    { id: 'helm', label: 'Helm OCI', icon: Package },
-    { id: 'vault', label: 'HashiCorp Vault', icon: Shield }
+    { id: 'git', label: 'Git Repositories', icon: GitBranch, serviceIcon: '/logos/git-logo.svg' },
+    { id: 'argocd', label: 'ArgoCD', icon: Container, serviceIcon: '/logos/argocd-logo.svg' },
+    { id: 'helm', label: 'Helm OCI', icon: Package, serviceIcon: '/logos/helm-logo.svg' },
+    { id: 'vault', label: 'HashiCorp Vault', icon: Shield, serviceIcon: '/logos/vault-logo.svg' }
   ]
 
   const renderGeneralSettings = () => (
@@ -552,7 +559,11 @@ export function SettingsPage({ onBack }: SettingsPageProps) {
                   value={section.id}
                   className="flex items-center gap-2 px-3 py-2 text-sm font-medium transition-all hover:bg-muted/80 data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm"
                 >
-                  <Icon className="w-4 h-4 flex-shrink-0" />
+                  {section.serviceIcon ? (
+                    <img src={section.serviceIcon} alt={section.label} className="w-4 h-4 flex-shrink-0" />
+                  ) : (
+                    <Icon className="w-4 h-4 flex-shrink-0" />
+                  )}
                   <span className="hidden xl:inline truncate">{section.label}</span>
                   <span className="xl:hidden truncate">{section.label.split(' ')[0]}</span>
                 </TabsTrigger>
@@ -579,7 +590,11 @@ export function SettingsPage({ onBack }: SettingsPageProps) {
                   }`}
                   onClick={() => setActiveSection(section.id)}
                 >
-                  <Icon className="w-4 h-4" />
+                  {section.serviceIcon ? (
+                    <img src={section.serviceIcon} alt={section.label} className="w-4 h-4" />
+                  ) : (
+                    <Icon className="w-4 h-4" />
+                  )}
                   <span className="text-sm font-medium">{section.label}</span>
                 </Button>
               )
@@ -612,8 +627,8 @@ export function SettingsPage({ onBack }: SettingsPageProps) {
         <TabsContent value="git" className="mt-0">
           <Card>
             <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <GitBranch className="w-5 h-5" />
+              <CardTitle className="flex items-center gap-3">
+                <img src="/logos/git-logo.svg" alt="Git" className="w-6 h-6" />
                 Git Repositories
               </CardTitle>
               <CardDescription>
@@ -629,8 +644,8 @@ export function SettingsPage({ onBack }: SettingsPageProps) {
         <TabsContent value="argocd" className="mt-0">
           <Card>
             <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Container className="w-5 h-5" />
+              <CardTitle className="flex items-center gap-3">
+                <img src="/logos/argocd-logo.svg" alt="ArgoCD" className="w-6 h-6" />
                 ArgoCD
               </CardTitle>
               <CardDescription>
@@ -646,8 +661,8 @@ export function SettingsPage({ onBack }: SettingsPageProps) {
         <TabsContent value="helm" className="mt-0">
           <Card>
             <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Package className="w-5 h-5" />
+              <CardTitle className="flex items-center gap-3">
+                <img src="/logos/helm-logo.svg" alt="Helm" className="w-6 h-6" />
                 Helm OCI
               </CardTitle>
               <CardDescription>
@@ -663,8 +678,8 @@ export function SettingsPage({ onBack }: SettingsPageProps) {
         <TabsContent value="vault" className="mt-0">
           <Card>
             <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Shield className="w-5 h-5" />
+              <CardTitle className="flex items-center gap-3">
+                <img src="/logos/vault-logo.svg" alt="HashiCorp Vault" className="w-6 h-6" />
                 HashiCorp Vault
               </CardTitle>
               <CardDescription>

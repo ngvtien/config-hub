@@ -1,17 +1,1 @@
-<svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-  <!-- HashiCorp Vault logo - Vault/safe design -->
-  <rect x="4" y="8" width="16" height="12" rx="2" fill="none" stroke="currentColor" stroke-width="1.5"/>
-  
-  <!-- Vault door handle -->
-  <circle cx="17" cy="14" r="1.5" fill="none" stroke="currentColor" stroke-width="1.5"/>
-  <circle cx="17" cy="14" r="0.5" fill="currentColor"/>
-  
-  <!-- Lock mechanism -->
-  <path d="M8 8V6C8 4.34315 9.34315 3 11 3H13C14.6569 3 16 4.34315 16 6V8" fill="none" stroke="currentColor" stroke-width="1.5"/>
-  
-  <!-- Vault interior lines -->
-  <line x1="6" y1="11" x2="14" y2="11" stroke="currentColor" stroke-width="0.5" opacity="0.5"/>
-  <line x1="6" y1="13" x2="14" y2="13" stroke="currentColor" stroke-width="0.5" opacity="0.5"/>
-  <line x1="6" y1="15" x2="14" y2="15" stroke="currentColor" stroke-width="0.5" opacity="0.5"/>
-  <line x1="6" y1="17" x2="14" y2="17" stroke="currentColor" stroke-width="0.5" opacity="0.5"/>
-</svg>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128"><path fill="#ffd814" d="m0 1.953 63.76 124.094L128 1.953Zm53.841 49.254H43.684V41.06H53.84zm0-15.227H43.684V25.822H53.84ZM69.08 66.444H58.97V56.286h10.108zm0-15.237H58.97V41.06h10.108zm0-15.227H58.97V25.822h10.108Zm15.147 15.227H74.027V41.06h10.159ZM74.027 35.98V25.822h10.159V35.98z"/></svg>
