@@ -30,23 +30,52 @@ async function getCurrentUser(): Promise<SystemUser> {
 
     try {
         if (process.platform === 'win32') {
-            // Windows-specific user info
-            const { stdout: whoamiOutput } = await execAsync('whoami /fqdn')
-            const fqdnMatch = whoamiOutput.trim().match(/^(.+?)\\(.+)$/)
-            if (fqdnMatch) {
-                domain = fqdnMatch[1]
+            // Try to get domain info, but handle non-domain users gracefully
+            try {
+                const { stdout: whoamiOutput } = await execAsync('whoami /fqdn')
+                const fqdnMatch = whoamiOutput.trim().match(/^(.+?)\\(.+)$/)
+                if (fqdnMatch) {
+                    domain = fqdnMatch[1]
+                }
+            } catch (error) {
+                // User is not a domain user, try to get domain from whoami without /fqdn
+                try {
+                    const { stdout: whoamiBasic } = await execAsync('whoami')
+                    const domainMatch = whoamiBasic.trim().match(/^(.+?)\\(.+)$/)
+                    if (domainMatch) {
+                        domain = domainMatch[1]
+                    }
+                } catch (basicError) {
+                    // No domain information available - this is fine for local users
+                    console.debug('No domain information available (local user)')
+                }
             }
 
-            // Get full name from Windows
+            // Get full name from Windows - try domain first, then local
             try {
-                const { stdout: netOutput } = await execAsync(`net user "${username}" /domain 2>nul || net user "${username}"`)
+                let netOutput = ''
+                if (domain) {
+                    // Try domain user first
+                    try {
+                        const { stdout } = await execAsync(`net user "${username}" /domain`)
+                        netOutput = stdout
+                    } catch (domainError) {
+                        // Fall back to local user
+                        const { stdout } = await execAsync(`net user "${username}"`)
+                        netOutput = stdout
+                    }
+                } else {
+                    // Direct local user query
+                    const { stdout } = await execAsync(`net user "${username}"`)
+                    netOutput = stdout
+                }
+                
                 const fullNameMatch = netOutput.match(/Full Name\s+(.+)/i)
                 if (fullNameMatch) {
                     fullName = fullNameMatch[1].trim()
                 }
             } catch (error) {
-                // Fallback to local user query
-                console.warn('Could not get full name from domain, trying local:', error)
+                console.debug('Could not get full name:', error.message)
             }
 
             // Check if user is admin
@@ -54,7 +83,7 @@ async function getCurrentUser(): Promise<SystemUser> {
                 const { stdout: groupOutput } = await execAsync('net localgroup administrators')
                 isAdmin = groupOutput.toLowerCase().includes(username.toLowerCase())
             } catch (error) {
-                console.warn('Could not check admin status:', error)
+                console.debug('Could not check admin status:', error.message)
             }
 
             // Get user groups
@@ -68,7 +97,7 @@ async function getCurrentUser(): Promise<SystemUser> {
                     })
                     .filter(Boolean) as string[]
             } catch (error) {
-                console.warn('Could not get user groups:', error)
+                console.debug('Could not get user groups:', error.message)
             }
         } else {
             // Unix-like systems (macOS, Linux)
@@ -87,11 +116,11 @@ async function getCurrentUser(): Promise<SystemUser> {
                     isAdmin = false
                 }
             } catch (error) {
-                console.warn('Could not get Unix user info:', error)
+                console.debug('Could not get Unix user info:', error.message)
             }
         }
     } catch (error) {
-        console.error('Error getting extended user info:', error)
+        console.debug('Error getting extended user info:', error.message)
     }
 
     return {
@@ -129,7 +158,7 @@ async function getAvailableUsers(): Promise<SystemUser[]> {
 
         return filteredUsers.map(username => ({ username }))
     } catch (error) {
-        console.warn('Could not get available users (may require admin privileges):', error)
+        console.debug('Could not get available users (may require admin privileges):', error.message)
         return []
     }
 }
@@ -149,7 +178,7 @@ async function switchUser(username: string, password?: string): Promise<boolean>
             const { stdout } = await execAsync(`echo. | runas /user:${username} "cmd /c echo success" 2>&1`)
             return stdout.includes('success')
         } catch (error) {
-            console.error('User switch failed:', error)
+            console.debug('User switch failed:', error.message)
             return false
         }
     }
@@ -163,7 +192,7 @@ export function setupUserHandlers() {
         try {
             return await getCurrentUser()
         } catch (error) {
-            console.error('Failed to get current user:', error)
+            console.debug('Failed to get current user:', error.message)
             throw error
         }
     })
@@ -173,7 +202,7 @@ export function setupUserHandlers() {
         try {
             return await getAvailableUsers()
         } catch (error) {
-            console.error('Failed to get available users:', error)
+            console.debug('Failed to get available users:', error.message)
             throw error
         }
     })
@@ -183,7 +212,7 @@ export function setupUserHandlers() {
         try {
             return await switchUser(username, password)
         } catch (error) {
-            console.error('Failed to switch user:', error)
+            console.debug('Failed to switch user:', error.message)
             throw error
         }
     })
@@ -194,7 +223,7 @@ export function setupUserHandlers() {
             const user = await getCurrentUser()
             return user.isAdmin
         } catch (error) {
-            console.error('Failed to check admin status:', error)
+            console.debug('Failed to check admin status:', error.message)
             return false
         }
     })
