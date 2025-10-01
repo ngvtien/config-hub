@@ -42,7 +42,10 @@ export function AppSidebar({ className, currentPage = 'dashboard', onNavigate }:
       )}
     >
       {/* Header */}
-      <div className="flex items-center justify-between p-4 border-b">
+      <div className={cn(
+        "flex items-center p-4 border-b",
+        isCollapsed ? "justify-center" : "justify-between"
+      )}>
         {!isCollapsed && (
           <h2 className="text-lg font-semibold">My App</h2>
         )}
@@ -50,7 +53,7 @@ export function AppSidebar({ className, currentPage = 'dashboard', onNavigate }:
           variant="ghost"
           size="sm"
           onClick={toggleCollapse}
-          className="ml-auto"
+          className={cn(isCollapsed ? "" : "ml-auto")}
         >
           {isCollapsed ? (
             <ChevronRight className="h-4 w-4" />
@@ -72,8 +75,8 @@ export function AppSidebar({ className, currentPage = 'dashboard', onNavigate }:
                 <Button
                   variant={isActive ? "secondary" : "ghost"}
                   className={cn(
-                    "w-full justify-start",
-                    isCollapsed ? "px-2" : "px-3"
+                    "w-full",
+                    isCollapsed ? "justify-center px-2" : "justify-start px-3"
                   )}
                   onClick={() => onNavigate?.(item.page)}
                 >
@@ -93,8 +96,8 @@ export function AppSidebar({ className, currentPage = 'dashboard', onNavigate }:
         <Button
           variant={currentPage === 'users' ? "secondary" : "ghost"}
           className={cn(
-            "w-full h-auto p-2 justify-start hover:bg-accent transition-colors",
-            isCollapsed ? "px-2" : "px-2",
+            "w-full h-auto p-2 hover:bg-accent transition-colors",
+            isCollapsed ? "justify-center px-2" : "justify-start px-2",
             currentPage === 'users' && "bg-secondary"
           )}
           onClick={() => onNavigate?.('users')}

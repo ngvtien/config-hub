@@ -1,11 +1,12 @@
 import { ipcMain } from 'electron'
 import axios, { AxiosInstance, AxiosRequestConfig } from 'axios'
-import { app } from 'electron'
-import path from 'node:path'
 import fs from 'node:fs'
+import { simpleCredentialManager, VaultCredential } from './simple-credential-manager'
 
-// Types for Vault API
+// Updated Vault configuration interface
 interface VaultConfig {
+  id?: string
+  name: string
   serverUrl: string
   authMethod: 'token' | 'userpass' | 'ldap' | 'kubernetes' | 'aws' | 'azure'
   token?: string
@@ -18,118 +19,41 @@ interface VaultConfig {
   kubernetesRole?: string
   awsRole?: string
   azureRole?: string
+  environment?: string
+  tags?: string[]
 }
 
 interface VaultRequest {
-  environment: string
-  config: VaultConfig
+  credentialId: string
   endpoint: string
-  method?: 'GET' | 'POST' | 'PUT' | 'DELETE'
+  method?: 'GET' | 'POST' | 'PUT' | 'DELETE' | 'LIST'
   data?: any
   params?: Record<string, any>
 }
 
-// Secure credential storage for Vault
-class SecureVaultCredentialStore {
-  private credentialsFile: string
-
-  constructor() {
-    this.credentialsFile = path.join(app.getPath('userData'), 'vault-credentials.json')
-  }
-
-  // Store credentials securely
-  storeCredentials(environment: string, config: VaultConfig): void {
-    try {
-      let credentials: Record<string, VaultConfig> = {}
-      
-      if (fs.existsSync(this.credentialsFile)) {
-        const data = fs.readFileSync(this.credentialsFile, 'utf8')
-        credentials = JSON.parse(data)
-      }
-
-      credentials[environment] = {
-        serverUrl: config.serverUrl,
-        authMethod: config.authMethod,
-        token: config.token,
-        username: config.username,
-        password: config.password, // In production, encrypt this
-        namespace: config.namespace,
-        mountPath: config.mountPath,
-        roleId: config.roleId,
-        secretId: config.secretId,
-        kubernetesRole: config.kubernetesRole,
-        awsRole: config.awsRole,
-        azureRole: config.azureRole
-      }
-
-      fs.writeFileSync(this.credentialsFile, JSON.stringify(credentials, null, 2), {
-        mode: 0o600 // Restrict file permissions
-      })
-    } catch (error) {
-      console.error('Failed to store Vault credentials:', error)
-      throw new Error('Failed to store credentials securely')
-    }
-  }
-
-  // Retrieve credentials securely
-  getCredentials(environment: string): VaultConfig | null {
-    try {
-      if (!fs.existsSync(this.credentialsFile)) {
-        return null
-      }
-
-      const data = fs.readFileSync(this.credentialsFile, 'utf8')
-      const credentials = JSON.parse(data)
-      
-      return credentials[environment] || null
-    } catch (error) {
-      console.error('Failed to retrieve Vault credentials:', error)
-      return null
-    }
-  }
-
-  // Remove credentials
-  removeCredentials(environment: string): void {
-    try {
-      if (!fs.existsSync(this.credentialsFile)) {
-        return
-      }
-
-      const data = fs.readFileSync(this.credentialsFile, 'utf8')
-      const credentials = JSON.parse(data)
-      
-      delete credentials[environment]
-      
-      fs.writeFileSync(this.credentialsFile, JSON.stringify(credentials, null, 2), {
-        mode: 0o600
-      })
-    } catch (error) {
-      console.error('Failed to remove Vault credentials:', error)
-    }
-  }
-}
-
 class SecureVaultClient {
   private clients: Map<string, AxiosInstance> = new Map()
-  private credentialStore = new SecureVaultCredentialStore()
   private tokens: Map<string, { token: string; expiry: number }> = new Map()
 
-  // Create or get client for environment
-  private getClient(environment: string, config: VaultConfig): AxiosInstance {
-    const key = environment
-    
-    if (!this.clients.has(key)) {
+  // Create or get client for credential
+  private async getClient(credentialId: string): Promise<AxiosInstance> {
+    if (!this.clients.has(credentialId)) {
+      const credential = await simpleCredentialManager.getCredential(credentialId) as VaultCredential
+      if (!credential) {
+        throw new Error('Vault credential not found')
+      }
+
       const headers: Record<string, string> = {
         'Content-Type': 'application/json',
       }
 
       // Add namespace header if specified
-      if (config.namespace) {
-        headers['X-Vault-Namespace'] = config.namespace
+      if (credential.namespace) {
+        headers['X-Vault-Namespace'] = credential.namespace
       }
 
       const client = axios.create({
-        baseURL: config.serverUrl,
+        baseURL: credential.serverUrl,
         headers,
         timeout: 30000,
         // Security: Validate SSL certificates
@@ -141,11 +65,11 @@ class SecureVaultClient {
       // Add request interceptor for logging
       client.interceptors.request.use(
         (config) => {
-          console.log(`Vault API Request [${environment}]: ${config.method?.toUpperCase()} ${config.url}`)
+          console.log(`Vault API Request [${credential.name}]: ${config.method?.toUpperCase()} ${config.url}`)
           return config
         },
         (error) => {
-          console.error(`Vault API Request Error [${environment}]:`, error.message)
+          console.error(`Vault API Request Error [${credential.name}]:`, error.message)
           return Promise.reject(error)
         }
       )
@@ -154,95 +78,100 @@ class SecureVaultClient {
       client.interceptors.response.use(
         (response) => response,
         (error) => {
-          console.error(`Vault API Response Error [${environment}]:`, error.response?.status, error.response?.statusText)
+          console.error(`Vault API Response Error [${credential.name}]:`, error.response?.status, error.response?.statusText)
           throw new Error(`Vault API Error: ${error.response?.data?.errors?.join(', ') || error.message}`)
         }
       )
 
-      this.clients.set(key, client)
+      this.clients.set(credentialId, client)
     }
     
-    return this.clients.get(key)!
+    return this.clients.get(credentialId)!
   }
 
   // Authenticate with Vault and get token
-  private async authenticate(environment: string, config: VaultConfig): Promise<string> {
-    const client = this.getClient(environment, config)
+  private async authenticate(credentialId: string): Promise<string> {
+    const credential = await simpleCredentialManager.getCredential(credentialId) as VaultCredential
+    if (!credential) {
+      throw new Error('Vault credential not found')
+    }
+
+    const client = await this.getClient(credentialId)
     
     try {
       let authResponse: any
 
-      switch (config.authMethod) {
+      switch (credential.authMethod) {
         case 'token':
-          if (!config.token) {
+          if (!credential.token) {
             throw new Error('Token is required for token authentication')
           }
-          return config.token
+          return credential.token
 
         case 'userpass':
-          if (!config.username || !config.password) {
+          if (!credential.username || !credential.password) {
             throw new Error('Username and password are required for userpass authentication')
           }
-          authResponse = await client.post(`/v1/auth/userpass/login/${config.username}`, {
-            password: config.password
+          authResponse = await client.post(`/v1/auth/userpass/login/${credential.username}`, {
+            password: credential.password
           })
           break
 
         case 'ldap':
-          if (!config.username || !config.password) {
+          if (!credential.username || !credential.password) {
             throw new Error('Username and password are required for LDAP authentication')
           }
-          authResponse = await client.post(`/v1/auth/ldap/login/${config.username}`, {
-            password: config.password
+          authResponse = await client.post(`/v1/auth/ldap/login/${credential.username}`, {
+            password: credential.password
           })
           break
 
         case 'kubernetes':
-          if (!config.kubernetesRole) {
+          if (!credential.kubernetesRole) {
             throw new Error('Kubernetes role is required for Kubernetes authentication')
           }
           // In a real implementation, you'd read the service account token
           const jwt = fs.readFileSync('/var/run/secrets/kubernetes.io/serviceaccount/token', 'utf8')
           authResponse = await client.post('/v1/auth/kubernetes/login', {
-            role: config.kubernetesRole,
+            role: credential.kubernetesRole,
             jwt: jwt
           })
           break
 
         case 'aws':
-          if (!config.awsRole) {
+          if (!credential.awsRole) {
             throw new Error('AWS role is required for AWS authentication')
           }
           // AWS authentication would require AWS SDK integration
           throw new Error('AWS authentication not yet implemented')
 
         case 'azure':
-          if (!config.azureRole) {
+          if (!credential.azureRole) {
             throw new Error('Azure role is required for Azure authentication')
           }
           // Azure authentication would require Azure SDK integration
           throw new Error('Azure authentication not yet implemented')
 
         default:
-          throw new Error(`Unsupported authentication method: ${config.authMethod}`)
+          throw new Error(`Unsupported authentication method: ${credential.authMethod}`)
       }
 
       const token = authResponse.data.auth.client_token
       const expiry = Date.now() + (authResponse.data.auth.lease_duration * 1000)
       
       // Cache the token
-      this.tokens.set(environment, { token, expiry })
+      this.tokens.set(credentialId, { token, expiry })
       
       return token
     } catch (error) {
-      console.error(`Vault authentication failed [${environment}]:`, error)
+      console.error(`Vault authentication failed [${credentialId}]:`, error)
       throw error
     }
   }
 
   // Get valid token (authenticate if needed)
-  private async getValidToken(environment: string, config: VaultConfig): Promise<string> {
-    const cached = this.tokens.get(environment)
+  private async getValidToken(credentialId: string): Promise<string> {
+    const cached = this.tokens.get(credentialId)
     
     // Return cached token if still valid (with 5 minute buffer)
     if (cached && cached.expiry > Date.now() + 300000) {
@@ -250,24 +179,13 @@ class SecureVaultClient {
     }
     
     // Authenticate to get new token
-    return await this.authenticate(environment, config)
+    return await this.authenticate(credentialId)
   }
 
   // Validate request parameters
   private validateRequest(request: VaultRequest): void {
-    if (!request.environment || !request.config || !request.endpoint) {
+    if (!request.credentialId || !request.endpoint) {
       throw new Error('Invalid request: missing required parameters')
-    }
-
-    if (!request.config.serverUrl) {
-      throw new Error('Invalid Vault configuration: missing serverUrl')
-    }
-
-    // Validate URL format
-    try {
-      new URL(request.config.serverUrl)
-    } catch {
-      throw new Error('Invalid Vault server URL format')
     }
 
     // Validate endpoint format (prevent path traversal)
@@ -280,12 +198,12 @@ class SecureVaultClient {
   async makeRequest(request: VaultRequest): Promise<any> {
     this.validateRequest(request)
 
-    const client = this.getClient(request.environment, request.config)
+    const client = await this.getClient(request.credentialId)
     const method = request.method || 'GET'
 
     try {
       // Get valid token
-      const token = await this.getValidToken(request.environment, request.config)
+      const token = await this.getValidToken(request.credentialId)
       
       const axiosConfig: AxiosRequestConfig = {
         method,
@@ -300,45 +218,63 @@ class SecureVaultClient {
       const response = await client.request(axiosConfig)
       return response.data
     } catch (error) {
-      console.error(`Vault API request failed [${request.environment}]:`, error)
+      console.error(`Vault API request failed [${request.credentialId}]:`, error)
       throw error
     }
   }
 
   // Test connection and authentication
-  async testConnection(environment: string, config: VaultConfig): Promise<boolean> {
+  async testConnection(credentialId: string): Promise<boolean> {
     try {
       // Test basic connectivity
-      const healthResponse = await this.makeRequest({
-        environment,
-        config,
+      await this.makeRequest({
+        credentialId,
         endpoint: '/v1/sys/health',
         method: 'GET'
       })
 
       // Test authentication by getting token info
       await this.makeRequest({
-        environment,
-        config,
+        credentialId,
         endpoint: '/v1/auth/token/lookup-self',
         method: 'GET'
       })
 
       return true
     } catch (error) {
-      console.error(`Vault connection test failed [${environment}]:`, error)
+      console.error(`Vault connection test failed [${credentialId}]:`, error)
       return false
     }
   }
 
   // Store credentials securely
-  storeCredentials(environment: string, config: VaultConfig): void {
-    this.credentialStore.storeCredentials(environment, config)
-  }
+  async storeCredentials(config: VaultConfig): Promise<string> {
+    const credentialId = config.id || simpleCredentialManager.generateCredentialId('vault', config.serverUrl)
+    
+    const credential: VaultCredential = {
+      id: credentialId,
+      name: config.name,
+      type: 'vault',
+      serverUrl: config.serverUrl,
+      authMethod: config.authMethod,
+      token: config.token,
+      username: config.username,
+      password: config.password,
+      namespace: config.namespace,
+      mountPath: config.mountPath,
+      roleId: config.roleId,
+      secretId: config.secretId,
+      kubernetesRole: config.kubernetesRole,
+      awsRole: config.awsRole,
+      azureRole: config.azureRole,
+      environment: config.environment,
+      tags: config.tags,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    }
 
-  // Get stored credentials
-  getStoredCredentials(environment: string): VaultConfig | null {
-    return this.credentialStore.getCredentials(environment)
+    await simpleCredentialManager.storeCredential(credential)
+    return credentialId
   }
 
   // Clear cached clients and tokens
@@ -354,10 +290,10 @@ const secureVaultClient = new SecureVaultClient()
 // IPC Handlers for Vault operations
 export function setupVaultHandlers(): void {
   // Store Vault credentials
-  ipcMain.handle('vault:store-credentials', async (_, environment: string, config: VaultConfig) => {
+  ipcMain.handle('vault:store-credentials', async (_, config: VaultConfig) => {
     try {
-      secureVaultClient.storeCredentials(environment, config)
-      return { success: true }
+      const credentialId = await secureVaultClient.storeCredentials(config)
+      return { success: true, credentialId }
     } catch (error) {
       console.error('Failed to store Vault credentials:', error)
       return { success: false, error: error instanceof Error ? error.message : 'Unknown error' }
@@ -365,14 +301,9 @@ export function setupVaultHandlers(): void {
   })
 
   // Test Vault connection
-  ipcMain.handle('vault:test-connection', async (_, environment: string) => {
+  ipcMain.handle('vault:test-connection', async (_, credentialId: string) => {
     try {
-      const config = secureVaultClient.getStoredCredentials(environment)
-      if (!config) {
-        return { success: false, error: 'No credentials found for environment' }
-      }
-
-      const connected = await secureVaultClient.testConnection(environment, config)
+      const connected = await secureVaultClient.testConnection(credentialId)
       return { success: connected, connected }
     } catch (error) {
       console.error('Vault connection test failed:', error)
@@ -381,17 +312,16 @@ export function setupVaultHandlers(): void {
   })
 
   // Get secret
-  ipcMain.handle('vault:get-secret', async (_, environment: string, secretPath: string) => {
+  ipcMain.handle('vault:get-secret', async (_, credentialId: string, secretPath: string) => {
     try {
-      const config = secureVaultClient.getStoredCredentials(environment)
-      if (!config) {
-        throw new Error('No credentials found for environment')
+      const credential = await simpleCredentialManager.getCredential(credentialId) as VaultCredential
+      if (!credential) {
+        throw new Error('No credentials found for credential ID')
       }
 
       const data = await secureVaultClient.makeRequest({
-        environment,
-        config,
-        endpoint: `/v1/${config.mountPath}/data/${secretPath}`,
+        credentialId,
+        endpoint: `/v1/${credential.mountPath}/data/${secretPath}`,
         method: 'GET'
       })
 
@@ -403,17 +333,16 @@ export function setupVaultHandlers(): void {
   })
 
   // List secrets
-  ipcMain.handle('vault:list-secrets', async (_, environment: string, secretPath?: string) => {
+  ipcMain.handle('vault:list-secrets', async (_, credentialId: string, secretPath?: string) => {
     try {
-      const config = secureVaultClient.getStoredCredentials(environment)
-      if (!config) {
-        throw new Error('No credentials found for environment')
+      const credential = await simpleCredentialManager.getCredential(credentialId) as VaultCredential
+      if (!credential) {
+        throw new Error('No credentials found for credential ID')
       }
 
-      const path = secretPath ? `${config.mountPath}/metadata/${secretPath}` : `${config.mountPath}/metadata`
+      const path = secretPath ? `${credential.mountPath}/metadata/${secretPath}` : `${credential.mountPath}/metadata`
       const data = await secureVaultClient.makeRequest({
-        environment,
-        config,
+        credentialId,
         endpoint: `/v1/${path}`,
         method: 'LIST'
       })
@@ -426,17 +355,16 @@ export function setupVaultHandlers(): void {
   })
 
   // Put secret
-  ipcMain.handle('vault:put-secret', async (_, environment: string, secretPath: string, secretData: Record<string, any>) => {
+  ipcMain.handle('vault:put-secret', async (_, credentialId: string, secretPath: string, secretData: Record<string, any>) => {
     try {
-      const config = secureVaultClient.getStoredCredentials(environment)
-      if (!config) {
-        throw new Error('No credentials found for environment')
+      const credential = await simpleCredentialManager.getCredential(credentialId) as VaultCredential
+      if (!credential) {
+        throw new Error('No credentials found for credential ID')
       }
 
       const data = await secureVaultClient.makeRequest({
-        environment,
-        config,
-        endpoint: `/v1/${config.mountPath}/data/${secretPath}`,
+        credentialId,
+        endpoint: `/v1/${credential.mountPath}/data/${secretPath}`,
         method: 'POST',
         data: { data: secretData }
       })
@@ -449,17 +377,16 @@ export function setupVaultHandlers(): void {
   })
 
   // Delete secret
-  ipcMain.handle('vault:delete-secret', async (_, environment: string, secretPath: string) => {
+  ipcMain.handle('vault:delete-secret', async (_, credentialId: string, secretPath: string) => {
     try {
-      const config = secureVaultClient.getStoredCredentials(environment)
-      if (!config) {
-        throw new Error('No credentials found for environment')
+      const credential = await simpleCredentialManager.getCredential(credentialId) as VaultCredential
+      if (!credential) {
+        throw new Error('No credentials found for credential ID')
       }
 
       await secureVaultClient.makeRequest({
-        environment,
-        config,
-        endpoint: `/v1/${config.mountPath}/metadata/${secretPath}`,
+        credentialId,
+        endpoint: `/v1/${credential.mountPath}/metadata/${secretPath}`,
         method: 'DELETE'
       })
 
@@ -471,16 +398,10 @@ export function setupVaultHandlers(): void {
   })
 
   // Get Vault health
-  ipcMain.handle('vault:get-health', async (_, environment: string) => {
+  ipcMain.handle('vault:get-health', async (_, credentialId: string) => {
     try {
-      const config = secureVaultClient.getStoredCredentials(environment)
-      if (!config) {
-        throw new Error('No credentials found for environment')
-      }
-
       const data = await secureVaultClient.makeRequest({
-        environment,
-        config,
+        credentialId,
         endpoint: '/v1/sys/health',
         method: 'GET'
       })
@@ -488,6 +409,39 @@ export function setupVaultHandlers(): void {
       return { success: true, data }
     } catch (error) {
       console.error('Failed to get Vault health:', error)
+      return { success: false, error: error instanceof Error ? error.message : 'Unknown error' }
+    }
+  })
+
+  // List Vault credentials
+  ipcMain.handle('vault:list-credentials', async (_, environment?: string) => {
+    try {
+      const credentials = await simpleCredentialManager.listCredentials('vault', environment)
+      return { success: true, data: credentials }
+    } catch (error) {
+      console.error('Failed to list Vault credentials:', error)
+      return { success: false, error: error instanceof Error ? error.message : 'Unknown error' }
+    }
+  })
+
+  // Get Vault credential
+  ipcMain.handle('vault:get-credential', async (_, credentialId: string) => {
+    try {
+      const credential = await simpleCredentialManager.getCredential(credentialId)
+      return { success: true, data: credential }
+    } catch (error) {
+      console.error('Failed to get Vault credential:', error)
+      return { success: false, error: error instanceof Error ? error.message : 'Unknown error' }
+    }
+  })
+
+  // Delete Vault credential
+  ipcMain.handle('vault:delete-credential', async (_, credentialId: string) => {
+    try {
+      const success = await simpleCredentialManager.deleteCredential(credentialId)
+      return { success }
+    } catch (error) {
+      console.error('Failed to delete Vault credential:', error)
       return { success: false, error: error instanceof Error ? error.message : 'Unknown error' }
     }
   })

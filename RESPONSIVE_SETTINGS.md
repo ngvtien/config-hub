@@ -79,12 +79,12 @@ The settings page now features a fully responsive layout that adapts to differen
 ### Desktop Layout
 ```
 ┌─────────────────────────────────────────────────────┐
-│ Header with Environment Badge                        │
+│ Header with Environment Badge                       │
 ├─────────────────────────────────────────────────────┤
 │ [General] [Git] [ArgoCD] [Helm]  ← Horizontal Tabs  │
 ├─────────────────────────────────────────────────────┤
 │                                                     │
-│              Settings Content                        │
+│              Settings Content                       │
 │                                                     │
 └─────────────────────────────────────────────────────┘
 ```
@@ -92,7 +92,7 @@ The settings page now features a fully responsive layout that adapts to differen
 ### Mobile Layout
 ```
 ┌─────────────────────────────────┐
-│ Header with Environment Badge    │
+│ Header with Environment Badge   │
 ├─────────────────────────────────┤
 │ [General] [Git] [ArgoCD] [Helm] │ ← Scrollable
 │ Swipe to see more categories    │

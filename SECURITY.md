@@ -59,7 +59,7 @@ The ArgoCD integration has been designed with security as a primary concern, imp
 ### 5. **Data Flow Security**
 
 ```
-┌─────────────────┐    IPC     ┌──────────────────┐    HTTPS    ┌─────────────┐
+┌─────────────────┐    IPC    ┌──────────────────┐    HTTPS    ┌─────────────┐
 │  Renderer       │ ────────► │  Main Process    │ ──────────► │  ArgoCD     │
 │  (UI Layer)     │           │  (Security Layer)│             │  Server     │
 │                 │           │                  │             │             │

@@ -23,42 +23,94 @@ contextBridge.exposeInMainWorld('electronAPI', {
   
   // ArgoCD API (secure IPC-based)
   argocd: {
-    storeCredentials: (environment: string, config: any) => 
-      ipcRenderer.invoke('argocd:store-credentials', environment, config),
-    testConnection: (environment: string) => 
-      ipcRenderer.invoke('argocd:test-connection', environment),
-    getApplications: (environment: string) => 
-      ipcRenderer.invoke('argocd:get-applications', environment),
-    getApplication: (environment: string, name: string, namespace?: string) => 
-      ipcRenderer.invoke('argocd:get-application', environment, name, namespace),
-    getApplicationLogs: (environment: string, name: string, options?: any) => 
-      ipcRenderer.invoke('argocd:get-application-logs', environment, name, options),
-    getApplicationEvents: (environment: string, name: string, namespace?: string) => 
-      ipcRenderer.invoke('argocd:get-application-events', environment, name, namespace),
-    syncApplication: (environment: string, name: string, options?: any) => 
-      ipcRenderer.invoke('argocd:sync-application', environment, name, options),
+    storeCredentials: (config: any) => 
+      ipcRenderer.invoke('argocd:store-credentials', config),
+    testConnection: (credentialId: string) => 
+      ipcRenderer.invoke('argocd:test-connection', credentialId),
+    getApplications: (credentialId: string) => 
+      ipcRenderer.invoke('argocd:get-applications', credentialId),
+    getApplication: (credentialId: string, name: string, namespace?: string) => 
+      ipcRenderer.invoke('argocd:get-application', credentialId, name, namespace),
+    getApplicationLogs: (credentialId: string, name: string, options?: any) => 
+      ipcRenderer.invoke('argocd:get-application-logs', credentialId, name, options),
+    getApplicationEvents: (credentialId: string, name: string, namespace?: string) => 
+      ipcRenderer.invoke('argocd:get-application-events', credentialId, name, namespace),
+    syncApplication: (credentialId: string, name: string, options?: any) => 
+      ipcRenderer.invoke('argocd:sync-application', credentialId, name, options),
+    listCredentials: (environment?: string) => 
+      ipcRenderer.invoke('argocd:list-credentials', environment),
+    getCredential: (credentialId: string) => 
+      ipcRenderer.invoke('argocd:get-credential', credentialId),
+    deleteCredential: (credentialId: string) => 
+      ipcRenderer.invoke('argocd:delete-credential', credentialId),
     clearCache: () => 
       ipcRenderer.invoke('argocd:clear-cache')
   },
   
   // HashiCorp Vault API (secure IPC-based)
   vault: {
-    storeCredentials: (environment: string, config: any) => 
-      ipcRenderer.invoke('vault:store-credentials', environment, config),
-    testConnection: (environment: string) => 
-      ipcRenderer.invoke('vault:test-connection', environment),
-    getSecret: (environment: string, secretPath: string) => 
-      ipcRenderer.invoke('vault:get-secret', environment, secretPath),
-    listSecrets: (environment: string, secretPath?: string) => 
-      ipcRenderer.invoke('vault:list-secrets', environment, secretPath),
-    putSecret: (environment: string, secretPath: string, secretData: Record<string, any>) => 
-      ipcRenderer.invoke('vault:put-secret', environment, secretPath, secretData),
-    deleteSecret: (environment: string, secretPath: string) => 
-      ipcRenderer.invoke('vault:delete-secret', environment, secretPath),
-    getHealth: (environment: string) => 
-      ipcRenderer.invoke('vault:get-health', environment),
+    storeCredentials: (config: any) => 
+      ipcRenderer.invoke('vault:store-credentials', config),
+    testConnection: (credentialId: string) => 
+      ipcRenderer.invoke('vault:test-connection', credentialId),
+    getSecret: (credentialId: string, secretPath: string) => 
+      ipcRenderer.invoke('vault:get-secret', credentialId, secretPath),
+    listSecrets: (credentialId: string, secretPath?: string) => 
+      ipcRenderer.invoke('vault:list-secrets', credentialId, secretPath),
+    putSecret: (credentialId: string, secretPath: string, secretData: Record<string, any>) => 
+      ipcRenderer.invoke('vault:put-secret', credentialId, secretPath, secretData),
+    deleteSecret: (credentialId: string, secretPath: string) => 
+      ipcRenderer.invoke('vault:delete-secret', credentialId, secretPath),
+    getHealth: (credentialId: string) => 
+      ipcRenderer.invoke('vault:get-health', credentialId),
+    listCredentials: (environment?: string) => 
+      ipcRenderer.invoke('vault:list-credentials', environment),
+    getCredential: (credentialId: string) => 
+      ipcRenderer.invoke('vault:get-credential', credentialId),
+    deleteCredential: (credentialId: string) => 
+      ipcRenderer.invoke('vault:delete-credential', credentialId),
     clearCache: () => 
       ipcRenderer.invoke('vault:clear-cache')
+  },
+
+  // Git API (secure IPC-based)
+  git: {
+    storeCredential: (config: any) => 
+      ipcRenderer.invoke('git:store-credential', config),
+    testCredential: (credentialId: string) => 
+      ipcRenderer.invoke('git:test-credential', credentialId),
+    listCredentials: (environment?: string) => 
+      ipcRenderer.invoke('git:list-credentials', environment),
+    getCredential: (credentialId: string) => 
+      ipcRenderer.invoke('git:get-credential', credentialId),
+    deleteCredential: (credentialId: string) => 
+      ipcRenderer.invoke('git:delete-credential', credentialId),
+    generateSSHKey: (keyName: string, passphrase?: string) => 
+      ipcRenderer.invoke('git:generate-ssh-key', keyName, passphrase),
+    cloneRepository: (credentialId: string, localPath: string, branch?: string) => 
+      ipcRenderer.invoke('git:clone-repository', credentialId, localPath, branch),
+    findCredentialsByRepo: (repoUrl: string) => 
+      ipcRenderer.invoke('git:find-credentials-by-repo', repoUrl)
+  },
+
+  // Helm API (secure IPC-based)
+  helm: {
+    storeCredential: (config: any) => 
+      ipcRenderer.invoke('helm:store-credential', config),
+    testCredential: (credentialId: string) => 
+      ipcRenderer.invoke('helm:test-credential', credentialId),
+    listCredentials: (environment?: string) => 
+      ipcRenderer.invoke('helm:list-credentials', environment),
+    getCredential: (credentialId: string) => 
+      ipcRenderer.invoke('helm:get-credential', credentialId),
+    deleteCredential: (credentialId: string) => 
+      ipcRenderer.invoke('helm:delete-credential', credentialId),
+    addRepository: (credentialId: string, repoName: string) => 
+      ipcRenderer.invoke('helm:add-repository', credentialId, repoName),
+    listCharts: (credentialId: string, repoName?: string) => 
+      ipcRenderer.invoke('helm:list-charts', credentialId, repoName),
+    findCredentialsByRegistry: (registryUrl: string) => 
+      ipcRenderer.invoke('helm:find-credentials-by-registry', registryUrl)
   },
   
   // User Management API

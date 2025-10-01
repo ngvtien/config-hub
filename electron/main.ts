@@ -6,6 +6,8 @@ import fs from 'node:fs'
 import { setupArgoCDHandlers } from './argocd-handler'
 import { setupVaultHandlers } from './vault-handler'
 import { setupUserHandlers } from './user-handler'
+import { setupSimpleGitHandlers } from './simple-git-handler'
+import { setupSimpleHelmHandlers } from './simple-helm-handler'
 
 const require = createRequire(import.meta.url)
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
@@ -143,6 +145,8 @@ app.whenReady().then(() => {
   setupArgoCDHandlers()
   setupVaultHandlers()
   setupUserHandlers()
+  setupSimpleGitHandlers()
+  setupSimpleHelmHandlers()
 })
 
 app.on('window-all-closed', () => {

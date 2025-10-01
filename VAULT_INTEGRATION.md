@@ -84,7 +84,7 @@ Configure Vault connection settings in the Settings page under "HashiCorp Vault"
 
 ### IPC-Based Security Model
 ```
-┌─────────────────┐    IPC     ┌──────────────────┐    HTTPS    ┌─────────────┐
+┌─────────────────┐    IPC    ┌──────────────────┐    HTTPS    ┌─────────────┐
 │  Renderer       │ ────────► │  Main Process    │ ──────────► │  Vault      │
 │  (UI Layer)     │           │  (Security Layer)│             │  Server     │
 │                 │           │                  │             │             │

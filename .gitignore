@@ -90,3 +90,7 @@ coverage
 # Temporary folders
 tmp/
 temp/
+
+# Test data (generated during tests)
+tests/credentials/test-data/
+test-data/

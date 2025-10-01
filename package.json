@@ -11,11 +11,16 @@
     "build": "npm run type-check && vite build && electron-builder",
     "build:web": "npm run type-check && vite build",
     "build:dir": "npm run type-check && vite build && electron-builder --dir",
+    "build:skip-types": "vite build && electron-builder",
+    "build:dev": "vite build",
     "build:electron": "electron-builder",
     "preview": "vite preview",
-    "type-check": "tsc --noEmit",
+    "type-check": "npx tsc --noEmit",
     "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
-    "lint:fix": "eslint . --ext ts,tsx --fix"
+    "lint:fix": "eslint . --ext ts,tsx --fix",
+    "test": "node tests/credentials/test-credential-core.js",
+    "test:credentials": "node tests/credentials/test-credential-core.js",
+    "test:all": "node tests/credentials/test-credential-core.js && node tests/credentials/test-simple-credentials.js"
   },
   "keywords": [
     "electron",
@@ -27,6 +32,8 @@
   "author": "",
   "license": "MIT",
   "devDependencies": {
+    "@types/node": "^20.19.19",
+    "@types/node-forge": "^1.3.14",
     "@types/react": "^18.2.66",
     "@types/react-dom": "^18.2.22",
     "@typescript-eslint/eslint-plugin": "^7.2.0",
@@ -59,6 +66,7 @@
     "class-variance-authority": "^0.7.0",
     "clsx": "^2.1.1",
     "lucide-react": "^0.376.0",
+    "node-forge": "^1.3.1",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "tailwind-merge": "^2.3.0",
