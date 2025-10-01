@@ -1,6 +1,7 @@
 /* Import modern fonts */
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@100;200;300;400;500;600;700;800;900&display=swap');
 @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:ital,wght@0,100;0,200;0,300;0,400;0,500;0,600;0,700;0,800;1,100;1,200;1,300;1,400;1,500;1,600;1,700;1,800&display=swap');
+@import './styles/service-logos.css';
 
 @tailwind base;
 @tailwind components;
@@ -8,48 +9,50 @@
 
 @layer base {
   :root {
-    --background: 0 0% 100%;
-    --foreground: 222.2 84% 4.9%;
-    --card: 0 0% 100%;
-    --card-foreground: 222.2 84% 4.9%;
-    --popover: 0 0% 100%;
-    --popover-foreground: 222.2 84% 4.9%;
-    --primary: 222.2 47.4% 11.2%;
-    --primary-foreground: 210 40% 98%;
-    --secondary: 210 40% 96%;
-    --secondary-foreground: 222.2 47.4% 11.2%;
-    --muted: 210 40% 96%;
-    --muted-foreground: 215.4 16.3% 46.9%;
-    --accent: 210 40% 96%;
-    --accent-foreground: 222.2 47.4% 11.2%;
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 210 40% 98%;
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
-    --ring: 222.2 84% 4.9%;
+    /* VS Code Light Modern Theme Colors */
+    --background: 0 0% 100%;          /* #ffffff - Main background */
+    --foreground: 0 0% 13%;           /* #212121 - Main text */
+    --card: 0 0% 98%;                 /* #fafafa - Card background */
+    --card-foreground: 0 0% 13%;      /* #212121 - Card text */
+    --popover: 0 0% 98%;              /* #fafafa - Popover background */
+    --popover-foreground: 0 0% 13%;   /* #212121 - Popover text */
+    --primary: 210 100% 40%;          /* #0066cc - VS Code blue */
+    --primary-foreground: 0 0% 100%;  /* #ffffff - Primary text */
+    --secondary: 0 0% 96%;            /* #f5f5f5 - Secondary background */
+    --secondary-foreground: 0 0% 25%; /* #404040 - Secondary text */
+    --muted: 0 0% 97%;                /* #f8f8f8 - Muted background */
+    --muted-foreground: 0 0% 45%;     /* #737373 - Muted text */
+    --accent: 0 0% 96%;               /* #f5f5f5 - Accent background */
+    --accent-foreground: 0 0% 13%;    /* #212121 - Accent text */
+    --destructive: 0 65% 45%;         /* #d1242f - Error red */
+    --destructive-foreground: 0 0% 100%; /* #ffffff - Error text */
+    --border: 0 0% 90%;               /* #e6e6e6 - Border color */
+    --input: 0 0% 98%;                /* #fafafa - Input background */
+    --ring: 210 100% 40%;             /* #0066cc - Focus ring */
     --radius: 0.5rem;
   }
 
   .dark {
-    --background: 222.2 84% 4.9%;
-    --foreground: 210 40% 98%;
-    --card: 222.2 84% 4.9%;
-    --card-foreground: 210 40% 98%;
-    --popover: 222.2 84% 4.9%;
-    --popover-foreground: 210 40% 98%;
-    --primary: 210 40% 98%;
-    --primary-foreground: 222.2 47.4% 11.2%;
-    --secondary: 217.2 32.6% 17.5%;
-    --secondary-foreground: 210 40% 98%;
-    --muted: 217.2 32.6% 17.5%;
-    --muted-foreground: 215 20.2% 65.1%;
-    --accent: 217.2 32.6% 17.5%;
-    --accent-foreground: 210 40% 98%;
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 210 40% 98%;
-    --border: 217.2 32.6% 17.5%;
-    --input: 217.2 32.6% 17.5%;
-    --ring: 212.7 26.8% 83.9%;
+    /* VS Code Dark Modern Theme Colors */
+    --background: 220 13% 9%;        /* #1a1a1a - Main background */
+    --foreground: 0 0% 88%;          /* #e1e1e1 - Main text */
+    --card: 220 13% 11%;             /* #1e1e1e - Card background */
+    --card-foreground: 0 0% 88%;     /* #e1e1e1 - Card text */
+    --popover: 220 13% 11%;          /* #1e1e1e - Popover background */
+    --popover-foreground: 0 0% 88%;  /* #e1e1e1 - Popover text */
+    --primary: 210 100% 60%;         /* #007acc - VS Code blue */
+    --primary-foreground: 0 0% 100%; /* #ffffff - Primary text */
+    --secondary: 220 13% 15%;        /* #262626 - Secondary background */
+    --secondary-foreground: 0 0% 75%; /* #bfbfbf - Secondary text */
+    --muted: 220 13% 13%;            /* #212121 - Muted background */
+    --muted-foreground: 0 0% 60%;    /* #999999 - Muted text */
+    --accent: 220 13% 15%;           /* #262626 - Accent background */
+    --accent-foreground: 0 0% 88%;   /* #e1e1e1 - Accent text */
+    --destructive: 0 65% 55%;        /* #d73a49 - Error red */
+    --destructive-foreground: 0 0% 100%; /* #ffffff - Error text */
+    --border: 220 13% 18%;           /* #2d2d2d - Border color */
+    --input: 220 13% 15%;            /* #262626 - Input background */
+    --ring: 210 100% 60%;            /* #007acc - Focus ring */
   }
 }
 
@@ -71,6 +74,58 @@
     text-rendering: optimizeLegibility;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+  }
+
+  /* VS Code Light Modern specific styles */
+  :root {
+    /* Scrollbar styling to match VS Code Light */
+    scrollbar-width: thin;
+    scrollbar-color: hsl(0 0% 80%) hsl(0 0% 97%);
+  }
+  
+  ::-webkit-scrollbar {
+    width: 14px;
+    height: 14px;
+  }
+  
+  ::-webkit-scrollbar-track {
+    background: hsl(0 0% 97%);
+  }
+  
+  ::-webkit-scrollbar-thumb {
+    background: hsl(0 0% 80%);
+    border-radius: 7px;
+    border: 2px solid hsl(0 0% 97%);
+  }
+  
+  ::-webkit-scrollbar-thumb:hover {
+    background: hsl(0 0% 70%);
+  }
+
+  /* VS Code Dark Modern specific styles */
+  .dark {
+    /* Scrollbar styling to match VS Code Dark */
+    scrollbar-width: thin;
+    scrollbar-color: hsl(220 13% 25%) hsl(220 13% 13%);
+  }
+  
+  .dark ::-webkit-scrollbar {
+    width: 14px;
+    height: 14px;
+  }
+  
+  .dark ::-webkit-scrollbar-track {
+    background: hsl(220 13% 13%);
+  }
+  
+  .dark ::-webkit-scrollbar-thumb {
+    background: hsl(220 13% 25%);
+    border-radius: 7px;
+    border: 2px solid hsl(220 13% 13%);
+  }
+  
+  .dark ::-webkit-scrollbar-thumb:hover {
+    background: hsl(220 13% 30%);
   }
 
   /* Typography hierarchy */
@@ -271,4 +326,145 @@ crollbar utilities */
   .scrollbar-thin::-webkit-scrollbar-thumb:hover {
     background: hsl(var(--muted-foreground));
   }
+}
+/* VS Code Light Modern UI Enhancements */
+:root {
+  /* Activity Bar colors */
+  --vscode-activityBar-background: hsl(0 0% 98%);
+  --vscode-activityBar-foreground: hsl(0 0% 25%);
+  
+  /* Sidebar colors */
+  --vscode-sideBar-background: hsl(0 0% 98%);
+  --vscode-sideBar-foreground: hsl(0 0% 13%);
+  
+  /* Editor colors */
+  --vscode-editor-background: hsl(0 0% 100%);
+  --vscode-editor-foreground: hsl(0 0% 13%);
+  
+  /* Panel colors */
+  --vscode-panel-background: hsl(0 0% 98%);
+  --vscode-panel-border: hsl(0 0% 90%);
+  
+  /* Button colors */
+  --vscode-button-background: hsl(210 100% 40%);
+  --vscode-button-hoverBackground: hsl(210 100% 35%);
+  
+  /* Input colors */
+  --vscode-input-background: hsl(0 0% 98%);
+  --vscode-input-border: hsl(0 0% 90%);
+  
+  /* List colors */
+  --vscode-list-hoverBackground: hsl(0 0% 96%);
+  --vscode-list-activeSelectionBackground: hsl(210 100% 40% / 0.1);
+}
+
+/* VS Code Dark Modern UI Enhancements */
+.dark {
+  /* Activity Bar colors */
+  --vscode-activityBar-background: hsl(220 13% 11%);
+  --vscode-activityBar-foreground: hsl(0 0% 75%);
+  
+  /* Sidebar colors */
+  --vscode-sideBar-background: hsl(220 13% 11%);
+  --vscode-sideBar-foreground: hsl(0 0% 88%);
+  
+  /* Editor colors */
+  --vscode-editor-background: hsl(220 13% 9%);
+  --vscode-editor-foreground: hsl(0 0% 88%);
+  
+  /* Panel colors */
+  --vscode-panel-background: hsl(220 13% 11%);
+  --vscode-panel-border: hsl(220 13% 18%);
+  
+  /* Button colors */
+  --vscode-button-background: hsl(210 100% 60%);
+  --vscode-button-hoverBackground: hsl(210 100% 65%);
+  
+  /* Input colors */
+  --vscode-input-background: hsl(220 13% 15%);
+  --vscode-input-border: hsl(220 13% 18%);
+  
+  /* List colors */
+  --vscode-list-hoverBackground: hsl(220 13% 15%);
+  --vscode-list-activeSelectionBackground: hsl(210 100% 60% / 0.2);
+}
+
+/* Apply VS Code Light styling to specific components */
+.bg-card {
+  background-color: hsl(0 0% 98%);
+}
+
+.bg-muted {
+  background-color: hsl(0 0% 97%);
+}
+
+.border {
+  border-color: hsl(0 0% 90%);
+}
+
+/* VS Code style focus rings */
+*:focus-visible {
+  outline: 2px solid hsl(210 100% 40%);
+  outline-offset: 2px;
+}
+
+/* VS Code style buttons */
+.bg-primary {
+  background-color: hsl(210 100% 40%);
+}
+
+.bg-primary:hover {
+  background-color: hsl(210 100% 35%);
+}
+
+/* VS Code style inputs */
+input, textarea, select {
+  background-color: hsl(0 0% 98%);
+  border-color: hsl(0 0% 90%);
+  color: hsl(0 0% 13%);
+}
+
+input:focus, textarea:focus, select:focus {
+  border-color: hsl(210 100% 40%);
+  box-shadow: 0 0 0 1px hsl(210 100% 40%);
+}
+
+/* Apply VS Code Dark styling to specific components */
+.dark .bg-card {
+  background-color: hsl(220 13% 11%);
+}
+
+.dark .bg-muted {
+  background-color: hsl(220 13% 13%);
+}
+
+.dark .border {
+  border-color: hsl(220 13% 18%);
+}
+
+/* VS Code style focus rings */
+.dark *:focus-visible {
+  outline: 2px solid hsl(210 100% 60%);
+  outline-offset: 2px;
+}
+
+/* VS Code style buttons */
+.dark .bg-primary {
+  background-color: hsl(210 100% 60%);
+}
+
+.dark .bg-primary:hover {
+  background-color: hsl(210 100% 65%);
+}
+
+/* VS Code style inputs */
+.dark input, .dark textarea, .dark select {
+  background-color: hsl(220 13% 15%);
+  border-color: hsl(220 13% 18%);
+  color: hsl(0 0% 88%);
+}
+
+.dark input:focus, .dark textarea:focus, .dark select:focus {
+  border-color: hsl(210 100% 60%);
+  box-shadow: 0 0 0 1px hsl(210 100% 60%);
 }

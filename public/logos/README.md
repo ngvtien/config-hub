@@ -21,23 +21,33 @@ This directory contains SVG logos for various services integrated with Config Hu
 
 ### **In React Components**
 ```jsx
-// Service-specific logos
+// Basic usage
 <img src="/logos/helm-logo.svg" alt="Helm" className="w-6 h-6" />
-<img src="/logos/argocd-logo.svg" alt="ArgoCD" className="w-6 h-6" />
-<img src="/logos/vault-logo.svg" alt="Vault" className="w-6 h-6" />
-<img src="/logos/git-logo.svg" alt="Git" className="w-6 h-6" />
-<img src="/logos/security-logo.svg" alt="Security" className="w-6 h-6" />
+
+// With theme adaptation (recommended)
+<img src="/logos/argocd-logo.svg" alt="ArgoCD" className="w-6 h-6 logo-theme-adapt" />
+<img src="/logos/vault-logo.svg" alt="Vault" className="w-6 h-6 logo-theme-adapt" />
+<img src="/logos/git-logo.svg" alt="Git" className="w-6 h-6 logo-theme-adapt" />
+
+// Advanced styling with specific classes
+<img src="/logos/helm-logo.svg" alt="Helm" className="w-6 h-6 service-logo service-logo-md helm" />
 
 // Theme-aware Config Hub logos
 <img src="/config-hub-logo-light.svg" className="w-8 h-8 dark:hidden" />
 <img src="/config-hub-logo-dark.svg" className="w-8 h-8 hidden dark:block" />
 ```
 
-### **Common Sizes**
-- **Small icons**: 16px (w-4 h-4)
-- **Standard icons**: 24px (w-6 h-6)  
-- **Sidebar logos**: 32px (w-8 h-8)
-- **Dashboard logos**: 64px (w-16 h-16)
+### **Common Sizes & CSS Classes**
+- **Small icons**: 16px (w-4 h-4) + `service-logo-sm`
+- **Standard icons**: 24px (w-6 h-6) + `service-logo-md`
+- **Large icons**: 32px (w-8 h-8) + `service-logo-lg`
+- **Quick theme adaptation**: Add `logo-theme-adapt` class to any logo
+
+### **Dark Theme Solutions**
+1. **Quick Fix**: Add `logo-theme-adapt` class for automatic dark theme enhancement
+2. **Custom Styling**: Use `service-logo service-logo-{size} {service-name}` classes
+3. **Filter Approach**: Use `service-logo-filter` for brightness/contrast adjustments
+4. **Background Approach**: Use `service-logo-border` for subtle borders in dark mode
 
 ## Design Notes
 

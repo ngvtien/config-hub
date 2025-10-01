@@ -10,10 +10,10 @@ import { ResponsiveIndicator } from '@/components/responsive-indicator'
 import { useEnvironment } from '@/contexts/environment-context'
 import { useEnvironmentSettings } from '@/hooks/use-environment-settings'
 import { useVaultCredentials } from '@/hooks/use-vault-credentials'
-import { 
-  Settings, 
-  GitBranch, 
-  Container, 
+import {
+  Settings,
+  GitBranch,
+  Container,
   Package,
   Shield,
   Save,
@@ -36,7 +36,7 @@ export function SettingsPage({ onBack }: SettingsPageProps) {
   const { environment, instance, getContextKey } = useEnvironment()
   const { settings, updateSection } = useEnvironmentSettings()
   const [activeSection, setActiveSection] = useState('general')
-  
+
   // Automatically store Vault credentials when settings change
   useVaultCredentials()
 
@@ -64,7 +64,7 @@ export function SettingsPage({ onBack }: SettingsPageProps) {
             </div>
             <div>
               <Label htmlFor="theme">Theme</Label>
-              <select 
+              <select
                 id="theme"
                 className="w-full px-3 py-2 border border-input bg-background rounded-md"
                 value={settings.general.theme}
@@ -76,7 +76,7 @@ export function SettingsPage({ onBack }: SettingsPageProps) {
               </select>
             </div>
           </div>
-          
+
           <div className="space-y-3">
             <div className="flex items-center space-x-2">
               <input
@@ -88,7 +88,7 @@ export function SettingsPage({ onBack }: SettingsPageProps) {
               />
               <Label htmlFor="autoSave">Enable auto-save</Label>
             </div>
-            
+
             <div className="flex items-center space-x-2">
               <input
                 type="checkbox"
@@ -143,7 +143,7 @@ export function SettingsPage({ onBack }: SettingsPageProps) {
             Add Repository
           </Button>
         </div>
-        
+
         <div className="space-y-3">
           {settings.git.repositories.length === 0 ? (
             <Card>
@@ -192,7 +192,7 @@ export function SettingsPage({ onBack }: SettingsPageProps) {
               onChange={(e) => updateSection('argocd', { serverUrl: e.target.value })}
             />
           </div>
-          
+
           <div className="grid grid-cols-2 gap-4">
             <div>
               <Label htmlFor="argoCDUsername">Username</Label>
@@ -212,7 +212,7 @@ export function SettingsPage({ onBack }: SettingsPageProps) {
               />
             </div>
           </div>
-          
+
           <div className="grid grid-cols-2 gap-4">
             <div>
               <Label htmlFor="argoCDNamespace">Namespace</Label>
@@ -224,7 +224,7 @@ export function SettingsPage({ onBack }: SettingsPageProps) {
             </div>
             <div>
               <Label htmlFor="syncPolicy">Sync Policy</Label>
-              <select 
+              <select
                 id="syncPolicy"
                 className="w-full px-3 py-2 border border-input bg-background rounded-md"
                 value={settings.argocd.syncPolicy}
@@ -237,7 +237,7 @@ export function SettingsPage({ onBack }: SettingsPageProps) {
           </div>
         </div>
       </div>
-      
+
       <div className="flex gap-2">
         <Button>
           <Save className="w-4 h-4 mr-2" />
@@ -264,7 +264,7 @@ export function SettingsPage({ onBack }: SettingsPageProps) {
               onChange={(e) => updateSection('helm', { registryUrl: e.target.value })}
             />
           </div>
-          
+
           <div className="grid grid-cols-2 gap-4">
             <div>
               <Label htmlFor="helmUsername">Username</Label>
@@ -284,7 +284,7 @@ export function SettingsPage({ onBack }: SettingsPageProps) {
               />
             </div>
           </div>
-          
+
           <div>
             <Label htmlFor="helmNamespace">Default Namespace</Label>
             <Input
@@ -306,7 +306,7 @@ export function SettingsPage({ onBack }: SettingsPageProps) {
             Add Repository
           </Button>
         </div>
-        
+
         <div className="space-y-3">
           {settings.helm.repositories.length === 0 ? (
             <Card>
@@ -338,7 +338,7 @@ export function SettingsPage({ onBack }: SettingsPageProps) {
           )}
         </div>
       </div>
-      
+
       <div className="flex gap-2">
         <Button>
           <Save className="w-4 h-4 mr-2" />
@@ -368,7 +368,7 @@ export function SettingsPage({ onBack }: SettingsPageProps) {
 
           <div>
             <Label htmlFor="vaultAuthMethod">Authentication Method</Label>
-            <select 
+            <select
               id="vaultAuthMethod"
               className="w-full px-3 py-2 border border-input bg-background rounded-md"
               value={settings.vault.authMethod}
@@ -554,13 +554,17 @@ export function SettingsPage({ onBack }: SettingsPageProps) {
             {sections.map((section) => {
               const Icon = section.icon
               return (
-                <TabsTrigger 
-                  key={section.id} 
+                <TabsTrigger
+                  key={section.id}
                   value={section.id}
                   className="flex items-center gap-2 px-3 py-2 text-sm font-medium transition-all hover:bg-muted/80 data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm"
                 >
                   {section.serviceIcon ? (
-                    <img src={section.serviceIcon} alt={section.label} className="w-4 h-4 flex-shrink-0" />
+                    <img
+                      src={section.serviceIcon}
+                      alt={section.label}
+                      className={`w-5 h-5 flex-shrink-0 service-logo service-logo-md ${section.id}`}
+                    />
                   ) : (
                     <Icon className="w-4 h-4 flex-shrink-0" />
                   )}
@@ -583,15 +587,18 @@ export function SettingsPage({ onBack }: SettingsPageProps) {
                   key={section.id}
                   variant={isActive ? "default" : "outline"}
                   size="sm"
-                  className={`flex items-center gap-2 whitespace-nowrap flex-shrink-0 min-w-fit px-3 py-2 transition-all ${
-                    isActive 
-                      ? 'shadow-sm' 
+                  className={`flex items-center gap-2 whitespace-nowrap flex-shrink-0 min-w-fit px-3 py-2 transition-all ${isActive
+                      ? 'shadow-sm'
                       : 'hover:bg-muted/50'
-                  }`}
+                    }`}
                   onClick={() => setActiveSection(section.id)}
                 >
                   {section.serviceIcon ? (
-                    <img src={section.serviceIcon} alt={section.label} className="w-4 h-4" />
+                    <img
+                      src={section.serviceIcon}
+                      alt={section.label}
+                      className={`w-5 h-5 service-logo service-logo-md ${section.id}`}
+                    />
                   ) : (
                     <Icon className="w-4 h-4" />
                   )}
@@ -628,7 +635,7 @@ export function SettingsPage({ onBack }: SettingsPageProps) {
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-3">
-                <img src="/logos/git-logo.svg" alt="Git" className="w-6 h-6" />
+                <img src="/logos/git-logo.svg" alt="Git" className="w-5 h-5 service-logo service-logo-md git" />
                 Git Repositories
               </CardTitle>
               <CardDescription>
@@ -645,7 +652,7 @@ export function SettingsPage({ onBack }: SettingsPageProps) {
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-3">
-                <img src="/logos/argocd-logo.svg" alt="ArgoCD" className="w-6 h-6" />
+                <img src="/logos/argocd-logo.svg" alt="ArgoCD" className="w-5 h-5 service-logo service-logo-md argocd" />
                 ArgoCD
               </CardTitle>
               <CardDescription>
@@ -662,7 +669,7 @@ export function SettingsPage({ onBack }: SettingsPageProps) {
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-3">
-                <img src="/logos/helm-logo.svg" alt="Helm" className="w-6 h-6" />
+                <img src="/logos/helm-logo.svg" alt="Helm" className="w-5 h-5 service-logo service-logo-md helm" />
                 Helm OCI
               </CardTitle>
               <CardDescription>
@@ -679,7 +686,7 @@ export function SettingsPage({ onBack }: SettingsPageProps) {
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-3">
-                <img src="/logos/vault-logo.svg" alt="HashiCorp Vault" className="w-6 h-6" />
+                <img src="/logos/vault-logo.svg" alt="HashiCorp Vault" className="w-5 h-5 service-logo service-logo-md vault" />
                 HashiCorp Vault
               </CardTitle>
               <CardDescription>
@@ -692,7 +699,7 @@ export function SettingsPage({ onBack }: SettingsPageProps) {
           </Card>
         </TabsContent>
       </Tabs>
-      
+
       {/* Development helper */}
       <ResponsiveIndicator />
     </div>
