@@ -200,6 +200,25 @@ function createWindow() {
     const loadingHtml = path.join(DIST, 'loading.html')
     win.loadFile(loadingHtml)
 
+    // Inject theme information into loading page once it loads
+    win.webContents.once('dom-ready', () => {
+      if (win && !win.isDestroyed()) {
+        const isDark = nativeTheme.shouldUseDarkColors
+        win.webContents.executeJavaScript(`
+          document.body.className = ${isDark} ? 'dark' : 'light';
+          
+          // Listen for theme changes
+          window.addEventListener('message', (event) => {
+            if (event.data && event.data.type === 'theme-update') {
+              document.body.className = event.data.isDark ? 'dark' : 'light';
+            }
+          });
+        `).catch(() => {
+          // Ignore errors
+        })
+      }
+    })
+
     // Switch to main app after a shorter delay
     setTimeout(() => {
       if (win && !win.isDestroyed()) {
@@ -314,7 +333,19 @@ ipcMain.handle('get-should-use-dark-colors', () => {
 
 // Listen for theme changes
 nativeTheme.on('updated', () => {
-  win?.webContents.send('theme-updated', nativeTheme.shouldUseDarkColors)
+  const isDark = nativeTheme.shouldUseDarkColors
+  
+  // Send to main app
+  win?.webContents.send('theme-updated', isDark)
+  
+  // Also send to loading page if it's currently loaded
+  if (win && !win.isDestroyed()) {
+    win.webContents.executeJavaScript(`
+      window.postMessage({ type: 'theme-update', isDark: ${isDark} }, '*');
+    `).catch(() => {
+      // Ignore errors - loading page might not be loaded
+    })
+  }
 })
 
 // Optimized zoom management - non-blocking

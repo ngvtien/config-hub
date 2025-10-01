@@ -2,12 +2,12 @@ import { Button } from '@/components/ui/button'
 import { useSidebarState } from '@/hooks/use-sidebar-state'
 import { useUserManagement } from '@/hooks/use-user-management'
 import { useAssetPath } from '@/hooks/use-asset-path'
-import { 
-  Home, 
-  Settings, 
-  Users, 
-  FileText, 
-  BarChart3, 
+import {
+  Home,
+  Settings,
+  Users,
+  FileText,
+  BarChart3,
   GitBranch,
   ChevronLeft,
   User
@@ -32,7 +32,7 @@ const menuItems = [
 export function AppSidebar({ className, currentPage = 'dashboard', onNavigate }: AppSidebarProps) {
   const { isCollapsed, toggleCollapse } = useSidebarState()
   const { currentUser, isLoading } = useUserManagement()
-  
+
   // Get asset paths for logos
   const lightLogo = useAssetPath('config-hub-logo-light.svg')
   const darkLogo = useAssetPath('config-hub-logo-dark.svg')
@@ -40,7 +40,7 @@ export function AppSidebar({ className, currentPage = 'dashboard', onNavigate }:
   const darkMonogram = useAssetPath('config-hub-monogram-dark.svg')
 
   return (
-    <div 
+    <div
       className={cn(
         "relative flex flex-col h-full bg-muted/30 transition-all duration-300",
         isCollapsed ? "w-16" : "w-64",
@@ -57,16 +57,16 @@ export function AppSidebar({ className, currentPage = 'dashboard', onNavigate }:
             {/* Config Hub Logo - Theme Aware */}
             <div className="w-8 h-8">
               {lightLogo && (
-                <img 
-                  src={lightLogo} 
-                  alt="Config Hub Logo" 
+                <img
+                  src={lightLogo}
+                  alt="Config Hub Logo"
                   className="w-8 h-8 dark:hidden"
                 />
               )}
               {darkLogo && (
-                <img 
-                  src={darkLogo} 
-                  alt="Config Hub Logo" 
+                <img
+                  src={darkLogo}
+                  alt="Config Hub Logo"
                   className="w-8 h-8 hidden dark:block"
                 />
               )}
@@ -88,16 +88,16 @@ export function AppSidebar({ className, currentPage = 'dashboard', onNavigate }:
           >
             <div className="w-8 h-8">
               {lightMonogram && (
-                <img 
-                  src={lightMonogram} 
-                  alt="Config Hub - Click to expand" 
+                <img
+                  src={lightMonogram}
+                  alt="Config Hub - Click to expand"
                   className="w-8 h-8 dark:hidden"
                 />
               )}
               {darkMonogram && (
-                <img 
-                  src={darkMonogram} 
-                  alt="Config Hub - Click to expand" 
+                <img
+                  src={darkMonogram}
+                  alt="Config Hub - Click to expand"
                   className="w-8 h-8 hidden dark:block"
                 />
               )}
@@ -112,7 +112,7 @@ export function AppSidebar({ className, currentPage = 'dashboard', onNavigate }:
             className="ml-auto"
             title="Collapse sidebar"
           >
-            <ChevronLeft className="h-4 w-4" />
+            <ChevronLeft className="h-5 w-5" />
           </Button>
         )}
       </div>
@@ -123,7 +123,7 @@ export function AppSidebar({ className, currentPage = 'dashboard', onNavigate }:
           {menuItems.map((item) => {
             const Icon = item.icon
             const isActive = currentPage === item.page
-            
+
             return (
               <li key={item.label}>
                 <Button
@@ -134,7 +134,7 @@ export function AppSidebar({ className, currentPage = 'dashboard', onNavigate }:
                   )}
                   onClick={() => onNavigate?.(item.page)}
                 >
-                  <Icon className={cn("h-4 w-4", !isCollapsed && "mr-2")} />
+                  <Icon className={cn("h-5 w-5", !isCollapsed && "mr-2")} />
                   {!isCollapsed && (
                     <span className="truncate">{item.label}</span>
                   )}
@@ -168,7 +168,7 @@ export function AppSidebar({ className, currentPage = 'dashboard', onNavigate }:
                   {currentUser.username.charAt(0).toUpperCase()}
                 </span>
               ) : (
-                <User className="w-4 h-4 text-primary-foreground" />
+                <User className="w-5 h-5 text-primary-foreground" />
               )}
             </div>
             {!isCollapsed && (
