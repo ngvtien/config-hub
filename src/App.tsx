@@ -39,11 +39,25 @@ function App() {
         return (
           <div className="max-w-4xl mx-auto space-y-6">
             <div className="text-center">
+              <div className="flex justify-center mb-6">
+                <div className="w-16 h-16">
+                  <img 
+                    src="/config-hub-logo-light.svg" 
+                    alt="Config Hub Logo" 
+                    className="w-16 h-16 dark:hidden"
+                  />
+                  <img 
+                    src="/config-hub-logo-dark.svg" 
+                    alt="Config Hub Logo" 
+                    className="w-16 h-16 hidden dark:block"
+                  />
+                </div>
+              </div>
               <h1 className="text-display mb-4">
-                Electron + React + TypeScript
+                Welcome to Config Hub
               </h1>
               <p className="text-body text-muted-foreground mb-6">
-                Modern desktop app with Vite, Tailwind CSS, and beautiful typography
+                Secure credential management for Git, Helm, ArgoCD, and Vault
               </p>
               
               <div className="flex justify-center gap-2 mb-8">
@@ -68,9 +82,9 @@ function App() {
 
             <Card>
               <CardHeader>
-                <CardTitle>Welcome to your new Electron app!</CardTitle>
+                <CardTitle>Secure Credential Management</CardTitle>
                 <CardDescription>
-                  This template includes modern typography, beautiful components, and all the tools you need.
+                  Config Hub provides military-grade encryption for storing and managing credentials across multiple environments.
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">

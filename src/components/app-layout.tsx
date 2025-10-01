@@ -36,18 +36,36 @@ export function AppLayout({ children, title, currentPage, onNavigate }: AppLayou
       {isMobileMenuOpen && (
         <div className="md:hidden fixed inset-0 z-50">
           {/* Backdrop */}
-          <div 
+          <div
             className="fixed inset-0 bg-background/80 backdrop-blur-sm"
             onClick={() => setIsMobileMenuOpen(false)}
           />
-          
+
           {/* Sidebar */}
           <div className={cn(
-            "fixed left-0 top-0 h-full w-64 bg-background border-r shadow-lg transition-transform duration-300",
+            "fixed left-0 top-0 h-full w-64 bg-muted/30 shadow-lg transition-transform duration-300",
             isMobileMenuOpen ? "translate-x-0" : "-translate-x-full"
           )}>
-            <div className="flex items-center justify-between p-4 border-b">
-              <h2 className="text-lg font-semibold">My App</h2>
+            <div className="flex items-center justify-between p-4">
+              <div className="flex items-center gap-3">
+                {/* Config Hub Logo - Theme Aware */}
+                <div className="w-8 h-8">
+                  <img
+                    src="/config-hub-logo-light.svg"
+                    alt="Config Hub Logo"
+                    className="w-8 h-8 dark:hidden"
+                  />
+                  <img
+                    src="/config-hub-logo-dark.svg"
+                    alt="Config Hub Logo"
+                    className="w-8 h-8 hidden dark:block"
+                  />
+                </div>
+                <div>
+                  <h2 className="text-lg font-semibold leading-tight">Config Hub</h2>
+                  <p className="text-xs text-muted-foreground leading-tight">Config Management</p>
+                </div>
+              </div>
               <Button
                 variant="ghost"
                 size="sm"
@@ -65,12 +83,12 @@ export function AppLayout({ children, title, currentPage, onNavigate }: AppLayou
 
       {/* Main Content */}
       <div className="flex-1 flex flex-col overflow-hidden">
-        <AppHeader 
+        <AppHeader
           title={title}
           onMenuClick={() => setIsMobileMenuOpen(true)}
           showMenuButton={true}
         />
-        
+
         <main className="flex-1 overflow-auto p-6">
           {children}
         </main>

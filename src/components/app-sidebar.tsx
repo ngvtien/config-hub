@@ -9,7 +9,6 @@ import {
   BarChart3, 
   GitBranch,
   ChevronLeft,
-  ChevronRight,
   User
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
@@ -36,31 +35,71 @@ export function AppSidebar({ className, currentPage = 'dashboard', onNavigate }:
   return (
     <div 
       className={cn(
-        "relative flex flex-col h-full bg-background border-r transition-all duration-300",
+        "relative flex flex-col h-full bg-muted/30 transition-all duration-300",
         isCollapsed ? "w-16" : "w-64",
         className
       )}
     >
       {/* Header */}
       <div className={cn(
-        "flex items-center p-4 border-b",
+        "flex items-center p-4",
         isCollapsed ? "justify-center" : "justify-between"
       )}>
         {!isCollapsed && (
-          <h2 className="text-lg font-semibold">My App</h2>
+          <div className="flex items-center gap-3">
+            {/* Config Hub Logo - Theme Aware */}
+            <div className="w-8 h-8">
+              <img 
+                src="/config-hub-logo-light.svg" 
+                alt="Config Hub Logo" 
+                className="w-8 h-8 dark:hidden"
+              />
+              <img 
+                src="/config-hub-logo-dark.svg" 
+                alt="Config Hub Logo" 
+                className="w-8 h-8 hidden dark:block"
+              />
+            </div>
+            <div>
+              <h2 className="text-lg font-semibold leading-tight">Config Hub</h2>
+              <p className="text-xs text-muted-foreground leading-tight">Config Management</p>
+            </div>
+          </div>
         )}
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={toggleCollapse}
-          className={cn(isCollapsed ? "" : "ml-auto")}
-        >
-          {isCollapsed ? (
-            <ChevronRight className="h-4 w-4" />
-          ) : (
+        {isCollapsed && (
+          /* Clickable Logo when collapsed - Theme Aware */
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={toggleCollapse}
+            className="p-2 hover:bg-accent rounded-lg"
+            title="Expand sidebar"
+          >
+            <div className="w-8 h-8">
+              <img 
+                src="/config-hub-monogram-light.svg" 
+                alt="Config Hub - Click to expand" 
+                className="w-8 h-8 dark:hidden"
+              />
+              <img 
+                src="/config-hub-monogram-dark.svg" 
+                alt="Config Hub - Click to expand" 
+                className="w-8 h-8 hidden dark:block"
+              />
+            </div>
+          </Button>
+        )}
+        {!isCollapsed && (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={toggleCollapse}
+            className="ml-auto"
+            title="Collapse sidebar"
+          >
             <ChevronLeft className="h-4 w-4" />
-          )}
-        </Button>
+          </Button>
+        )}
       </div>
 
       {/* Navigation */}
@@ -92,7 +131,7 @@ export function AppSidebar({ className, currentPage = 'dashboard', onNavigate }:
       </nav>
 
       {/* Footer - User Menu */}
-      <div className="p-2 border-t">
+      <div className="p-2">
         <Button
           variant={currentPage === 'users' ? "secondary" : "ghost"}
           className={cn(
