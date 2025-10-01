@@ -1,16 +1,14 @@
 import { app, BrowserWindow, shell, ipcMain, nativeTheme } from 'electron'
-import { createRequire } from 'node:module'
 import { fileURLToPath } from 'node:url'
 import path from 'node:path'
 import fs from 'node:fs'
-import { setupArgoCDHandlers } from './argocd-handler'
-import { setupVaultHandlers } from './vault-handler'
-import { setupUserHandlers } from './user-handler'
-import { setupSimpleGitHandlers } from './simple-git-handler'
-import { setupSimpleHelmHandlers } from './simple-helm-handler'
 
-const require = createRequire(import.meta.url)
+// Defer handler imports to speed up startup
+
+
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
+
+console.log('Electron main process starting...', new Date().toISOString())
 
 // The built directory structure
 //
@@ -20,17 +18,41 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url))
 // ├─┬ dist
 // │ └── index.html  > Electron-Renderer
 //
-process.env.DIST_ELECTRON = path.join(__dirname, '../')
-process.env.DIST = path.join(process.env.DIST_ELECTRON, '../dist')
-process.env.VITE_PUBLIC = process.env.VITE_DEV_SERVER_URL
-  ? path.join(process.env.DIST_ELECTRON, '../public')
-  : process.env.DIST
+// Handle both development and production paths
+const isDev = process.env.NODE_ENV === 'development' || !!process.env.VITE_DEV_SERVER_URL
 
-// Disable GPU Acceleration for Windows 7
-if (process.platform === 'win32') app.disableHardwareAcceleration()
+let DIST_ELECTRON: string
+let DIST: string
+let VITE_PUBLIC: string
+
+if (isDev) {
+  // Development paths
+  DIST_ELECTRON = path.join(__dirname, '../')
+  DIST = path.join(DIST_ELECTRON, '../dist')
+  VITE_PUBLIC = path.join(DIST_ELECTRON, '../public')
+} else {
+  // Production paths - when packaged, resources are in extraResources
+  DIST_ELECTRON = __dirname
+  DIST = path.join(__dirname, '../dist')
+  VITE_PUBLIC = path.join(process.resourcesPath, 'public')
+}
+
+process.env.DIST_ELECTRON = DIST_ELECTRON
+process.env.DIST = DIST
+process.env.VITE_PUBLIC = VITE_PUBLIC
 
 // Set application name for Windows 10+ notifications
 if (process.platform === 'win32') app.setAppUserModelId(app.getName())
+
+// Try to speed up startup
+app.commandLine.appendSwitch('disable-background-timer-throttling')
+app.commandLine.appendSwitch('disable-renderer-backgrounding')
+app.commandLine.appendSwitch('disable-backgrounding-occluded-windows')
+app.commandLine.appendSwitch('disable-dev-shm-usage')
+app.commandLine.appendSwitch('no-sandbox')
+app.commandLine.appendSwitch('disable-web-security')
+
+console.log('Command line switches applied...', new Date().toISOString())
 
 if (!app.requestSingleInstanceLock()) {
   app.quit()
@@ -47,90 +69,157 @@ if (process.env.NODE_ENV === 'development') {
 
 let win: BrowserWindow | null = null
 // Here, you can also use other preload
-const preload = path.join(__dirname, '../dist-electron/preload.js')
+const preload = isDev
+  ? path.join(__dirname, '../dist-electron/preload.js')
+  : path.join(__dirname, 'preload.js')
 const url = process.env.VITE_DEV_SERVER_URL
-const indexHtml = path.join(process.env.DIST, 'index.html')
+const indexHtml = path.join(DIST, 'index.html')
 
-// Window state management
+// Optimized window state management - non-blocking
 const windowStateKeeper = {
   file: path.join(app.getPath('userData'), 'window-state.json'),
-  
+  defaultState: { width: 1200, height: 800 },
+
   get(): { x?: number; y?: number; width: number; height: number; isMaximized?: boolean } {
-    try {
-      const data = fs.readFileSync(this.file, 'utf8')
-      return JSON.parse(data)
-    } catch {
-      return { width: 1200, height: 800 }
-    }
+    // Return default state immediately, load saved state asynchronously
+    const state = { ...this.defaultState }
+
+    // Load saved state in background
+    setImmediate(() => {
+      try {
+        const data = fs.readFileSync(this.file, 'utf8')
+        const savedState = JSON.parse(data)
+        if (win && !win.isDestroyed()) {
+          if (savedState.isMaximized) {
+            win.maximize()
+          } else if (savedState.x !== undefined && savedState.y !== undefined) {
+            win.setBounds({
+              x: savedState.x,
+              y: savedState.y,
+              width: savedState.width || this.defaultState.width,
+              height: savedState.height || this.defaultState.height
+            })
+          }
+        }
+      } catch {
+        // Ignore errors, use default state
+      }
+    })
+
+    return state
   },
-  
+
   set(bounds: { x: number; y: number; width: number; height: number }, isMaximized: boolean) {
-    try {
-      fs.writeFileSync(this.file, JSON.stringify({ ...bounds, isMaximized }))
-    } catch (error) {
-      console.error('Failed to save window state:', error)
-    }
+    // Save asynchronously to avoid blocking
+    setImmediate(() => {
+      try {
+        fs.writeFileSync(this.file, JSON.stringify({ ...bounds, isMaximized }))
+      } catch (error) {
+        console.error('Failed to save window state:', error)
+      }
+    })
   }
 }
 
-async function createWindow() {
+function createWindow() {
+  console.log('Creating window...', new Date().toISOString())
   const windowState = windowStateKeeper.get()
-  
+
   win = new BrowserWindow({
-    title: 'Electron React App',
-    icon: path.join(process.env.VITE_PUBLIC, 'electron.svg'),
-    x: windowState.x,
-    y: windowState.y,
+    title: 'Config Hub',
+    // Remove icon for faster startup - set it later
     width: windowState.width,
     height: windowState.height,
     minWidth: 800,
     minHeight: 600,
-    show: false, // Don't show until ready
+    show: true, // Show immediately
+    backgroundColor: '#0f172a', // Match loading screen background
     webPreferences: {
       preload,
       nodeIntegration: false,
       contextIsolation: true,
+      webSecurity: true,
+      // Remove non-essential options for faster startup
     },
   })
 
-  // Restore maximized state
-  if (windowState.isMaximized) {
-    win.maximize()
-  }
+  // Skip icon setting for now to avoid SVG loading issues
+  // Icons will be set via electron-builder configuration
 
-  // Show window when ready to prevent visual flash
-  win.once('ready-to-show', () => {
-    win?.show()
-    
+  // Window state restoration is now handled asynchronously in windowStateKeeper.get()
+
+  // Setup event handlers asynchronously to avoid blocking window creation
+  setImmediate(() => {
+    if (!win || win.isDestroyed()) return
+
     // Restore zoom level
-    const savedZoom = zoomStateKeeper.get().zoomLevel
-    win?.webContents.setZoomLevel(savedZoom)
+    try {
+      const savedZoom = zoomStateKeeper.get().zoomLevel
+      win.webContents.setZoomLevel(savedZoom)
+    } catch (error) {
+      console.error('Failed to restore zoom:', error)
+    }
+
+    // Save window state on resize/move (debounced)
+    let saveTimeout: NodeJS.Timeout | null = null
+    const saveWindowState = () => {
+      if (!win || win.isDestroyed()) return
+
+      if (saveTimeout) clearTimeout(saveTimeout)
+      saveTimeout = setTimeout(() => {
+        const bounds = win!.getBounds()
+        const isMaximized = win!.isMaximized()
+        windowStateKeeper.set(bounds, isMaximized)
+      }, 500) // Debounce saves
+    }
+
+    win.on('resize', saveWindowState)
+    win.on('move', saveWindowState)
+    win.on('maximize', saveWindowState)
+    win.on('unmaximize', saveWindowState)
   })
 
-  // Save window state on resize/move
-  const saveWindowState = () => {
-    if (!win) return
-    const bounds = win.getBounds()
-    const isMaximized = win.isMaximized()
-    windowStateKeeper.set(bounds, isMaximized)
-  }
+  // Remove loading screen after React app is fully loaded
+  win.webContents.once('did-finish-load', () => {
+    setTimeout(() => {
+      if (win && !win.isDestroyed()) {
+        win.webContents.executeJavaScript(`
+          window.postMessage({ payload: 'removeLoading' }, '*');
+        `).catch(() => {
+          // Ignore errors
+        })
+      }
+    }, 1000) // Reduced wait time
+  })
 
-  win.on('resize', saveWindowState)
-  win.on('move', saveWindowState)
-  win.on('maximize', saveWindowState)
-  win.on('unmaximize', saveWindowState)
-
-  if (process.env.VITE_DEV_SERVER_URL) {
+  // Load content immediately without waiting
+  if (url) {
     win.loadURL(url)
-    // Only open dev tools in development if explicitly needed
-    // win.webContents.openDevTools()
   } else {
-    win.loadFile(indexHtml)
+    // Load loading screen first, then switch to main app
+    const loadingHtml = path.join(DIST, 'loading.html')
+    win.loadFile(loadingHtml)
+
+    // Switch to main app after a shorter delay
+    setTimeout(() => {
+      if (win && !win.isDestroyed()) {
+        win.loadFile(indexHtml)
+      }
+    }, 1000)
   }
 
   // Test actively push message to the Electron-Renderer
   win.webContents.on('did-finish-load', () => {
     win?.webContents.send('main-process-message', new Date().toLocaleString())
+    console.log('Window loaded successfully')
+    console.log('VITE_PUBLIC path:', VITE_PUBLIC)
+    console.log('DIST path:', DIST)
+    console.log('isDev:', isDev)
+  })
+
+  // Add error handling for loading failures
+  win.webContents.on('did-fail-load', (event, errorCode, errorDescription) => {
+    console.error('Failed to load:', errorCode, errorDescription)
   })
 
   // Make all links open with the browser, not with the application
@@ -140,13 +229,41 @@ async function createWindow() {
   })
 }
 
-app.whenReady().then(() => {
+// Create window as soon as possible
+app.on('ready', () => {
+  console.log('Electron ready, creating window...')
   createWindow()
-  setupArgoCDHandlers()
-  setupVaultHandlers()
-  setupUserHandlers()
-  setupSimpleGitHandlers()
-  setupSimpleHelmHandlers()
+})
+
+// Setup handlers much later to avoid blocking startup
+app.on('browser-window-created', () => {
+  setTimeout(async () => {
+    try {
+      console.log('Loading handlers...')
+      const [
+        { setupArgoCDHandlers },
+        { setupVaultHandlers },
+        { setupUserHandlers },
+        { setupSimpleGitHandlers },
+        { setupSimpleHelmHandlers }
+      ] = await Promise.all([
+        import('./argocd-handler'),
+        import('./vault-handler'),
+        import('./user-handler'),
+        import('./simple-git-handler'),
+        import('./simple-helm-handler')
+      ])
+      
+      setupArgoCDHandlers()
+      setupVaultHandlers()
+      setupUserHandlers()
+      setupSimpleGitHandlers()
+      setupSimpleHelmHandlers()
+      console.log('Handlers loaded')
+    } catch (error) {
+      console.error('Failed to setup handlers:', error)
+    }
+  }, 2000) // Wait 2 seconds after window is created
 })
 
 app.on('window-all-closed', () => {
@@ -200,37 +317,46 @@ nativeTheme.on('updated', () => {
   win?.webContents.send('theme-updated', nativeTheme.shouldUseDarkColors)
 })
 
-// Zoom management
+// Optimized zoom management - non-blocking
 const zoomStateKeeper = {
   file: path.join(app.getPath('userData'), 'zoom-state.json'),
-  
+  defaultZoom: 0,
+
   get(): { zoomLevel: number } {
-    try {
-      const data = fs.readFileSync(this.file, 'utf8')
-      const parsed = JSON.parse(data)
-      // Ensure zoom level is within reasonable bounds
-      const zoomLevel = Math.max(-5, Math.min(5, parsed.zoomLevel || 0))
-      return { zoomLevel }
-    } catch {
-      return { zoomLevel: 0 }
-    }
+    // Return default immediately, load asynchronously
+    const result = { zoomLevel: this.defaultZoom }
+
+    setImmediate(() => {
+      try {
+        const data = fs.readFileSync(this.file, 'utf8')
+        const parsed = JSON.parse(data)
+        const zoomLevel = Math.max(-5, Math.min(5, parsed.zoomLevel || 0))
+        result.zoomLevel = zoomLevel
+      } catch {
+        // Use default
+      }
+    })
+
+    return result
   },
-  
+
   set(zoomLevel: number) {
-    try {
-      // Clamp zoom level to reasonable bounds
-      const clampedZoom = Math.max(-5, Math.min(5, zoomLevel))
-      fs.writeFileSync(this.file, JSON.stringify({ zoomLevel: clampedZoom }))
-    } catch (error) {
-      console.error('Failed to save zoom state:', error)
-    }
+    // Save asynchronously
+    setImmediate(() => {
+      try {
+        const clampedZoom = Math.max(-5, Math.min(5, zoomLevel))
+        fs.writeFileSync(this.file, JSON.stringify({ zoomLevel: clampedZoom }))
+      } catch (error) {
+        console.error('Failed to save zoom state:', error)
+      }
+    })
   }
 }
 
 // Sidebar state management
 const sidebarStateKeeper = {
   file: path.join(app.getPath('userData'), 'sidebar-state.json'),
-  
+
   get(): { isCollapsed: boolean } {
     try {
       const data = fs.readFileSync(this.file, 'utf8')
@@ -240,7 +366,7 @@ const sidebarStateKeeper = {
       return { isCollapsed: false }
     }
   },
-  
+
   set(isCollapsed: boolean) {
     try {
       fs.writeFileSync(this.file, JSON.stringify({ isCollapsed }))
@@ -256,42 +382,42 @@ ipcMain.handle('get-zoom-level', () => {
 
 ipcMain.handle('set-zoom-level', (_, zoomLevel: number) => {
   if (!win) return 0
-  
+
   const clampedZoom = Math.max(-5, Math.min(5, zoomLevel))
   win.webContents.setZoomLevel(clampedZoom)
   zoomStateKeeper.set(clampedZoom)
-  
+
   return clampedZoom
 })
 
 ipcMain.handle('zoom-in', () => {
   if (!win) return 0
-  
+
   const currentZoom = win.webContents.getZoomLevel()
   const newZoom = Math.min(5, currentZoom + 0.5)
   win.webContents.setZoomLevel(newZoom)
   zoomStateKeeper.set(newZoom)
-  
+
   return newZoom
 })
 
 ipcMain.handle('zoom-out', () => {
   if (!win) return 0
-  
+
   const currentZoom = win.webContents.getZoomLevel()
   const newZoom = Math.max(-5, currentZoom - 0.5)
   win.webContents.setZoomLevel(newZoom)
   zoomStateKeeper.set(newZoom)
-  
+
   return newZoom
 })
 
 ipcMain.handle('zoom-reset', () => {
   if (!win) return 0
-  
+
   win.webContents.setZoomLevel(0)
   zoomStateKeeper.set(0)
-  
+
   return 0
 })
 
@@ -305,6 +431,16 @@ ipcMain.handle('set-sidebar-state', (_, isCollapsed: boolean) => {
   return isCollapsed
 })
 
+// Asset serving for production
+ipcMain.handle('get-asset-path', (_, assetPath: string) => {
+  if (isDev) {
+    return path.join(VITE_PUBLIC, assetPath)
+  } else {
+    // In production, assets are in the dist folder
+    return path.join(DIST, assetPath)
+  }
+})
+
 // New window example arg: new windows url
 ipcMain.handle('open-win', (_, arg) => {
   const childWindow = new BrowserWindow({
@@ -315,7 +451,7 @@ ipcMain.handle('open-win', (_, arg) => {
     },
   })
 
-  if (process.env.VITE_DEV_SERVER_URL) {
+  if (url) {
     childWindow.loadURL(`${url}#${arg}`)
   } else {
     childWindow.loadFile(indexHtml, { hash: arg })

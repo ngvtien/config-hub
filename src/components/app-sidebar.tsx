@@ -1,6 +1,7 @@
 import { Button } from '@/components/ui/button'
 import { useSidebarState } from '@/hooks/use-sidebar-state'
 import { useUserManagement } from '@/hooks/use-user-management'
+import { useAssetPath } from '@/hooks/use-asset-path'
 import { 
   Home, 
   Settings, 
@@ -31,6 +32,12 @@ const menuItems = [
 export function AppSidebar({ className, currentPage = 'dashboard', onNavigate }: AppSidebarProps) {
   const { isCollapsed, toggleCollapse } = useSidebarState()
   const { currentUser, isLoading } = useUserManagement()
+  
+  // Get asset paths for logos
+  const lightLogo = useAssetPath('config-hub-logo-light.svg')
+  const darkLogo = useAssetPath('config-hub-logo-dark.svg')
+  const lightMonogram = useAssetPath('config-hub-monogram-light.svg')
+  const darkMonogram = useAssetPath('config-hub-monogram-dark.svg')
 
   return (
     <div 
@@ -49,16 +56,20 @@ export function AppSidebar({ className, currentPage = 'dashboard', onNavigate }:
           <div className="flex items-center gap-3">
             {/* Config Hub Logo - Theme Aware */}
             <div className="w-8 h-8">
-              <img 
-                src="/config-hub-logo-light.svg" 
-                alt="Config Hub Logo" 
-                className="w-8 h-8 dark:hidden"
-              />
-              <img 
-                src="/config-hub-logo-dark.svg" 
-                alt="Config Hub Logo" 
-                className="w-8 h-8 hidden dark:block"
-              />
+              {lightLogo && (
+                <img 
+                  src={lightLogo} 
+                  alt="Config Hub Logo" 
+                  className="w-8 h-8 dark:hidden"
+                />
+              )}
+              {darkLogo && (
+                <img 
+                  src={darkLogo} 
+                  alt="Config Hub Logo" 
+                  className="w-8 h-8 hidden dark:block"
+                />
+              )}
             </div>
             <div>
               <h2 className="text-lg font-semibold leading-tight">Config Hub</h2>
@@ -76,16 +87,20 @@ export function AppSidebar({ className, currentPage = 'dashboard', onNavigate }:
             title="Expand sidebar"
           >
             <div className="w-8 h-8">
-              <img 
-                src="/config-hub-monogram-light.svg" 
-                alt="Config Hub - Click to expand" 
-                className="w-8 h-8 dark:hidden"
-              />
-              <img 
-                src="/config-hub-monogram-dark.svg" 
-                alt="Config Hub - Click to expand" 
-                className="w-8 h-8 hidden dark:block"
-              />
+              {lightMonogram && (
+                <img 
+                  src={lightMonogram} 
+                  alt="Config Hub - Click to expand" 
+                  className="w-8 h-8 dark:hidden"
+                />
+              )}
+              {darkMonogram && (
+                <img 
+                  src={darkMonogram} 
+                  alt="Config Hub - Click to expand" 
+                  className="w-8 h-8 hidden dark:block"
+                />
+              )}
             </div>
           </Button>
         )}

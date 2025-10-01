@@ -63,6 +63,9 @@ interface Window {
     getSidebarState: () => Promise<boolean>
     setSidebarState: (isCollapsed: boolean) => Promise<boolean>
     
+    // Asset management
+    getAssetPath: (assetPath: string) => Promise<string>
+    
     // ArgoCD API (secure IPC-based)
     argocd: {
       storeCredentials: (environment: string, config: ArgoCDConfig) => Promise<ArgoCDResponse>

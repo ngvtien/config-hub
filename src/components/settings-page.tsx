@@ -10,6 +10,7 @@ import { ResponsiveIndicator } from '@/components/responsive-indicator'
 import { useEnvironment } from '@/contexts/environment-context'
 import { useEnvironmentSettings } from '@/hooks/use-environment-settings'
 import { useVaultCredentials } from '@/hooks/use-vault-credentials'
+import { useAssetPath } from '@/hooks/use-asset-path'
 import {
   Settings,
   GitBranch,
@@ -29,7 +30,7 @@ interface SettingsSection {
   id: string
   label: string
   icon: any
-  serviceIcon?: string
+  serviceIcon?: string | null
 }
 
 export function SettingsPage({ onBack }: SettingsPageProps) {
@@ -40,12 +41,18 @@ export function SettingsPage({ onBack }: SettingsPageProps) {
   // Automatically store Vault credentials when settings change
   useVaultCredentials()
 
+  // Get asset paths for service logos
+  const gitLogo = useAssetPath('logos/git-logo.svg')
+  const argoCDLogo = useAssetPath('logos/argocd-logo.svg')
+  const helmLogo = useAssetPath('logos/helm-logo.svg')
+  const vaultLogo = useAssetPath('logos/vault-logo.svg')
+
   const sections: SettingsSection[] = [
     { id: 'general', label: 'General', icon: Settings },
-    { id: 'git', label: 'Git Repositories', icon: GitBranch, serviceIcon: '/logos/git-logo.svg' },
-    { id: 'argocd', label: 'ArgoCD', icon: Container, serviceIcon: '/logos/argocd-logo.svg' },
-    { id: 'helm', label: 'Helm OCI', icon: Package, serviceIcon: '/logos/helm-logo.svg' },
-    { id: 'vault', label: 'HashiCorp Vault', icon: Shield, serviceIcon: '/logos/vault-logo.svg' }
+    { id: 'git', label: 'Git Repositories', icon: GitBranch, serviceIcon: gitLogo },
+    { id: 'argocd', label: 'ArgoCD', icon: Container, serviceIcon: argoCDLogo },
+    { id: 'helm', label: 'Helm OCI', icon: Package, serviceIcon: helmLogo },
+    { id: 'vault', label: 'HashiCorp Vault', icon: Shield, serviceIcon: vaultLogo }
   ]
 
   const renderGeneralSettings = () => (
@@ -635,7 +642,7 @@ export function SettingsPage({ onBack }: SettingsPageProps) {
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-3">
-                <img src="/logos/git-logo.svg" alt="Git" className="w-5 h-5 service-logo service-logo-md git" />
+{gitLogo && <img src={gitLogo} alt="Git" className="w-5 h-5 service-logo service-logo-md git" />}
                 Git Repositories
               </CardTitle>
               <CardDescription>
@@ -652,7 +659,7 @@ export function SettingsPage({ onBack }: SettingsPageProps) {
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-3">
-                <img src="/logos/argocd-logo.svg" alt="ArgoCD" className="w-5 h-5 service-logo service-logo-md argocd" />
+{argoCDLogo && <img src={argoCDLogo} alt="ArgoCD" className="w-5 h-5 service-logo service-logo-md argocd" />}
                 ArgoCD
               </CardTitle>
               <CardDescription>
@@ -669,7 +676,7 @@ export function SettingsPage({ onBack }: SettingsPageProps) {
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-3">
-                <img src="/logos/helm-logo.svg" alt="Helm" className="w-5 h-5 service-logo service-logo-md helm" />
+{helmLogo && <img src={helmLogo} alt="Helm" className="w-5 h-5 service-logo service-logo-md helm" />}
                 Helm OCI
               </CardTitle>
               <CardDescription>
@@ -686,7 +693,7 @@ export function SettingsPage({ onBack }: SettingsPageProps) {
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-3">
-                <img src="/logos/vault-logo.svg" alt="HashiCorp Vault" className="w-5 h-5 service-logo service-logo-md vault" />
+{vaultLogo && <img src={vaultLogo} alt="HashiCorp Vault" className="w-5 h-5 service-logo service-logo-md vault" />}
                 HashiCorp Vault
               </CardTitle>
               <CardDescription>

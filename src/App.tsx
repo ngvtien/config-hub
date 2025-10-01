@@ -1,13 +1,17 @@
-import { useState } from 'react'
+import { useState, lazy, Suspense } from 'react'
 import { AppLayout } from '@/components/app-layout'
-import { TypographyShowcase } from '@/components/typography-showcase'
-import { ZoomDemo } from '@/components/zoom-demo'
-import { SettingsPage } from '@/components/settings-page'
-import { UsersPage } from '@/components/users-page'
-import { DocumentsPage } from '@/components/documents-page'
-import { AnalyticsPage } from '@/components/analytics-page'
-import { ArgoCDPage } from '@/components/argocd-page'
+import { LoadingManager } from '@/components/loading-manager'
 import { useZoomShortcuts } from '@/hooks/use-zoom-shortcuts'
+import { useAssetPath } from '@/hooks/use-asset-path'
+
+// Lazy load heavy components to improve initial load time
+const TypographyShowcase = lazy(() => import('@/components/typography-showcase').then(m => ({ default: m.TypographyShowcase })))
+const ZoomDemo = lazy(() => import('@/components/zoom-demo').then(m => ({ default: m.ZoomDemo })))
+const SettingsPage = lazy(() => import('@/components/settings-page').then(m => ({ default: m.SettingsPage })))
+const UsersPage = lazy(() => import('@/components/users-page').then(m => ({ default: m.UsersPage })))
+const DocumentsPage = lazy(() => import('@/components/documents-page').then(m => ({ default: m.DocumentsPage })))
+const AnalyticsPage = lazy(() => import('@/components/analytics-page').then(m => ({ default: m.AnalyticsPage })))
+const ArgoCDPage = lazy(() => import('@/components/argocd-page').then(m => ({ default: m.ArgoCDPage })))
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -20,37 +24,55 @@ function App() {
   
   // Enable zoom keyboard shortcuts
   useZoomShortcuts()
+  
+  // Get asset paths for logos
+  const lightLogo = useAssetPath('config-hub-logo-light.svg')
+  const darkLogo = useAssetPath('config-hub-logo-dark.svg')
 
   const renderContent = () => {
+    const LazyWrapper = ({ children }: { children: React.ReactNode }) => (
+      <Suspense fallback={
+        <div className="flex items-center justify-center h-64">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+        </div>
+      }>
+        {children}
+      </Suspense>
+    )
+
     switch (currentPage) {
       case 'typography':
-        return <TypographyShowcase />
+        return <LazyWrapper><TypographyShowcase /></LazyWrapper>
       case 'argocd':
-        return <ArgoCDPage />
+        return <LazyWrapper><ArgoCDPage /></LazyWrapper>
       case 'settings':
-        return <SettingsPage onBack={() => setCurrentPage('dashboard')} />
+        return <LazyWrapper><SettingsPage onBack={() => setCurrentPage('dashboard')} /></LazyWrapper>
       case 'users':
-        return <UsersPage onBack={() => setCurrentPage('dashboard')} />
+        return <LazyWrapper><UsersPage onBack={() => setCurrentPage('dashboard')} /></LazyWrapper>
       case 'documents':
-        return <DocumentsPage onBack={() => setCurrentPage('dashboard')} />
+        return <LazyWrapper><DocumentsPage onBack={() => setCurrentPage('dashboard')} /></LazyWrapper>
       case 'analytics':
-        return <AnalyticsPage onBack={() => setCurrentPage('dashboard')} />
+        return <LazyWrapper><AnalyticsPage onBack={() => setCurrentPage('dashboard')} /></LazyWrapper>
       default:
         return (
           <div className="max-w-4xl mx-auto space-y-6">
             <div className="text-center">
               <div className="flex justify-center mb-6">
                 <div className="w-16 h-16">
-                  <img 
-                    src="/config-hub-logo-light.svg" 
-                    alt="Config Hub Logo" 
-                    className="w-16 h-16 dark:hidden"
-                  />
-                  <img 
-                    src="/config-hub-logo-dark.svg" 
-                    alt="Config Hub Logo" 
-                    className="w-16 h-16 hidden dark:block"
-                  />
+                  {lightLogo && (
+                    <img 
+                      src={lightLogo} 
+                      alt="Config Hub Logo" 
+                      className="w-16 h-16 dark:hidden"
+                    />
+                  )}
+                  {darkLogo && (
+                    <img 
+                      src={darkLogo} 
+                      alt="Config Hub Logo" 
+                      className="w-16 h-16 hidden dark:block"
+                    />
+                  )}
                 </div>
               </div>
               <h1 className="text-display mb-4">
@@ -169,7 +191,7 @@ const config: TypographyConfig = {
               </CardContent>
             </Card>
 
-            <ZoomDemo />
+            <LazyWrapper><ZoomDemo /></LazyWrapper>
           </div>
         )
     }
@@ -195,19 +217,22 @@ const config: TypographyConfig = {
   }
 
   return (
-    <AppLayout title={getPageTitle()} currentPage={currentPage} onNavigate={setCurrentPage}>
-      {currentPage === 'typography' && (
-        <div className="mb-4">
-          <Button 
-            variant="outline" 
-            onClick={() => setCurrentPage('dashboard')}
-          >
-            ← Back to Dashboard
-          </Button>
-        </div>
-      )}
-      {renderContent()}
-    </AppLayout>
+    <>
+      <LoadingManager />
+      <AppLayout title={getPageTitle()} currentPage={currentPage} onNavigate={setCurrentPage}>
+        {currentPage === 'typography' && (
+          <div className="mb-4">
+            <Button 
+              variant="outline" 
+              onClick={() => setCurrentPage('dashboard')}
+            >
+              ← Back to Dashboard
+            </Button>
+          </div>
+        )}
+        {renderContent()}
+      </AppLayout>
+    </>
   )
 }
 

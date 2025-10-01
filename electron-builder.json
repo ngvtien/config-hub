@@ -1,12 +1,22 @@
 {
-  "appId": "com.example.electron-react-app",
-  "productName": "Electron React App",
+  "appId": "com.example.config-hub",
+  "productName": "Config Hub",
   "directories": {
     "output": "release/${version}"
   },
   "files": [
     "dist",
-    "dist-electron"
+    "dist-electron",
+    "loading.html"
+  ],
+  "extraResources": [
+    {
+      "from": "public",
+      "to": "public",
+      "filter": [
+        "**/*"
+      ]
+    }
   ],
   "win": {
     "target": [

@@ -4,6 +4,7 @@ import { AppHeader } from './app-header'
 import { Button } from '@/components/ui/button'
 import { Menu, X } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { useAssetPath } from '@/hooks/use-asset-path'
 
 interface AppLayoutProps {
   children: React.ReactNode
@@ -14,6 +15,10 @@ interface AppLayoutProps {
 
 export function AppLayout({ children, title, currentPage, onNavigate }: AppLayoutProps) {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
+  
+  // Get asset paths for logos
+  const lightLogo = useAssetPath('config-hub-logo-light.svg')
+  const darkLogo = useAssetPath('config-hub-logo-dark.svg')
 
   return (
     <div className="flex h-screen bg-background">
@@ -50,16 +55,20 @@ export function AppLayout({ children, title, currentPage, onNavigate }: AppLayou
               <div className="flex items-center gap-3">
                 {/* Config Hub Logo - Theme Aware */}
                 <div className="w-8 h-8">
-                  <img
-                    src="/config-hub-logo-light.svg"
-                    alt="Config Hub Logo"
-                    className="w-8 h-8 dark:hidden"
-                  />
-                  <img
-                    src="/config-hub-logo-dark.svg"
-                    alt="Config Hub Logo"
-                    className="w-8 h-8 hidden dark:block"
-                  />
+                  {lightLogo && (
+                    <img
+                      src={lightLogo}
+                      alt="Config Hub Logo"
+                      className="w-8 h-8 dark:hidden"
+                    />
+                  )}
+                  {darkLogo && (
+                    <img
+                      src={darkLogo}
+                      alt="Config Hub Logo"
+                      className="w-8 h-8 hidden dark:block"
+                    />
+                  )}
                 </div>
                 <div>
                   <h2 className="text-lg font-semibold leading-tight">Config Hub</h2>

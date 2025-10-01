@@ -21,6 +21,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
   getSidebarState: () => ipcRenderer.invoke('get-sidebar-state'),
   setSidebarState: (isCollapsed: boolean) => ipcRenderer.invoke('set-sidebar-state', isCollapsed),
   
+  // Asset management
+  getAssetPath: (assetPath: string) => ipcRenderer.invoke('get-asset-path', assetPath),
+  
   // ArgoCD API (secure IPC-based)
   argocd: {
     storeCredentials: (config: any) => 
@@ -173,29 +176,30 @@ const safeDOM = {
 // https://projects.lukehaas.me/css-loaders
 // https://matejkustec.github.io/SpinThatShit
 function useLoading() {
-  const className = `loaders-css__square-spin`
   const styleContent = `
-@keyframes square-spin {
-  25% { 
-    transform: perspective(100px) rotateX(180deg) rotateY(0); 
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap');
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+@keyframes slideUp {
+  from { 
+    opacity: 0; 
+    transform: translateY(20px); 
   }
-  50% { 
-    transform: perspective(100px) rotateX(180deg) rotateY(180deg); 
-  }
-  75% { 
-    transform: perspective(100px) rotateX(0) rotateY(180deg); 
-  }
-  100% { 
-    transform: perspective(100px) rotateX(0) rotateY(0); 
+  to { 
+    opacity: 1; 
+    transform: translateY(0); 
   }
 }
-.${className} > div {
-  animation-fill-mode: both;
-  width: 50px;
-  height: 50px;
-  background: #fff;
-  animation: square-spin 3s 0s cubic-bezier(0.09, 0.57, 0.49, 0.9) infinite;
-}
+
 .app-loading-wrap {
   position: fixed;
   top: 0;
@@ -203,26 +207,192 @@ function useLoading() {
   width: 100vw;
   height: 100vh;
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
-  background: #282c34;
-  z-index: 9;
+  background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+  color: #f8fafc;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  z-index: 9999;
+}
+
+.loading-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2rem;
+  animation: slideUp 0.6s ease-out;
+}
+
+.loading-logo {
+  width: 80px;
+  height: 80px;
+  background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
+  border-radius: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+  position: relative;
+  overflow: hidden;
+}
+
+.loading-logo::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+  animation: shimmer 2s infinite;
+}
+
+@keyframes shimmer {
+  0% { left: -100%; }
+  100% { left: 100%; }
+}
+
+.loading-logo-text {
+  font-size: 24px;
+  font-weight: 600;
+  color: white;
+  text-shadow: 0 2px 4px rgba(0,0,0,0.3);
+}
+
+.loading-spinner {
+  width: 32px;
+  height: 32px;
+  border: 3px solid rgba(59, 130, 246, 0.3);
+  border-top: 3px solid #3b82f6;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+.loading-text {
+  text-align: center;
+  max-width: 400px;
+}
+
+.loading-title {
+  font-size: 24px;
+  font-weight: 600;
+  margin-bottom: 0.5rem;
+  color: #f8fafc;
+}
+
+.loading-subtitle {
+  font-size: 16px;
+  color: #94a3b8;
+  margin-bottom: 1rem;
+}
+
+.loading-status {
+  font-size: 14px;
+  color: #64748b;
+  animation: pulse 2s infinite;
+}
+
+.loading-progress {
+  width: 300px;
+  height: 4px;
+  background: rgba(59, 130, 246, 0.2);
+  border-radius: 2px;
+  overflow: hidden;
+  margin-top: 1rem;
+}
+
+.loading-progress-bar {
+  height: 100%;
+  background: linear-gradient(90deg, #3b82f6, #1d4ed8);
+  border-radius: 2px;
+  width: 0%;
+  animation: progressLoad 3s ease-in-out infinite;
+}
+
+@keyframes progressLoad {
+  0% { width: 0%; }
+  50% { width: 70%; }
+  100% { width: 100%; }
+}
+
+.loading-tips {
+  position: absolute;
+  bottom: 2rem;
+  text-align: center;
+  color: #64748b;
+  font-size: 12px;
+  max-width: 400px;
+  padding: 0 2rem;
 }
     `
+  
   const oStyle = document.createElement('style')
   const oDiv = document.createElement('div')
 
   oStyle.id = 'app-loading-style'
   oStyle.innerHTML = styleContent
   oDiv.className = 'app-loading-wrap'
-  oDiv.innerHTML = `<div class="${className}"><div></div></div>`
+  oDiv.innerHTML = `
+    <div class="loading-content">
+      <div class="loading-logo">
+        <div class="loading-logo-text">CH</div>
+      </div>
+      
+      <div class="loading-text">
+        <div class="loading-title">Config Hub</div>
+        <div class="loading-subtitle">Secure credential management platform</div>
+        <div class="loading-status" id="loading-status">Initializing application...</div>
+        
+        <div class="loading-progress">
+          <div class="loading-progress-bar"></div>
+        </div>
+      </div>
+      
+      <div class="loading-spinner"></div>
+    </div>
+    
+    <div class="loading-tips">
+      <p>💡 Tip: Use Ctrl+Plus/Minus to zoom in and out of the interface</p>
+    </div>
+  `
+
+  let statusElement: HTMLElement | null = null
+  let currentStep = 0
+  const steps = [
+    'Initializing application...',
+    'Loading security modules...',
+    'Setting up credential stores...',
+    'Preparing user interface...',
+    'Almost ready...'
+  ]
+
+  const updateStatus = () => {
+    if (!statusElement) {
+      statusElement = document.getElementById('loading-status')
+    }
+    if (statusElement && currentStep < steps.length) {
+      statusElement.textContent = steps[currentStep]
+      currentStep++
+    }
+  }
+
+  // Update status every 800ms
+  let statusInterval: NodeJS.Timeout | null = null
 
   return {
     appendLoading() {
       safeDOM.append(document.head, oStyle)
       safeDOM.append(document.body, oDiv)
+      
+      // Start status updates
+      statusInterval = setInterval(updateStatus, 800)
     },
     removeLoading() {
+      if (statusInterval) {
+        clearInterval(statusInterval)
+        statusInterval = null
+      }
       safeDOM.remove(document.head, oStyle)
       safeDOM.remove(document.body, oDiv)
     },
@@ -231,9 +401,16 @@ function useLoading() {
 
 // ----------------------------------------------------------------------
 
-const { appendLoading, removeLoading } = useLoading()
-domReady().then(appendLoading)
+// Simple loading management - no longer needed since we use loading.html
+// const { appendLoading, removeLoading } = useLoading()
 
+// Keep the loading functions for potential future use
 window.onmessage = (ev) => {
-  ev.data.payload === 'removeLoading' && removeLoading()
+  if (ev.data.payload === 'removeLoading') {
+    // Remove any existing loading screens
+    const loadingElement = document.querySelector('.app-loading-wrap')
+    if (loadingElement) {
+      loadingElement.remove()
+    }
+  }
 }
