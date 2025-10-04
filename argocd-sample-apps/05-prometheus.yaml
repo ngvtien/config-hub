@@ -1,0 +1,43 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: prometheus
+  namespace: argocd
+  labels:
+    app.kubernetes.io/name: prometheus
+    product: monitoring
+    customer: demo
+    version: "2.45.0"
+spec:
+  project: default
+  source:
+    repoURL: https://prometheus-community.github.io/helm-charts
+    chart: prometheus
+    targetRevision: 25.3.1
+    helm:
+      parameters:
+        - name: server.replicaCount
+          value: "1"
+        - name: server.resources.requests.cpu
+          value: "100m"
+        - name: server.resources.requests.memory
+          value: "256Mi"
+        - name: server.persistentVolume.enabled
+          value: "false"
+        - name: alertmanager.enabled
+          value: "false"
+        - name: pushgateway.enabled
+          value: "false"
+        - name: nodeExporter.enabled
+          value: "false"
+        - name: kubeStateMetrics.enabled
+          value: "false"
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: demo-apps
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true

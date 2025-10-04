@@ -1,0 +1,35 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: nginx-ingress
+  namespace: argocd
+  labels:
+    app.kubernetes.io/name: nginx-ingress
+    product: infrastructure
+    customer: demo
+    version: "1.0.0"
+spec:
+  project: default
+  source:
+    repoURL: https://kubernetes.github.io/ingress-nginx
+    chart: ingress-nginx
+    targetRevision: 4.8.3
+    helm:
+      parameters:
+        - name: controller.replicaCount
+          value: "1"
+        - name: controller.resources.requests.cpu
+          value: "100m"
+        - name: controller.resources.requests.memory
+          value: "128Mi"
+        - name: controller.service.type
+          value: "ClusterIP"
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: demo-apps
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
