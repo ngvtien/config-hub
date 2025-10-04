@@ -254,35 +254,33 @@ app.on('ready', () => {
   createWindow()
 })
 
-// Setup handlers much later to avoid blocking startup
-app.on('browser-window-created', () => {
-  setTimeout(async () => {
-    try {
-      console.log('Loading handlers...')
-      const [
-        { setupArgoCDHandlers },
-        { setupVaultHandlers },
-        { setupUserHandlers },
-        { setupSimpleGitHandlers },
-        { setupSimpleHelmHandlers }
-      ] = await Promise.all([
-        import('./argocd-handler'),
-        import('./vault-handler'),
-        import('./user-handler'),
-        import('./simple-git-handler'),
-        import('./simple-helm-handler')
-      ])
-      
-      setupArgoCDHandlers()
-      setupVaultHandlers()
-      setupUserHandlers()
-      setupSimpleGitHandlers()
-      setupSimpleHelmHandlers()
-      console.log('Handlers loaded')
-    } catch (error) {
-      console.error('Failed to setup handlers:', error)
-    }
-  }, 2000) // Wait 2 seconds after window is created
+// Setup handlers immediately after window is created
+app.on('browser-window-created', async () => {
+  try {
+    console.log('Loading handlers...')
+    const [
+      { setupArgoCDHandlers },
+      { setupVaultHandlers },
+      { setupUserHandlers },
+      { setupSimpleGitHandlers },
+      { setupSimpleHelmHandlers }
+    ] = await Promise.all([
+      import('./argocd-handler'),
+      import('./vault-handler'),
+      import('./user-handler'),
+      import('./simple-git-handler'),
+      import('./simple-helm-handler')
+    ])
+    
+    setupArgoCDHandlers()
+    setupVaultHandlers()
+    setupUserHandlers()
+    setupSimpleGitHandlers()
+    setupSimpleHelmHandlers()
+    console.log('Handlers loaded')
+  } catch (error) {
+    console.error('Failed to setup handlers:', error)
+  }
 })
 
 app.on('window-all-closed', () => {

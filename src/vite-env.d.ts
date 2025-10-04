@@ -49,6 +49,47 @@ interface SystemUser {
   groups?: string[]
 }
 
+interface GitConfig {
+  name: string
+  repoUrl: string
+  authType: 'token' | 'ssh' | 'userpass'
+  username?: string
+  token?: string
+  privateKey?: string
+  publicKey?: string
+  passphrase?: string
+  password?: string
+  environment?: string
+  tags?: string[]
+}
+
+interface GitResponse<T = any> {
+  success: boolean
+  data?: T
+  error?: string
+  credentialId?: string
+}
+
+interface HelmConfig {
+  name: string
+  registryUrl: string
+  authType: 'userpass' | 'token' | 'certificate'
+  username?: string
+  password?: string
+  token?: string
+  certificate?: string
+  certificateKey?: string
+  environment?: string
+  tags?: string[]
+}
+
+interface HelmResponse<T = any> {
+  success: boolean
+  data?: T
+  error?: string
+  credentialId?: string
+}
+
 interface Window {
   electronAPI: {
     // Theme management
@@ -106,6 +147,30 @@ interface Window {
       deleteSecret: (environment: string, secretPath: string) => Promise<VaultResponse>
       getHealth: (environment: string) => Promise<VaultResponse<any>>
       clearCache: () => Promise<VaultResponse>
+    }
+    
+    // Git API (secure IPC-based)
+    git: {
+      storeCredential: (config: GitConfig) => Promise<GitResponse>
+      testCredential: (credentialId: string) => Promise<GitResponse<{ success: boolean }>>
+      listCredentials: (environment?: string) => Promise<GitResponse<any[]>>
+      getCredential: (credentialId: string) => Promise<GitResponse<any>>
+      deleteCredential: (credentialId: string) => Promise<GitResponse>
+      generateSSHKey: (keyName: string, passphrase?: string) => Promise<GitResponse<{ privateKey: string; publicKey: string }>>
+      cloneRepository: (credentialId: string, localPath: string, branch?: string) => Promise<GitResponse>
+      findCredentialsByRepo: (repoUrl: string) => Promise<GitResponse<any[]>>
+    }
+    
+    // Helm API (secure IPC-based)
+    helm: {
+      storeCredential: (config: HelmConfig) => Promise<HelmResponse>
+      testCredential: (credentialId: string) => Promise<HelmResponse<{ success: boolean }>>
+      listCredentials: (environment?: string) => Promise<HelmResponse<any[]>>
+      getCredential: (credentialId: string) => Promise<HelmResponse<any>>
+      deleteCredential: (credentialId: string) => Promise<HelmResponse>
+      addRepository: (credentialId: string, repoName: string) => Promise<HelmResponse>
+      listCharts: (credentialId: string, repoName?: string) => Promise<HelmResponse<any[]>>
+      findCredentialsByRegistry: (registryUrl: string) => Promise<HelmResponse<any[]>>
     }
     
     // User Management API

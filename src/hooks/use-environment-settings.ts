@@ -11,6 +11,7 @@ export interface EnvironmentSettings {
   git: {
     defaultBranch: string
     autoFetch: boolean
+    credentialId?: string
     repositories: Array<{
       name: string
       url: string

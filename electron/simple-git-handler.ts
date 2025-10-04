@@ -63,24 +63,67 @@ class SimpleGitCredentialManager {
   async generateSSHKeyPair(keyName: string, passphrase?: string): Promise<{ privateKey: string; publicKey: string }> {
     try {
       const keyPath = path.join(this.sshDir, `git_${keyName}`)
-      
-      // Generate SSH key using ssh-keygen
-      let command = `ssh-keygen -t rsa -b 4096 -f "${keyPath}" -C "${keyName}@electron-app"`
-      if (passphrase) {
-        command += ` -N "${passphrase}"`
-      } else {
-        command += ' -N ""'
+
+      // Check if key already exists
+      if (fs.existsSync(keyPath)) {
+        throw new Error(`SSH key '${keyName}' already exists. Please use a different name or delete the existing key.`)
       }
 
-      await execAsync(command)
+      // Generate SSH key using ssh-keygen
+      const isWindows = process.platform === 'win32'
+      
+      // Build command with proper escaping
+      const comment = `${keyName}@electron-app`
+      let command: string
+      
+      if (passphrase) {
+        // With passphrase
+        command = `ssh-keygen -t rsa -b 4096 -f "${keyPath}" -C "${comment}" -N "${passphrase}"`
+      } else {
+        // Without passphrase - use empty string
+        // On Windows, we need to be careful with the empty string syntax
+        if (isWindows) {
+          // Windows CMD syntax - empty string needs to be properly quoted
+          command = `ssh-keygen -t rsa -b 4096 -f "${keyPath}" -C "${comment}" -N ""`
+        } else {
+          // Unix/Mac syntax
+          command = `ssh-keygen -t rsa -b 4096 -f "${keyPath}" -C "${comment}" -N ""`
+        }
+      }
+
+      console.log('Generating SSH key with command:', command)
+      console.log('Platform:', process.platform)
+      console.log('Key path:', keyPath)
+
+      // Execute with timeout to prevent hanging
+      // Use CMD on Windows to avoid PowerShell profile issues
+      await execAsync(command, {
+        timeout: 30000, // 30 second timeout
+        windowsHide: true,
+        shell: isWindows ? 'cmd.exe' : undefined,
+        env: process.env
+      })
+
+      // Verify files were created
+      if (!fs.existsSync(keyPath)) {
+        throw new Error('Private key file was not created')
+      }
+      if (!fs.existsSync(`${keyPath}.pub`)) {
+        throw new Error('Public key file was not created')
+      }
 
       // Read the generated keys
       const privateKey = fs.readFileSync(keyPath, 'utf8')
       const publicKey = fs.readFileSync(`${keyPath}.pub`, 'utf8')
 
+      console.log('SSH key pair generated successfully')
+
       return { privateKey, publicKey }
     } catch (error) {
       console.error('Failed to generate SSH key pair:', error)
+      if (error instanceof Error) {
+        throw new Error(`Failed to generate SSH key: ${error.message}`)
+      }
       throw new Error('Failed to generate SSH key pair')
     }
   }
@@ -89,7 +132,7 @@ class SimpleGitCredentialManager {
   async storeGitCredential(config: GitConfig): Promise<string> {
     try {
       const credentialId = config.id || simpleCredentialManager.generateCredentialId('git', config.repoUrl)
-      
+
       const credential: GitCredential = {
         id: credentialId,
         name: config.name,
@@ -112,7 +155,7 @@ class SimpleGitCredentialManager {
 
       // If SSH key, also store in SSH directory for Git to use
       if (config.authType === 'ssh' && config.privateKey) {
-        await this.setupSSHKey(credentialId, config.privateKey, config.publicKey)
+        await this.setupSSHKey(credentialId, config.privateKey, config.publicKey, config.repoUrl)
       }
 
       return credentialId
@@ -123,7 +166,7 @@ class SimpleGitCredentialManager {
   }
 
   // Setup SSH key for Git usage
-  private async setupSSHKey(credentialId: string, privateKey: string, publicKey?: string): Promise<void> {
+  private async setupSSHKey(credentialId: string, privateKey: string, publicKey?: string, repoUrl?: string): Promise<void> {
     try {
       const keyFileName = `git_${credentialId}`
       const privateKeyPath = path.join(this.sshDir, keyFileName)
@@ -138,7 +181,7 @@ class SimpleGitCredentialManager {
       }
 
       // Update SSH config
-      await this.updateSSHConfig(credentialId, keyFileName)
+      await this.updateSSHConfig(credentialId, keyFileName, repoUrl)
     } catch (error) {
       console.error('Failed to setup SSH key:', error)
       throw error
@@ -146,15 +189,37 @@ class SimpleGitCredentialManager {
   }
 
   // Update SSH config for Git repositories
-  private async updateSSHConfig(credentialId: string, keyFileName: string): Promise<void> {
+  private async updateSSHConfig(credentialId: string, keyFileName: string, repoUrl?: string): Promise<void> {
     try {
       const sshConfigPath = path.join(this.sshDir, 'config')
       const hostAlias = `git-${credentialId}`
+
+      // Extract hostname from repository URL
+      let hostname = 'github.com' // default
+      let port = 22 // default SSH port
       
+      if (repoUrl) {
+        try {
+          const url = new URL(repoUrl)
+          hostname = url.hostname
+          // If port is specified in URL, use it
+          if (url.port) {
+            port = parseInt(url.port)
+          }
+          // For Bitbucket Server on localhost with HTTP port, use SSH port 7999
+          if (hostname === 'localhost' && url.port === '7990') {
+            port = 7999 // Bitbucket Server default SSH port
+          }
+        } catch (error) {
+          console.warn('Failed to parse repository URL, using default hostname:', error)
+        }
+      }
+
       const configEntry = `
 # Git credential ${credentialId}
 Host ${hostAlias}
-    HostName github.com
+    HostName ${hostname}
+    ${port !== 22 ? `Port ${port}` : ''}
     User git
     IdentityFile ~/.ssh/${keyFileName}
     IdentitiesOnly yes
@@ -170,7 +235,7 @@ Host ${hostAlias}
 
       // Remove existing entry for this credential
       const lines = existingConfig.split('\n')
-      const filteredLines = []
+      const filteredLines: string[] = []
       let skipSection = false
 
       for (const line of lines) {
@@ -224,6 +289,88 @@ Host ${hostAlias}
         return { success: false, error: 'Token not found' }
       }
 
+      // Detect Git provider type
+      const providerType = this.detectProviderType(credential.repoUrl)
+
+      switch (providerType) {
+        case 'bitbucket-server':
+          return await this.testBitbucketServerTokenAuth(credential)
+        case 'bitbucket-cloud':
+          return await this.testBitbucketCloudTokenAuth(credential)
+        case 'git-repo':
+          return await this.testGitRepoTokenAuth(credential)
+        default:
+          return await this.testGitRepoTokenAuth(credential)
+      }
+    } catch (error) {
+      return { success: false, error: error instanceof Error ? error.message : 'Token test failed' }
+    }
+  }
+
+  private async testBitbucketServerTokenAuth(credential: GitCredential): Promise<{ success: boolean; error?: string }> {
+    try {
+      const https = await import('https')
+      const http = await import('http')
+
+      // Determine protocol
+      const isHttps = credential.repoUrl.startsWith('https://')
+      const httpModule = isHttps ? https : http
+
+      // Parse URL
+      const url = new URL(credential.repoUrl)
+
+      // Test connection to Bitbucket REST API
+      const apiPath = '/rest/api/1.0/application-properties'
+
+      return new Promise((resolve) => {
+        const options = {
+          hostname: url.hostname,
+          port: url.port || (isHttps ? 443 : 80),
+          path: apiPath,
+          method: 'GET',
+          headers: {
+            'Authorization': `Bearer ${credential.token}`,
+            'Accept': 'application/json'
+          },
+          rejectUnauthorized: false // Allow self-signed certificates for local dev
+        }
+
+        const req = httpModule.request(options, (res) => {
+          let data = ''
+
+          res.on('data', (chunk) => {
+            data += chunk
+          })
+
+          res.on('end', () => {
+            if (res.statusCode === 200) {
+              resolve({ success: true })
+            } else if (res.statusCode === 401) {
+              resolve({ success: false, error: 'Authentication failed. Please check your access token.' })
+            } else {
+              resolve({ success: false, error: `Server returned status ${res.statusCode}` })
+            }
+          })
+        })
+
+        req.on('error', (error) => {
+          resolve({ success: false, error: `Connection failed: ${error.message}` })
+        })
+
+        req.setTimeout(10000, () => {
+          req.destroy()
+          resolve({ success: false, error: 'Connection timeout' })
+        })
+
+        req.end()
+      })
+    } catch (error) {
+      return { success: false, error: error instanceof Error ? error.message : 'Bitbucket Server token test failed' }
+    }
+  }
+
+  private async testGitRepoTokenAuth(credential: GitCredential): Promise<{ success: boolean; error?: string }> {
+    try {
       // Test token by attempting a simple git operation
       const tempDir = path.join(os.tmpdir(), `git-test-${Date.now()}`)
       fs.mkdirSync(tempDir, { recursive: true })
@@ -232,10 +379,10 @@ Host ${hostAlias}
         // Test by attempting to list remote refs
         const repoUrlWithToken = credential.repoUrl.replace('https://', `https://${credential.token}@`)
         const { stdout } = await execAsync(`git ls-remote "${repoUrlWithToken}" HEAD`, { cwd: tempDir })
-        
+
         // Clean up
         fs.rmSync(tempDir, { recursive: true, force: true })
-        
+
         return { success: stdout.includes('HEAD') }
       } catch (error) {
         // Clean up on error
@@ -243,24 +390,64 @@ Host ${hostAlias}
         throw error
       }
     } catch (error) {
-      return { success: false, error: error instanceof Error ? error.message : 'Token test failed' }
+      return { success: false, error: error instanceof Error ? error.message : 'Git repository token test failed' }
     }
   }
 
   private async testSSHAuth(credential: GitCredential): Promise<{ success: boolean; error?: string }> {
     try {
       const hostAlias = `git-${credential.id}`
-      
+
       // Test SSH connection
-      const testCommand = `ssh -T ${hostAlias} 2>&1 || true`
-      const { stdout, stderr } = await execAsync(testCommand)
-      const output = stdout + stderr
-      
+      // Note: ssh -T returns non-zero exit code even on success, so we catch the error
+      let output = ''
+      try {
+        const { stdout, stderr } = await execAsync(`ssh -T ${hostAlias}`, {
+          timeout: 10000,
+          windowsHide: true
+        })
+        output = stdout + stderr
+      } catch (error: any) {
+        // SSH -T returns exit code 1 even on successful authentication
+        // So we need to check the output, not the exit code
+        if (error.stdout || error.stderr) {
+          output = (error.stdout || '') + (error.stderr || '')
+        } else {
+          throw error
+        }
+      }
+
       // SSH test is successful if we get authentication success message
-      if (output.includes('successfully authenticated') || output.includes('Hi ')) {
+      // Different Git providers have different success messages
+      const successIndicators = [
+        'successfully authenticated',
+        'You\'ve successfully authenticated',
+        'Hi ',
+        'Welcome to',
+        'logged in as',
+        'authenticated via',
+        'shell request failed' // Bitbucket Server - shell access denied but auth succeeded
+      ]
+
+      const isSuccess = successIndicators.some(indicator => 
+        output.toLowerCase().includes(indicator.toLowerCase())
+      )
+
+      if (isSuccess) {
         return { success: true }
       } else {
-        return { success: false, error: `SSH test failed: ${output}` }
+        // Check for common error messages
+        if (output.includes('Permission denied')) {
+          return { success: false, error: 'Permission denied. Please check your SSH key is added to the Git provider.' }
+        } else if (output.includes('Connection refused')) {
+          return { success: false, error: 'Connection refused. Please check the server URL and network connectivity.' }
+        } else if (output.includes('Host key verification failed')) {
+          return { success: false, error: 'Host key verification failed. Please accept the host key first.' }
+        } else if (output.includes('Could not resolve hostname')) {
+          return { success: false, error: 'Could not resolve hostname. Please check the repository URL.' }
+        } else {
+          return { success: false, error: `SSH test failed. Output: ${output.substring(0, 200)}` }
+        }
       }
     } catch (error) {
       return { success: false, error: error instanceof Error ? error.message : 'SSH test failed' }
@@ -273,6 +460,292 @@ Host ${hostAlias}
         return { success: false, error: 'Username or password not found' }
       }
 
+      // Detect Git provider type
+      const providerType = this.detectProviderType(credential.repoUrl)
+
+      switch (providerType) {
+        case 'bitbucket-server':
+          return await this.testBitbucketServerAuth(credential)
+        case 'bitbucket-cloud':
+          return await this.testBitbucketCloudAuth(credential)
+        case 'git-repo':
+          return await this.testGitRepoAuth(credential)
+        default:
+          return await this.testGitRepoAuth(credential)
+      }
+    } catch (error) {
+      return { success: false, error: error instanceof Error ? error.message : 'Username/password test failed' }
+    }
+  }
+
+  // Detect the type of Git provider from URL
+  private detectProviderType(repoUrl: string): 'bitbucket-server' | 'bitbucket-cloud' | 'git-repo' {
+    // Bitbucket Cloud
+    if (repoUrl.includes('bitbucket.org')) {
+      return 'bitbucket-cloud'
+    }
+
+    // Bitbucket Server (self-hosted)
+    // Indicators: localhost, custom port, or base URL without .git
+    if (repoUrl.includes('localhost') ||
+      repoUrl.match(/:\d+\/$/) ||
+      (!repoUrl.endsWith('.git') && !repoUrl.includes('bitbucket.org'))) {
+      return 'bitbucket-server'
+    }
+
+    // Regular Git repository
+    return 'git-repo'
+  }
+
+  // Bitbucket Cloud authentication (username/password or app password)
+  private async testBitbucketCloudAuth(credential: GitCredential): Promise<{ success: boolean; error?: string }> {
+    try {
+      const https = await import('https')
+
+      // Create base64 encoded credentials
+      const auth = Buffer.from(`${credential.username}:${credential.password}`).toString('base64')
+
+      // Test connection to Bitbucket Cloud REST API 2.0
+      // Get current user to verify authentication
+      const apiPath = '/2.0/user'
+
+      return new Promise((resolve) => {
+        const options = {
+          hostname: 'api.bitbucket.org',
+          port: 443,
+          path: apiPath,
+          method: 'GET',
+          headers: {
+            'Authorization': `Basic ${auth}`,
+            'Accept': 'application/json'
+          }
+        }
+
+        const req = https.request(options, (res) => {
+          let data = ''
+
+          res.on('data', (chunk) => {
+            data += chunk
+          })
+
+          res.on('end', () => {
+            if (res.statusCode === 200) {
+              resolve({ success: true })
+            } else if (res.statusCode === 401) {
+              resolve({ success: false, error: 'Authentication failed. Please check your username and app password.' })
+            } else if (res.statusCode === 403) {
+              resolve({ success: false, error: 'Access forbidden. Please check your permissions.' })
+            } else {
+              resolve({ success: false, error: `Bitbucket Cloud returned status ${res.statusCode}` })
+            }
+          })
+        })
+
+        req.on('error', (error) => {
+          resolve({ success: false, error: `Connection failed: ${error.message}` })
+        })
+
+        req.setTimeout(10000, () => {
+          req.destroy()
+          resolve({ success: false, error: 'Connection timeout' })
+        })
+
+        req.end()
+      })
+    } catch (error) {
+      return { success: false, error: error instanceof Error ? error.message : 'Bitbucket Cloud test failed' }
+    }
+  }
+
+  // Bitbucket Cloud token authentication (OAuth or App Password)
+  private async testBitbucketCloudTokenAuth(credential: GitCredential): Promise<{ success: boolean; error?: string }> {
+    try {
+      const https = await import('https')
+
+      // For Bitbucket Cloud, tokens can be:
+      // 1. App Passwords (used with username in Basic Auth)
+      // 2. OAuth tokens (used as Bearer token)
+
+      // Try Bearer token first (OAuth)
+      const apiPath = '/2.0/user'
+
+      return new Promise((resolve) => {
+        const options = {
+          hostname: 'api.bitbucket.org',
+          port: 443,
+          path: apiPath,
+          method: 'GET',
+          headers: {
+            'Authorization': `Bearer ${credential.token}`,
+            'Accept': 'application/json'
+          }
+        }
+
+        const req = https.request(options, (res) => {
+          let data = ''
+
+          res.on('data', (chunk) => {
+            data += chunk
+          })
+
+          res.on('end', () => {
+            if (res.statusCode === 200) {
+              resolve({ success: true })
+            } else if (res.statusCode === 401) {
+              // If Bearer fails and we have username, try as App Password
+              if (credential.username) {
+                resolve(this.testBitbucketCloudAppPassword(credential))
+              } else {
+                resolve({ success: false, error: 'Authentication failed. Please check your access token.' })
+              }
+            } else if (res.statusCode === 403) {
+              resolve({ success: false, error: 'Access forbidden. Please check your token permissions.' })
+            } else {
+              resolve({ success: false, error: `Bitbucket Cloud returned status ${res.statusCode}` })
+            }
+          })
+        })
+
+        req.on('error', (error) => {
+          resolve({ success: false, error: `Connection failed: ${error.message}` })
+        })
+
+        req.setTimeout(10000, () => {
+          req.destroy()
+          resolve({ success: false, error: 'Connection timeout' })
+        })
+
+        req.end()
+      })
+    } catch (error) {
+      return { success: false, error: error instanceof Error ? error.message : 'Bitbucket Cloud token test failed' }
+    }
+  }
+
+  // Bitbucket Cloud App Password authentication (username + app password as token)
+  private async testBitbucketCloudAppPassword(credential: GitCredential): Promise<{ success: boolean; error?: string }> {
+    try {
+      const https = await import('https')
+
+      // App Password uses Basic Auth with username and app password
+      const auth = Buffer.from(`${credential.username}:${credential.token}`).toString('base64')
+
+      const apiPath = '/2.0/user'
+
+      return new Promise((resolve) => {
+        const options = {
+          hostname: 'api.bitbucket.org',
+          port: 443,
+          path: apiPath,
+          method: 'GET',
+          headers: {
+            'Authorization': `Basic ${auth}`,
+            'Accept': 'application/json'
+          }
+        }
+
+        const req = https.request(options, (res) => {
+          let data = ''
+
+          res.on('data', (chunk) => {
+            data += chunk
+          })
+
+          res.on('end', () => {
+            if (res.statusCode === 200) {
+              resolve({ success: true })
+            } else if (res.statusCode === 401) {
+              resolve({ success: false, error: 'Authentication failed. Please check your username and app password.' })
+            } else {
+              resolve({ success: false, error: `Bitbucket Cloud returned status ${res.statusCode}` })
+            }
+          })
+        })
+
+        req.on('error', (error) => {
+          resolve({ success: false, error: `Connection failed: ${error.message}` })
+        })
+
+        req.setTimeout(10000, () => {
+          req.destroy()
+          resolve({ success: false, error: 'Connection timeout' })
+        })
+
+        req.end()
+      })
+    } catch (error) {
+      return { success: false, error: error instanceof Error ? error.message : 'Bitbucket Cloud app password test failed' }
+    }
+  }
+
+  // Bitbucket Server authentication (self-hosted)
+  private async testBitbucketServerAuth(credential: GitCredential): Promise<{ success: boolean; error?: string }> {
+    try {
+      const https = await import('https')
+      const http = await import('http')
+
+      // Determine protocol
+      const isHttps = credential.repoUrl.startsWith('https://')
+      const httpModule = isHttps ? https : http
+
+      // Create base64 encoded credentials
+      const auth = Buffer.from(`${credential.username}:${credential.password}`).toString('base64')
+
+      // Parse URL
+      const url = new URL(credential.repoUrl)
+
+      // Test connection to Bitbucket REST API
+      const apiPath = '/rest/api/1.0/application-properties'
+
+      return new Promise((resolve) => {
+        const options = {
+          hostname: url.hostname,
+          port: url.port || (isHttps ? 443 : 80),
+          path: apiPath,
+          method: 'GET',
+          headers: {
+            'Authorization': `Basic ${auth}`,
+            'Accept': 'application/json'
+          },
+          rejectUnauthorized: false // Allow self-signed certificates for local dev
+        }
+
+        const req = httpModule.request(options, (res) => {
+          let data = ''
+
+          res.on('data', (chunk) => {
+            data += chunk
+          })
+
+          res.on('end', () => {
+            if (res.statusCode === 200) {
+              resolve({ success: true })
+            } else if (res.statusCode === 401) {
+              resolve({ success: false, error: 'Authentication failed. Please check your username and password.' })
+            } else {
+              resolve({ success: false, error: `Server returned status ${res.statusCode}` })
+            }
+          })
+        })
+
+        req.on('error', (error) => {
+          resolve({ success: false, error: `Connection failed: ${error.message}` })
+        })
+
+        req.setTimeout(10000, () => {
+          req.destroy()
+          resolve({ success: false, error: 'Connection timeout' })
+        })
+
+        req.end()
+      })
+    } catch (error) {
+      return { success: false, error: error instanceof Error ? error.message : 'Bitbucket Server test failed' }
+    }
+  }
+
+  private async testGitRepoAuth(credential: GitCredential): Promise<{ success: boolean; error?: string }> {
+    try {
       // Create a temporary directory for testing
       const tempDir = path.join(os.tmpdir(), `git-test-${Date.now()}`)
       fs.mkdirSync(tempDir, { recursive: true })
@@ -281,10 +754,10 @@ Host ${hostAlias}
         // Test by attempting to list remote refs
         const repoUrlWithAuth = credential.repoUrl.replace('https://', `https://${credential.username}:${credential.password}@`)
         const { stdout } = await execAsync(`git ls-remote "${repoUrlWithAuth}" HEAD`, { cwd: tempDir })
-        
+
         // Clean up
         fs.rmSync(tempDir, { recursive: true, force: true })
-        
+
         return { success: stdout.includes('HEAD') }
       } catch (error) {
         // Clean up on error
@@ -292,7 +765,7 @@ Host ${hostAlias}
         throw error
       }
     } catch (error) {
-      return { success: false, error: error instanceof Error ? error.message : 'Username/password test failed' }
+      return { success: false, error: error instanceof Error ? error.message : 'Git repository test failed' }
     }
   }
 
@@ -362,7 +835,7 @@ Host ${hostAlias}
       if (fs.existsSync(sshConfigPath)) {
         const existingConfig = fs.readFileSync(sshConfigPath, 'utf8')
         const lines = existingConfig.split('\n')
-        const filteredLines = []
+        const filteredLines: string[] = []
         let skipSection = false
 
         for (const line of lines) {
