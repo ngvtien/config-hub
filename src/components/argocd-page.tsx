@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useArgoCD } from '@/hooks/use-argocd'
 import { useArgoCDCredentials } from '@/hooks/use-argocd-credentials'
 import { useEnvironmentSettings } from '@/hooks/use-environment-settings'
-import { ApplicationFilter, ApplicationSearchResult } from '@/types/argocd'
+import { ApplicationFilter } from '@/types/argocd'
 import { ArgoCDApplicationDetail } from '@/components/argocd-application-detail'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -48,11 +48,9 @@ export function ArgoCDPage() {
     error, 
     connected, 
     testConnection, 
-    searchApplications, 
     refresh 
   } = useArgoCD({ autoFetch: true, refreshInterval })
 
-  const [searchResults, setSearchResults] = useState<ApplicationSearchResult[]>([])
   const [filter, setFilter] = useState<ApplicationFilter>({})
   const [selectedApp, setSelectedApp] = useState<string | null>(null)
   const [selectedNamespace, setSelectedNamespace] = useState<string | undefined>(undefined)
@@ -61,18 +59,6 @@ export function ArgoCDPage() {
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false)
   const [syncStatusFilter, setSyncStatusFilter] = useState<string | undefined>(undefined)
   const [versionFilter, setVersionFilter] = useState('')
-
-  // Handle search
-  const handleSearch = async () => {
-    const results = await searchApplications(filter)
-    setSearchResults(results)
-  }
-
-  // Clear search
-  const clearSearch = () => {
-    setFilter({})
-    setSearchResults([])
-  }
 
   // Get status badge variant
   const getStatusBadge = (status: string, type: 'sync' | 'health') => {
@@ -627,7 +613,7 @@ export function ArgoCDPage() {
           <CardContent className="pt-6 text-center">
             <div className="space-y-2">
               <p className="text-muted-foreground">No applications found</p>
-              {searchResults.length === 0 && Object.keys(filter).length > 0 && (
+              {(quickSearch || Object.keys(filter).length > 0 || syncStatusFilter || versionFilter) && (
                 <p className="text-sm text-muted-foreground">
                   Try adjusting your search filters
                 </p>
