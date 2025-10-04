@@ -111,7 +111,7 @@ Made the ArgoCD API polling interval configurable via the Settings page, allowin
 ### Code Files (4)
 1. `src/hooks/use-environment-settings.ts` - Added refreshInterval field
 2. `src/components/settings-page.tsx` - Added UI input field
-3. `src/components/argocd-page.tsx` - Read and use dynamic interval
+3. `src/components/argocd-page.tsx` - Read and use dynamic interval, removed unused functions
 4. `src/components/help/help-dialog.tsx` - Added help documentation
 
 ### Documentation Files (3)
