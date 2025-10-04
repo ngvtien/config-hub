@@ -1,0 +1,58 @@
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: customer-databases
+  namespace: argocd
+  labels:
+    app.kubernetes.io/name: customer-databases
+    type: database
+spec:
+  generators:
+    - git:
+        repoURL: http://172.27.161.37:7990/scm/test/customer-configs.git
+        revision: main
+        files:
+          - path: customers/*/config.yaml
+  template:
+    metadata:
+      name: '{{customer.name}}-{{database.type}}'
+      labels:
+        customer: '{{customer.name}}'
+        database: '{{database.type}}'
+        tier: '{{customer.tier}}'
+    spec:
+      project: default
+      sources:
+        - repoURL: http://172.27.161.37:7990/scm/test/platform-infrastructure.git
+          targetRevision: main
+          path: base-manifests/databases/{{database.type}}
+          helm:
+            parameters:
+              - name: replicaCount
+                value: '{{database.replicas}}'
+              - name: resources.requests.cpu
+                value: '{{database.cpu}}'
+              - name: resources.requests.memory
+                value: '{{database.memory}}'
+              - name: persistence.size
+                value: '{{database.storage}}'
+            valueFiles:
+              - $values/customers/{{customer.name}}/database-values.yaml
+        - repoURL: http://172.27.161.37:7990/scm/test/customer-configs.git
+          targetRevision: main
+          ref: values
+      destination:
+        server: https://kubernetes.default.svc
+        namespace: '{{customer.name}}-data'
+      syncPolicy:
+        automated:
+          prune: true
+          selfHeal: true
+        syncOptions:
+          - CreateNamespace=true
+        retry:
+          limit: 5
+          backoff:
+            duration: 5s
+            factor: 2
+            maxDuration: 3m

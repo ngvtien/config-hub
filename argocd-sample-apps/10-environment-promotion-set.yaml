@@ -1,0 +1,58 @@
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: multi-environment-apps
+  namespace: argocd
+  labels:
+    app.kubernetes.io/name: multi-environment-apps
+    type: promotion
+spec:
+  generators:
+    - matrix:
+        generators:
+          # Customers
+          - git:
+              repoURL: http://172.27.161.37:7990/scm/test/customer-configs.git
+              revision: main
+              directories:
+                - path: customers/*
+          # Environments
+          - list:
+              elements:
+                - env: dev
+                  cluster: https://kubernetes.default.svc
+                  autoSync: "true"
+                - env: staging
+                  cluster: https://kubernetes.default.svc
+                  autoSync: "true"
+                - env: prod
+                  cluster: https://kubernetes.default.svc
+                  autoSync: "false"
+  template:
+    metadata:
+      name: '{{path.basename}}-{{env}}'
+      labels:
+        customer: '{{path.basename}}'
+        environment: '{{env}}'
+    spec:
+      project: default
+      sources:
+        - repoURL: http://172.27.161.37:7990/scm/test/platform-infrastructure.git
+          targetRevision: '{{env}}'
+          path: base-manifests/app
+          helm:
+            valueFiles:
+              - $values/customers/{{path.basename}}/{{env}}-values.yaml
+              - $values/shared/{{env}}-defaults.yaml
+        - repoURL: http://172.27.161.37:7990/scm/test/customer-configs.git
+          targetRevision: main
+          ref: values
+      destination:
+        server: '{{cluster}}'
+        namespace: '{{path.basename}}-{{env}}'
+      syncPolicy:
+        automated:
+          prune: '{{autoSync}}'
+          selfHeal: '{{autoSync}}'
+        syncOptions:
+          - CreateNamespace=true

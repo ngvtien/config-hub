@@ -1,0 +1,99 @@
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: customer-terraform-infrastructure
+  namespace: argocd
+  labels:
+    app.kubernetes.io/name: customer-terraform-infrastructure
+    type: infrastructure
+spec:
+  generators:
+    - git:
+        repoURL: http://172.27.161.37:7990/scm/test/customer-configs.git
+        revision: main
+        directories:
+          # Matches: customers/customer-01/terraform/
+          - path: customers/*/terraform
+  template:
+    metadata:
+      name: '{{path[1]}}-infrastructure'
+      labels:
+        customer: '{{path[1]}}'
+        type: terraform
+    spec:
+      project: default
+      source:
+        repoURL: http://172.27.161.37:7990/scm/test/customer-configs.git
+        targetRevision: main
+        path: customers/{{path[1]}}/terraform
+        # Use Terraform controller or Crossplane
+        plugin:
+          name: terraform
+          env:
+            - name: TF_VAR_customer_name
+              value: '{{path[1]}}'
+      destination:
+        server: https://kubernetes.default.svc
+        namespace: '{{path[1]}}-infrastructure'
+      syncPolicy:
+        automated:
+          prune: false  # Be careful with infrastructure
+          selfHeal: false
+        syncOptions:
+          - CreateNamespace=true
+        retry:
+          limit: 3
+          backoff:
+            duration: 10s
+            factor: 2
+            maxDuration: 5m
+---
+# Alternative: Using Terraform Operator
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: customer-terraform-operator
+  namespace: argocd
+  labels:
+    app.kubernetes.io/name: customer-terraform-operator
+    type: infrastructure-operator
+spec:
+  generators:
+    - git:
+        repoURL: http://172.27.161.37:7990/scm/test/customer-configs.git
+        revision: main
+        files:
+          - path: customers/*/metadata.yaml
+  template:
+    metadata:
+      name: '{{customer}}-tf-workspace'
+      labels:
+        customer: '{{customer}}'
+        type: terraform-workspace
+    spec:
+      project: default
+      source:
+        repoURL: http://172.27.161.37:7990/scm/test/platform-infrastructure.git
+        targetRevision: main
+        path: terraform-operator-manifests
+        helm:
+          parameters:
+            - name: customer
+              value: '{{customer}}'
+            - name: region
+              value: '{{region}}'
+            - name: tier
+              value: '{{tier}}'
+            - name: terraformRepo
+              value: http://172.27.161.37:7990/scm/test/customer-configs.git
+            - name: terraformPath
+              value: customers/{{customer}}/terraform
+      destination:
+        server: https://kubernetes.default.svc
+        namespace: terraform-operator
+      syncPolicy:
+        automated:
+          prune: false
+          selfHeal: true
+        syncOptions:
+          - CreateNamespace=true

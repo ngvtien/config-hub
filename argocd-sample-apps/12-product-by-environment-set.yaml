@@ -1,0 +1,62 @@
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: product-environments
+  namespace: argocd
+  labels:
+    app.kubernetes.io/name: product-environments
+    type: product-promotion
+spec:
+  generators:
+    - matrix:
+        generators:
+          # All product-customer combinations
+          - git:
+              repoURL: http://172.27.161.37:7990/scm/test/customer-configs.git
+              revision: main
+              files:
+                - path: customers/*/*/values.yaml
+          # Environments
+          - list:
+              elements:
+                - env: dev
+                  autoSync: "true"
+                  branch: develop
+                - env: staging
+                  autoSync: "true"
+                  branch: staging
+                - env: prod
+                  autoSync: "false"
+                  branch: main
+  template:
+    metadata:
+      name: '{{path[1]}}-{{path[2]}}-{{env}}'
+      labels:
+        product: '{{path[2]}}'
+        customer: '{{path[1]}}'
+        environment: '{{env}}'
+        tier: '{{tier}}'
+    spec:
+      project: default
+      sources:
+        - repoURL: http://172.27.161.37:7990/scm/test/platform-infrastructure.git
+          targetRevision: '{{branch}}'
+          path: products/{{path[2]}}
+          helm:
+            valueFiles:
+              - $values/products/{{path[2]}}/base-values.yaml
+              - $values/products/{{path[2]}}/environments/{{env}}.yaml
+              - $values/customers/{{path[1]}}/{{path[2]}}/values.yaml
+              - $values/customers/{{path[1]}}/{{path[2]}}/environments/{{env}}.yaml
+        - repoURL: http://172.27.161.37:7990/scm/test/customer-configs.git
+          targetRevision: main
+          ref: values
+      destination:
+        server: https://kubernetes.default.svc
+        namespace: '{{path[1]}}-{{path[2]}}-{{env}}'
+      syncPolicy:
+        automated:
+          prune: '{{autoSync}}'
+          selfHeal: '{{autoSync}}'
+        syncOptions:
+          - CreateNamespace=true

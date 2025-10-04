@@ -1,0 +1,48 @@
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: customer-applications
+  namespace: argocd
+  labels:
+    app.kubernetes.io/name: customer-applications
+    type: multi-tenant
+spec:
+  generators:
+    - git:
+        repoURL: http://172.27.161.37:7990/scm/test/customer-configs.git
+        revision: main
+        directories:
+          - path: customers/*
+  template:
+    metadata:
+      name: '{{path.basename}}-app'
+      labels:
+        customer: '{{path.basename}}'
+        managed-by: applicationset
+    spec:
+      project: default
+      source:
+        # Infrastructure repo contains the base Helm chart/manifests
+        repoURL: http://172.27.161.37:7990/scm/test/platform-infrastructure.git
+        targetRevision: main
+        path: base-manifests/customer-app
+        helm:
+          # Values from customer-specific config repo
+          valueFiles:
+            - $values/customers/{{path.basename}}/app-values.yaml
+      sources:
+        - repoURL: http://172.27.161.37:7990/scm/test/platform-infrastructure.git
+          targetRevision: main
+          path: base-manifests/customer-app
+        - repoURL: http://172.27.161.37:7990/scm/test/customer-configs.git
+          targetRevision: main
+          ref: values
+      destination:
+        server: https://kubernetes.default.svc
+        namespace: '{{path.basename}}'
+      syncPolicy:
+        automated:
+          prune: true
+          selfHeal: true
+        syncOptions:
+          - CreateNamespace=true

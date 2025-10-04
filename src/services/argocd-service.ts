@@ -166,7 +166,7 @@ export class ArgoCDService {
 
         version = labels['app.kubernetes.io/version'] || 
                  labels['version'] ||
-                 app.spec.source.targetRevision
+                 app.spec.source?.targetRevision || app.spec.sources?.[0]?.targetRevision || ''
 
         // Apply filters and calculate match score
         if (filter.productName && productName) {
@@ -310,8 +310,9 @@ export class ArgoCDService {
     try {
       const app = await this.getApplication(name, environment, settings, namespace)
       
-      // Extract Helm parameters
-      const helmParams = app.spec.source.helm?.parameters || []
+      // Extract Helm parameters - handle both single and multi-source
+      const source = app.spec.source || app.spec.sources?.[0]
+      const helmParams = source?.helm?.parameters || []
       const parameters: Record<string, any> = {}
       
       helmParams.forEach(param => {

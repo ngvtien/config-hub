@@ -1,0 +1,37 @@
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: product-customer-deployments
+  namespace: argocd
+  labels:
+    app.kubernetes.io/name: product-customer-deployments
+    type: multi-product
+spec:
+  generators:
+    - git:
+        repoURL: http://172.27.161.37:7990/scm/test/customer-configs.git
+        revision: main
+        files:
+          # Matches: customers/customer-01/product-a/values.yaml
+          - path: customers/*/*/values.yaml
+  template:
+    metadata:
+      name: '{{path[1]}}-{{path[2]}}'
+      labels:
+        product: '{{path[2]}}'
+        customer: '{{path[1]}}'
+    spec:
+      project: default
+      source:
+        repoURL: http://172.27.161.37:7990/scm/test/customer-configs.git
+        targetRevision: main
+        path: customers/{{path[1]}}/{{path[2]}}
+      destination:
+        server: https://kubernetes.default.svc
+        namespace: '{{path[1]}}-{{path[2]}}'
+      syncPolicy:
+        automated:
+          prune: true
+          selfHeal: true
+        syncOptions:
+          - CreateNamespace=true

@@ -1,0 +1,66 @@
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: customer-monitoring
+  namespace: argocd
+  labels:
+    app.kubernetes.io/name: customer-monitoring
+    type: monitoring
+spec:
+  generators:
+    - matrix:
+        generators:
+          # List all customers
+          - git:
+              repoURL: http://172.27.161.37:7990/scm/test/customer-configs.git
+              revision: main
+              directories:
+                - path: customers/*
+          # List all monitoring components
+          - list:
+              elements:
+                - component: prometheus
+                  chart: kube-prometheus-stack
+                  version: "51.0.0"
+                - component: grafana
+                  chart: grafana
+                  version: "7.0.0"
+                - component: loki
+                  chart: loki-stack
+                  version: "2.9.0"
+  template:
+    metadata:
+      name: '{{path.basename}}-{{component}}'
+      labels:
+        customer: '{{path.basename}}'
+        component: '{{component}}'
+        type: monitoring
+    spec:
+      project: default
+      sources:
+        # Helm chart from infrastructure repo
+        - repoURL: http://172.27.161.37:7990/scm/test/platform-infrastructure.git
+          targetRevision: main
+          path: charts/{{component}}
+          helm:
+            valueFiles:
+              - $values/customers/{{path.basename}}/{{component}}-values.yaml
+              - $values/shared/{{component}}-defaults.yaml
+        # Customer-specific values from config repo
+        - repoURL: http://172.27.161.37:7990/scm/test/customer-configs.git
+          targetRevision: main
+          ref: values
+      destination:
+        server: https://kubernetes.default.svc
+        namespace: '{{path.basename}}-monitoring'
+      syncPolicy:
+        automated:
+          prune: true
+          selfHeal: true
+        syncOptions:
+          - CreateNamespace=true
+      ignoreDifferences:
+        - group: apps
+          kind: Deployment
+          jsonPointers:
+            - /spec/replicas

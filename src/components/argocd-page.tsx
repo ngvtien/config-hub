@@ -2,12 +2,12 @@ import { useState } from 'react'
 import { useArgoCD } from '@/hooks/use-argocd'
 import { useArgoCDCredentials } from '@/hooks/use-argocd-credentials'
 import { useEnvironmentSettings } from '@/hooks/use-environment-settings'
-import { ApplicationFilter } from '@/types/argocd'
+import { ApplicationFilter, getTargetRevision, getApplicationSource } from '@/types/argocd'
 import { ArgoCDApplicationDetail } from '@/components/argocd-application-detail'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { 
+import {
   Select,
   SelectContent,
   SelectItem,
@@ -17,12 +17,12 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
-import { 
-  Search, 
-  RefreshCw, 
-  AlertCircle, 
-  CheckCircle, 
-  Clock, 
+import {
+  Search,
+  RefreshCw,
+  AlertCircle,
+  CheckCircle,
+  Clock,
   GitBranch,
   Settings,
   Eye,
@@ -37,18 +37,18 @@ import {
 export function ArgoCDPage() {
   // Automatically store credentials when settings change
   useArgoCDCredentials()
-  
+
   // Get refresh interval from settings (default to 30 seconds)
   const { settings } = useEnvironmentSettings()
   const refreshInterval = (settings.argocd.refreshInterval || 30) * 1000 // Convert to milliseconds
-  
-  const { 
-    applications, 
-    loading, 
-    error, 
-    connected, 
-    testConnection, 
-    refresh 
+
+  const {
+    applications,
+    loading,
+    error,
+    connected,
+    testConnection,
+    refresh
   } = useArgoCD({ autoFetch: true, refreshInterval })
 
   const [filter, setFilter] = useState<ApplicationFilter>({})
@@ -80,17 +80,18 @@ export function ArgoCDPage() {
 
   // Filter applications by all filters (instant filtering)
   const baseApplications = applications.map(app => ({ application: app, matchScore: 1 }))
-  
+
   let displayApplications = baseApplications
 
   // Apply quick search filter
   if (quickSearch) {
     displayApplications = displayApplications.filter(({ application }) => {
       const searchLower = quickSearch.toLowerCase()
+      const source = getApplicationSource(application)
       return (
         application.metadata.name.toLowerCase().includes(searchLower) ||
         application.metadata.namespace?.toLowerCase().includes(searchLower) ||
-        application.spec.source.repoURL.toLowerCase().includes(searchLower) ||
+        source.repoURL.toLowerCase().includes(searchLower) ||
         application.metadata.labels?.product?.toLowerCase().includes(searchLower) ||
         application.metadata.labels?.customer?.toLowerCase().includes(searchLower)
       )
@@ -99,7 +100,7 @@ export function ArgoCDPage() {
 
   // Apply sync status filter (inline)
   if (syncStatusFilter) {
-    displayApplications = displayApplications.filter(({ application }) => 
+    displayApplications = displayApplications.filter(({ application }) =>
       application.status.sync.status === syncStatusFilter
     )
   }
@@ -108,13 +109,13 @@ export function ArgoCDPage() {
   if (versionFilter) {
     displayApplications = displayApplications.filter(({ application }) => {
       const labelVersion = application.metadata.labels?.version || ''
-      const targetRevision = application.spec.source.targetRevision || ''
+      const targetRevision = getTargetRevision(application) || ''
       const versionLower = versionFilter.toLowerCase()
-      
+
       // Debug logging
-      console.log('Version filter:', versionFilter, 'App:', application.metadata.name, 
-                  'Label:', labelVersion, 'Target:', targetRevision)
-      
+      console.log('Version filter:', versionFilter, 'App:', application.metadata.name,
+        'Label:', labelVersion, 'Target:', targetRevision)
+
       return (
         labelVersion.toLowerCase().includes(versionLower) ||
         targetRevision.toLowerCase().includes(versionLower)
@@ -125,16 +126,16 @@ export function ArgoCDPage() {
   // Apply advanced filters (product, customer, version, sync status)
   if (filter.productName) {
     displayApplications = displayApplications.filter(({ application }) => {
-      const product = application.metadata.labels?.product || 
-                     application.metadata.labels?.['app.kubernetes.io/name'] || ''
+      const product = application.metadata.labels?.product ||
+        application.metadata.labels?.['app.kubernetes.io/name'] || ''
       return product.toLowerCase().includes(filter.productName!.toLowerCase())
     })
   }
 
   if (filter.customerName) {
     displayApplications = displayApplications.filter(({ application }) => {
-      const customer = application.metadata.labels?.customer || 
-                      application.metadata.labels?.tenant || ''
+      const customer = application.metadata.labels?.customer ||
+        application.metadata.labels?.tenant || ''
       return customer.toLowerCase().includes(filter.customerName!.toLowerCase())
     })
   }
@@ -142,9 +143,9 @@ export function ArgoCDPage() {
   if (filter.version) {
     displayApplications = displayApplications.filter(({ application }) => {
       const labelVersion = application.metadata.labels?.version || ''
-      const targetRevision = application.spec.source.targetRevision || ''
+      const targetRevision = getTargetRevision(application) || ''
       const versionLower = filter.version!.toLowerCase()
-      
+
       return (
         labelVersion.toLowerCase().includes(versionLower) ||
         targetRevision.toLowerCase().includes(versionLower)
@@ -153,7 +154,7 @@ export function ArgoCDPage() {
   }
 
   if (filter.syncStatus) {
-    displayApplications = displayApplications.filter(({ application }) => 
+    displayApplications = displayApplications.filter(({ application }) =>
       application.status.sync.status === filter.syncStatus
     )
   }
@@ -202,7 +203,7 @@ export function ArgoCDPage() {
               <List className="h-4 w-4" />
             </Button>
           </div>
-          
+
           <Button
             variant="outline"
             size="sm"
@@ -223,7 +224,7 @@ export function ArgoCDPage() {
           </Button>
         </div>
       </div>
-      
+
       {/* Quick Search Bar with Inline Filters */}
       <div className="space-y-3">
         <div className="relative">
@@ -336,104 +337,104 @@ export function ArgoCDPage() {
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="product-name">Product Name</Label>
-              <div className="relative">
-                <Input
-                  id="product-name"
-                  placeholder="Enter product name..."
-                  value={filter.productName || ''}
-                  onChange={(e) => setFilter(prev => ({ ...prev, productName: e.target.value }))}
-                  className="pr-8"
-                />
-                {filter.productName && (
-                  <button
-                    onClick={() => setFilter(prev => ({ ...prev, productName: '' }))}
-                    className="absolute right-2 top-1/2 transform -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                  >
-                    <X className="h-4 w-4" />
-                  </button>
-                )}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="product-name">Product Name</Label>
+                <div className="relative">
+                  <Input
+                    id="product-name"
+                    placeholder="Enter product name..."
+                    value={filter.productName || ''}
+                    onChange={(e) => setFilter(prev => ({ ...prev, productName: e.target.value }))}
+                    className="pr-8"
+                  />
+                  {filter.productName && (
+                    <button
+                      onClick={() => setFilter(prev => ({ ...prev, productName: '' }))}
+                      className="absolute right-2 top-1/2 transform -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                    >
+                      <X className="h-4 w-4" />
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="customer-name">Customer Name</Label>
+                <div className="relative">
+                  <Input
+                    id="customer-name"
+                    placeholder="Enter customer name..."
+                    value={filter.customerName || ''}
+                    onChange={(e) => setFilter(prev => ({ ...prev, customerName: e.target.value }))}
+                    className="pr-8"
+                  />
+                  {filter.customerName && (
+                    <button
+                      onClick={() => setFilter(prev => ({ ...prev, customerName: '' }))}
+                      className="absolute right-2 top-1/2 transform -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                    >
+                      <X className="h-4 w-4" />
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="version">Version/Tag</Label>
+                <div className="relative">
+                  <Input
+                    id="version"
+                    placeholder="Enter version..."
+                    value={filter.version || ''}
+                    onChange={(e) => setFilter(prev => ({ ...prev, version: e.target.value }))}
+                    className="pr-8"
+                  />
+                  {filter.version && (
+                    <button
+                      onClick={() => setFilter(prev => ({ ...prev, version: '' }))}
+                      className="absolute right-2 top-1/2 transform -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                    >
+                      <X className="h-4 w-4" />
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="sync-status">Sync Status</Label>
+                <Select
+                  value={filter.syncStatus || 'all'}
+                  onValueChange={(value) => setFilter(prev => ({ ...prev, syncStatus: value === 'all' ? undefined : value }))}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Any status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Any status</SelectItem>
+                    <SelectItem value="Synced">Synced</SelectItem>
+                    <SelectItem value="OutOfSync">Out of Sync</SelectItem>
+                    <SelectItem value="Unknown">Unknown</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
             </div>
-            
-            <div className="space-y-2">
-              <Label htmlFor="customer-name">Customer Name</Label>
-              <div className="relative">
-                <Input
-                  id="customer-name"
-                  placeholder="Enter customer name..."
-                  value={filter.customerName || ''}
-                  onChange={(e) => setFilter(prev => ({ ...prev, customerName: e.target.value }))}
-                  className="pr-8"
-                />
-                {filter.customerName && (
-                  <button
-                    onClick={() => setFilter(prev => ({ ...prev, customerName: '' }))}
-                    className="absolute right-2 top-1/2 transform -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                  >
-                    <X className="h-4 w-4" />
-                  </button>
-                )}
+
+            {/* Clear All Advanced Filters */}
+            {(filter.productName || filter.customerName || filter.version || filter.syncStatus) && (
+              <div className="flex justify-end">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setFilter({})}
+                >
+                  <X className="h-4 w-4 mr-2" />
+                  Clear All Advanced Filters
+                </Button>
               </div>
-            </div>
-            
-            <div className="space-y-2">
-              <Label htmlFor="version">Version/Tag</Label>
-              <div className="relative">
-                <Input
-                  id="version"
-                  placeholder="Enter version..."
-                  value={filter.version || ''}
-                  onChange={(e) => setFilter(prev => ({ ...prev, version: e.target.value }))}
-                  className="pr-8"
-                />
-                {filter.version && (
-                  <button
-                    onClick={() => setFilter(prev => ({ ...prev, version: '' }))}
-                    className="absolute right-2 top-1/2 transform -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                  >
-                    <X className="h-4 w-4" />
-                  </button>
-                )}
-              </div>
-            </div>
-            
-            <div className="space-y-2">
-              <Label htmlFor="sync-status">Sync Status</Label>
-              <Select
-                value={filter.syncStatus || 'all'}
-                onValueChange={(value) => setFilter(prev => ({ ...prev, syncStatus: value === 'all' ? undefined : value }))}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Any status" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Any status</SelectItem>
-                  <SelectItem value="Synced">Synced</SelectItem>
-                  <SelectItem value="OutOfSync">Out of Sync</SelectItem>
-                  <SelectItem value="Unknown">Unknown</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-          
-          {/* Clear All Advanced Filters */}
-          {(filter.productName || filter.customerName || filter.version || filter.syncStatus) && (
-            <div className="flex justify-end">
-              <Button 
-                variant="outline" 
-                size="sm"
-                onClick={() => setFilter({})}
-              >
-                <X className="h-4 w-4 mr-2" />
-                Clear All Advanced Filters
-              </Button>
-            </div>
-          )}
-        </CardContent>
-      </Card>
+            )}
+          </CardContent>
+        </Card>
       )}
 
       {/* Error Display */}
@@ -458,12 +459,16 @@ export function ArgoCDPage() {
             const HealthIcon = healthBadge.icon
 
             return (
-              <Card 
-                key={application.metadata.uid} 
+              <Card
+                key={application.metadata.uid}
                 className="cursor-pointer hover:shadow-md transition-shadow"
                 onClick={() => {
+                  console.log('[Grid] App:', application.metadata.name, 'NS:', application.metadata.namespace)
                   setSelectedApp(application.metadata.name)
-                  setSelectedNamespace(application.metadata.namespace)
+                  // Only set namespace if it's not 'argocd' (the default namespace)
+                  const ns = application.metadata.namespace === 'argocd' ? undefined : application.metadata.namespace
+                  console.log('[Grid] Setting NS to:', ns)
+                  setSelectedNamespace(ns)
                 }}
               >
                 <CardHeader className="pb-3">
@@ -479,7 +484,7 @@ export function ArgoCDPage() {
                     </Button>
                   </div>
                 </CardHeader>
-                
+
                 <CardContent className="space-y-3">
                   {/* Application Info */}
                   <div className="space-y-1">
@@ -495,10 +500,10 @@ export function ArgoCDPage() {
                         <span>{application.metadata.labels.customer}</span>
                       </div>
                     )}
-                    {application.spec.source.targetRevision && (
+                    {getTargetRevision(application) && (
                       <div className="flex items-center gap-2 text-sm">
                         <GitBranch className="h-3 w-3" />
-                        <span>{application.spec.source.targetRevision}</span>
+                        <span>{getTargetRevision(application)}</span>
                       </div>
                     )}
                   </div>
@@ -520,10 +525,17 @@ export function ArgoCDPage() {
                   {/* Repository Info */}
                   <div className="text-xs text-muted-foreground">
                     <div className="truncate">
-                      {application.spec.source.repoURL}
+                      {getApplicationSource(application).repoURL}
                     </div>
-                    <div>
-                      {application.spec.source.path} • {application.spec.destination.namespace}
+                    <div className="flex items-center gap-2">
+                      <span className="truncate">
+                        {getApplicationSource(application).path} • {application.spec.destination.namespace}
+                      </span>
+                      {application.spec.sources && application.spec.sources.length > 1 && (
+                        <Badge variant="secondary" className="text-xs">
+                          +{application.spec.sources.length - 1} more
+                        </Badge>
+                      )}
                     </div>
                   </div>
                 </CardContent>
@@ -543,12 +555,13 @@ export function ArgoCDPage() {
             const HealthIcon = healthBadge.icon
 
             return (
-              <Card 
-                key={application.metadata.uid} 
+              <Card
+                key={application.metadata.uid}
                 className="cursor-pointer hover:shadow-md transition-shadow"
                 onClick={() => {
                   setSelectedApp(application.metadata.name)
-                  setSelectedNamespace(application.metadata.namespace)
+                  // Only set namespace if it's not 'argocd' (the default namespace)
+                  setSelectedNamespace(application.metadata.namespace === 'argocd' ? undefined : application.metadata.namespace)
                 }}
               >
                 <CardContent className="py-4">
@@ -568,10 +581,10 @@ export function ArgoCDPage() {
                         {application.metadata.labels?.customer && (
                           <span>Customer: {application.metadata.labels.customer}</span>
                         )}
-                        {application.spec.source.targetRevision && (
+                        {getTargetRevision(application) && (
                           <div className="flex items-center gap-1">
                             <GitBranch className="h-3 w-3" />
-                            <span>{application.spec.source.targetRevision}</span>
+                            <span>{getTargetRevision(application)}</span>
                           </div>
                         )}
                       </div>
@@ -579,9 +592,16 @@ export function ArgoCDPage() {
 
                     {/* Repository */}
                     <div className="flex-1 min-w-0 hidden md:block">
-                      <div className="text-sm truncate">{application.spec.source.repoURL}</div>
+                      <div className="text-sm truncate flex items-center gap-2">
+                        <span className="truncate">{getApplicationSource(application).repoURL}</span>
+                        {application.spec.sources && application.spec.sources.length > 1 && (
+                          <Badge variant="secondary" className="text-xs shrink-0">
+                            {application.spec.sources.length} sources
+                          </Badge>
+                        )}
+                      </div>
                       <div className="text-xs text-muted-foreground truncate">
-                        {application.spec.source.path} • {application.spec.destination.namespace}
+                        {getApplicationSource(application).path} • {application.spec.destination.namespace}
                       </div>
                     </div>
 

@@ -12,10 +12,12 @@ export interface ArgoCDApplication {
   }
   spec: {
     project: string
-    source: {
+    // Single source (legacy)
+    source?: {
       repoURL: string
-      path: string
+      path?: string
       targetRevision: string
+      chart?: string
       helm?: {
         parameters?: Array<{
           name: string
@@ -24,7 +26,24 @@ export interface ArgoCDApplication {
         valueFiles?: string[]
         values?: string
       }
+      ref?: string
     }
+    // Multi-source (new format)
+    sources?: Array<{
+      repoURL: string
+      path?: string
+      targetRevision?: string
+      chart?: string
+      helm?: {
+        parameters?: Array<{
+          name: string
+          value: string
+        }>
+        valueFiles?: string[]
+        values?: string
+      }
+      ref?: string
+    }>
     destination: {
       server: string
       namespace: string
@@ -157,4 +176,28 @@ export interface ApplicationSearchResult {
   customerName?: string
   version?: string
   matchScore: number
+}
+
+// Helper function to get source info from either single or multi-source apps
+export function getApplicationSource(app: ArgoCDApplication) {
+  // Return single source if it exists
+  if (app.spec.source) {
+    return app.spec.source
+  }
+  // Return first source from multi-source array
+  if (app.spec.sources && app.spec.sources.length > 0) {
+    return app.spec.sources[0]
+  }
+  // Fallback to empty object
+  return {
+    repoURL: '',
+    path: '',
+    targetRevision: ''
+  }
+}
+
+// Helper to get target revision safely
+export function getTargetRevision(app: ArgoCDApplication): string {
+  const source = getApplicationSource(app)
+  return source.targetRevision || ''
 }
