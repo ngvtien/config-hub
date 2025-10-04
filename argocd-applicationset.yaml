@@ -1,0 +1,142 @@
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: demo-applications
+  namespace: argocd
+spec:
+  generators:
+    - list:
+        elements:
+          - name: nginx-ingress
+            chart: ingress-nginx
+            repoURL: https://kubernetes.github.io/ingress-nginx
+            targetRevision: "4.8.3"
+            product: infrastructure
+            customer: demo
+            version: "1.0.0"
+            params:
+              - name: controller.replicaCount
+                value: "1"
+              - name: controller.resources.requests.cpu
+                value: "100m"
+              - name: controller.resources.requests.memory
+                value: "128Mi"
+              - name: controller.service.type
+                value: "ClusterIP"
+          
+          - name: metrics-server
+            chart: metrics-server
+            repoURL: https://kubernetes-sigs.github.io/metrics-server
+            targetRevision: "3.11.0"
+            product: monitoring
+            customer: demo
+            version: "1.0.0"
+            params:
+              - name: replicas
+                value: "1"
+              - name: resources.requests.cpu
+                value: "50m"
+              - name: resources.requests.memory
+                value: "64Mi"
+          
+          - name: redis
+            chart: redis
+            repoURL: https://charts.helm.sh/stable
+            targetRevision: "17.11.3"
+            product: database
+            customer: acme-corp
+            version: "7.0.0"
+            params:
+              - name: architecture
+                value: "standalone"
+              - name: auth.enabled
+                value: "false"
+              - name: master.resources.requests.cpu
+                value: "50m"
+              - name: master.resources.requests.memory
+                value: "64Mi"
+              - name: master.persistence.enabled
+                value: "false"
+          
+          - name: grafana
+            chart: grafana
+            repoURL: https://grafana.github.io/helm-charts
+            targetRevision: "7.0.8"
+            product: monitoring
+            customer: acme-corp
+            version: "10.0.0"
+            params:
+              - name: replicas
+                value: "1"
+              - name: resources.requests.cpu
+                value: "100m"
+              - name: resources.requests.memory
+                value: "128Mi"
+              - name: persistence.enabled
+                value: "false"
+              - name: adminPassword
+                value: "admin123"
+          
+          - name: prometheus
+            chart: prometheus
+            repoURL: https://prometheus-community.github.io/helm-charts
+            targetRevision: "25.3.1"
+            product: monitoring
+            customer: demo
+            version: "2.45.0"
+            params:
+              - name: server.replicaCount
+                value: "1"
+              - name: server.resources.requests.cpu
+                value: "100m"
+              - name: server.resources.requests.memory
+                value: "256Mi"
+              - name: server.persistentVolume.enabled
+                value: "false"
+              - name: alertmanager.enabled
+                value: "false"
+              - name: pushgateway.enabled
+                value: "false"
+          
+          - name: cert-manager
+            chart: cert-manager
+            repoURL: https://charts.jetstack.io
+            targetRevision: "v1.13.2"
+            product: infrastructure
+            customer: demo
+            version: "1.13.0"
+            params:
+              - name: installCRDs
+                value: "true"
+              - name: replicaCount
+                value: "1"
+              - name: resources.requests.cpu
+                value: "50m"
+              - name: resources.requests.memory
+                value: "64Mi"
+  
+  template:
+    metadata:
+      name: '{{name}}'
+      labels:
+        app.kubernetes.io/name: '{{name}}'
+        product: '{{product}}'
+        customer: '{{customer}}'
+        version: '{{version}}'
+    spec:
+      project: default
+      source:
+        repoURL: '{{repoURL}}'
+        chart: '{{chart}}'
+        targetRevision: '{{targetRevision}}'
+        helm:
+          parameters: '{{params}}'
+      destination:
+        server: https://kubernetes.default.svc
+        namespace: demo-apps
+      syncPolicy:
+        automated:
+          prune: true
+          selfHeal: true
+        syncOptions:
+          - CreateNamespace=true

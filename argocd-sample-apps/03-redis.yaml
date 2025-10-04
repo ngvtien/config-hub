@@ -1,0 +1,37 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: redis
+  namespace: argocd
+  labels:
+    app.kubernetes.io/name: redis
+    product: database
+    customer: acme-corp
+    version: "7.0.0"
+spec:
+  project: default
+  source:
+    repoURL: https://charts.helm.sh/stable
+    chart: redis
+    targetRevision: 17.11.3
+    helm:
+      parameters:
+        - name: architecture
+          value: "standalone"
+        - name: auth.enabled
+          value: "false"
+        - name: master.resources.requests.cpu
+          value: "50m"
+        - name: master.resources.requests.memory
+          value: "64Mi"
+        - name: master.persistence.enabled
+          value: "false"
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: demo-apps
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true

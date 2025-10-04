@@ -1,0 +1,39 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: cert-manager
+  namespace: argocd
+  labels:
+    app.kubernetes.io/name: cert-manager
+    product: infrastructure
+    customer: demo
+    version: "1.13.0"
+spec:
+  project: default
+  source:
+    repoURL: https://charts.jetstack.io
+    chart: cert-manager
+    targetRevision: v1.13.2
+    helm:
+      parameters:
+        - name: installCRDs
+          value: "true"
+        - name: replicaCount
+          value: "1"
+        - name: resources.requests.cpu
+          value: "50m"
+        - name: resources.requests.memory
+          value: "64Mi"
+        - name: webhook.replicaCount
+          value: "1"
+        - name: cainjector.replicaCount
+          value: "1"
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: demo-apps
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
