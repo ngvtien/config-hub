@@ -41,6 +41,7 @@ export interface EnvironmentSettings {
     }>
   }
   vault: {
+    credentialId?: string
     serverUrl: string
     authMethod: 'token' | 'userpass' | 'ldap' | 'kubernetes' | 'aws' | 'azure'
     token: string

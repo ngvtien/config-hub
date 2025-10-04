@@ -49,7 +49,7 @@ export function useVaultCredentials() {
               azureRole: settings.vault.azureRole
             }
 
-            const result = await window.electronAPI.vault.storeCredentials(environment, config)
+            const result = await window.electronAPI.vault.storeCredentials(config)
             if (!result.success) {
               console.error('Failed to store Vault credentials:', result.error)
             }

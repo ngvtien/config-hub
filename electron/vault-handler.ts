@@ -293,7 +293,7 @@ export function setupVaultHandlers(): void {
   ipcMain.handle('vault:store-credentials', async (_, config: VaultConfig) => {
     try {
       const credentialId = await secureVaultClient.storeCredentials(config)
-      return { success: true, credentialId }
+      return { success: true, data: { credentialId } }
     } catch (error) {
       console.error('Failed to store Vault credentials:', error)
       return { success: false, error: error instanceof Error ? error.message : 'Unknown error' }

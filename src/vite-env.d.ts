@@ -139,13 +139,16 @@ interface Window {
     
     // HashiCorp Vault API (secure IPC-based)
     vault: {
-      storeCredentials: (environment: string, config: VaultConfig) => Promise<VaultResponse>
-      testConnection: (environment: string) => Promise<VaultResponse<{ connected: boolean }>>
-      getSecret: (environment: string, secretPath: string) => Promise<VaultResponse<any>>
-      listSecrets: (environment: string, secretPath?: string) => Promise<VaultResponse<string[]>>
-      putSecret: (environment: string, secretPath: string, secretData: Record<string, any>) => Promise<VaultResponse<any>>
-      deleteSecret: (environment: string, secretPath: string) => Promise<VaultResponse>
-      getHealth: (environment: string) => Promise<VaultResponse<any>>
+      storeCredentials: (config: VaultConfig) => Promise<VaultResponse<{ credentialId: string }>>
+      testConnection: (credentialId: string) => Promise<VaultResponse<{ connected: boolean }>>
+      getSecret: (credentialId: string, secretPath: string) => Promise<VaultResponse<any>>
+      listSecrets: (credentialId: string, secretPath?: string) => Promise<VaultResponse<string[]>>
+      listCredentials: (environment?: string) => Promise<VaultResponse<any[]>>
+      putSecret: (credentialId: string, secretPath: string, secretData: Record<string, any>) => Promise<VaultResponse<any>>
+      deleteSecret: (credentialId: string, secretPath: string) => Promise<VaultResponse>
+      getHealth: (credentialId: string) => Promise<VaultResponse<any>>
+      getCredential: (credentialId: string) => Promise<VaultResponse<any>>
+      deleteCredential: (credentialId: string) => Promise<VaultResponse>
       clearCache: () => Promise<VaultResponse>
     }
     

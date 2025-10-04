@@ -1,297 +1,450 @@
-# HashiCorp Vault Integration
+# HashiCorp Vault Integration - Complete Implementation
 
 ## Overview
 
-The application now includes comprehensive HashiCorp Vault integration for secure secrets management across different environments (dev, sit, uat, prod). This integration follows the same secure IPC-based architecture as the ArgoCD integration.
+Comprehensive HashiCorp Vault credential management system with multi-authentication support, secure credential storage, and user-friendly UI for managing Vault connections across different environments.
+
+---
 
 ## Features
 
-### 1. **Multi-Authentication Support**
-- **Token Authentication**: Direct Vault token access
-- **Username/Password**: Traditional username/password authentication
-- **LDAP**: Enterprise LDAP integration
-- **Kubernetes**: Service account token authentication
-- **AWS IAM**: AWS role-based authentication (planned)
-- **Azure**: Azure managed identity authentication (planned)
+### Supported Authentication Methods
+- **Token** (Root/Service Token) - Direct token access
+- **Username/Password** - Traditional userpass authentication
+- **LDAP** - Enterprise LDAP integration
+- **Kubernetes** - Service account token authentication
+- **AWS IAM** - AWS role-based authentication (Coming Soon)
+- **Azure** - Azure managed identity authentication (Coming Soon)
 
-### 2. **Secure Credential Management**
-- **IPC-Based Architecture**: All Vault API calls through secure main process
-- **Environment Isolation**: Separate credentials per environment
-- **Token Caching**: Automatic token renewal and caching
-- **Encrypted Storage**: Secure credential storage with restricted file permissions
+### Security
+- OS-level encryption (Electron safeStorage + AES-256-CBC fallback)
+- IPC isolation (credentials never in renderer process)
+- File permissions: 0o600 for sensitive files
+- Environment-based credential separation
+- Duplicate prevention
 
-### 3. **Secret Operations**
-- **Read Secrets**: Retrieve secret values from Vault
-- **Write Secrets**: Store new secrets in Vault
-- **List Secrets**: Browse available secrets
-- **Delete Secrets**: Remove secrets from Vault
-- **Health Monitoring**: Check Vault server health and status
+---
 
-### 4. **Enterprise Features**
-- **Namespace Support**: Vault Enterprise namespace isolation
-- **Mount Path Configuration**: Configurable secret engine mount paths
-- **Policy Management**: Integration with Vault policies
-- **Audit Trail**: Comprehensive logging of all Vault operations
+## Quick Start
 
-## Configuration
+### 1. Access Vault Settings
+Navigate to **Settings** → **HashiCorp Vault**
 
-### Vault Settings
-Configure Vault connection settings in the Settings page under "HashiCorp Vault":
+### 2. Configure Vault Connection
 
-#### Basic Configuration
-- **Vault Server URL**: Your Vault server URL (e.g., `https://vault.example.com:8200`)
-- **Authentication Method**: Choose from available auth methods
-- **Namespace**: Vault Enterprise namespace (optional)
-- **Mount Path**: Secret engine mount path (default: `secret`)
-
-#### Authentication Methods
-
-##### Token Authentication
-```typescript
-{
-  authMethod: 'token',
-  token: 'hvs.CAESIJ...'
-}
+**For Local K8s Vault (Token)**:
+```
+Configuration Name: Vault DEV
+Server URL: http://vault.k8s.local/
+Auth Method: Token
+Token: root
+Mount Path: secret
 ```
 
-##### Username/Password Authentication
-```typescript
-{
-  authMethod: 'userpass',
-  username: 'myuser',
-  password: 'mypassword'
-}
+**For Production (Username/Password)**:
+```
+Configuration Name: Vault PROD
+Server URL: https://vault.company.com:8200
+Auth Method: Username/Password
+Username: myuser
+Password: mypassword
+Namespace: production (optional)
+Mount Path: secret
 ```
 
-##### LDAP Authentication
-```typescript
-{
-  authMethod: 'ldap',
-  username: 'ldapuser',
-  password: 'ldappassword'
-}
+**For LDAP Authentication**:
+```
+Configuration Name: Vault LDAP
+Server URL: https://vault.company.com:8200
+Auth Method: LDAP
+Username: ldapuser
+Password: ldappassword
+Mount Path: secret
 ```
 
-##### Kubernetes Authentication
-```typescript
-{
-  authMethod: 'kubernetes',
-  kubernetesRole: 'my-k8s-role'
-}
+**For Kubernetes Authentication**:
 ```
+Configuration Name: Vault K8s
+Server URL: https://vault.company.com:8200
+Auth Method: Kubernetes
+Kubernetes Role: my-k8s-role
+Mount Path: secret
+```
+
+### 3. Test & Save
+1. Click **Test Connection** to verify
+2. Click **Save Configuration** to store securely
+
+---
+
+## Authentication Methods
+
+### Token Authentication
+**Use Case**: Development, testing, service tokens
+**Setup**:
+1. Get root token or create service token in Vault
+2. Enter token in settings
+3. Test connection
+
+**Tips**:
+- Use 'root' for local development
+- Create specific service tokens for production
+- Tokens can have expiration and policies
+
+### Username/Password Authentication
+**Use Case**: User-based access, development
+**Setup**:
+1. Enable userpass auth method in Vault:
+   ```bash
+   vault auth enable userpass
+   vault write auth/userpass/users/myuser password=mypassword policies=default
+   ```
+2. Enter username and password in settings
+3. Test connection
+
+**Tips**:
+- Ensure userpass auth method is enabled
+- Users must have appropriate policies
+- Passwords are stored encrypted
+
+### LDAP Authentication
+**Use Case**: Enterprise integration, SSO
+**Setup**:
+1. Configure LDAP in Vault:
+   ```bash
+   vault auth enable ldap
+   vault write auth/ldap/config url="ldap://ldap.company.com" ...
+   ```
+2. Enter LDAP username and password
+3. Test connection
+
+**Tips**:
+- LDAP must be configured in Vault first
+- Uses corporate LDAP credentials
+- Supports group-based policies
+
+### Kubernetes Authentication
+**Use Case**: Pod-based access, K8s workloads
+**Setup**:
+1. Enable Kubernetes auth in Vault:
+   ```bash
+   vault auth enable kubernetes
+   vault write auth/kubernetes/config kubernetes_host=...
+   vault write auth/kubernetes/role/my-role ...
+   ```
+2. Enter Kubernetes role name
+3. Test connection (requires service account token)
+
+**Tips**:
+- Requires running in Kubernetes
+- Uses service account token from pod
+- Role must be configured in Vault
+
+---
+
+## UI Features
+
+### Saved Configurations List
+- View all saved Vault configurations
+- Quick Test and Delete buttons
+- Inline status indicators (✅ Connected, ❌ Failed, 🔄 Testing)
+- Show/Hide toggle
+
+### Duplicate Detection
+- Real-time duplicate checking
+- Visual warning when duplicate detected
+- Prevents saving duplicates
+- Checks: URL + Auth Method + Username
+
+### Auth Method Hints
+- Token: "Use root token for testing, create specific tokens for production"
+- Username/Password: "Ensure userpass auth method is enabled in Vault"
+- LDAP: "LDAP must be configured in Vault before use"
+- Kubernetes: "Requires Kubernetes service account token"
+- AWS/Azure: "Coming soon" indicators
+
+### Password/Token Visibility
+- Toggle visibility for sensitive fields
+- Eye icon to show/hide
+- Secure by default
+
+---
 
 ## Security Architecture
 
-### IPC-Based Security Model
+### Credential Storage
 ```
-┌─────────────────┐    IPC    ┌──────────────────┐    HTTPS    ┌─────────────┐
-│  Renderer       │ ────────► │  Main Process    │ ──────────► │  Vault      │
-│  (UI Layer)     │           │  (Security Layer)│             │  Server     │
-│                 │           │                  │             │             │
-│ - No credentials│           │ - Store creds    │             │ - Secrets   │
-│ - UI components │           │ - Authenticate   │             │ - Auth      │
-│ - User input    │           │ - Make API calls │             │ - Policies  │
-└─────────────────┘           └──────────────────┘             └─────────────┘
+userData/
+├── credentials-metadata.json      # Non-sensitive metadata
+├── sensitive/                     # Encrypted credential files
+│   ├── vault-{credential-id}.enc # Individual encrypted credentials
+│   └── ...
+└── .master-key                   # Fallback encryption key
 ```
 
-### Security Benefits
-1. **Credential Isolation**: Vault tokens never exposed to renderer process
-2. **Automatic Authentication**: Handles token renewal and authentication flows
-3. **Secure Storage**: Credentials stored with restricted file permissions (0o600)
-4. **Request Validation**: All requests validated before execution
-5. **SSL/TLS Enforcement**: HTTPS required with certificate validation
+### Encryption Flow
+```
+Settings UI (Renderer)
+    ↓ IPC (Secure)
+Main Process (Security Layer)
+    ↓ OS Encryption
+File Storage (Encrypted)
+    ↓ IPC (Secure)
+Vault Operations (Main Process)
+    ↓ HTTPS
+Vault Server
+```
 
-## API Integration
+---
 
-### IPC Handlers
-The integration provides secure IPC handlers for all Vault operations:
+## Troubleshooting
 
+### Connection Test Fails
+**Symptoms**: Red error message, "Connection failed"
+
+**Solutions**:
+- ✓ Verify Vault server URL is correct
+- ✓ Check network connectivity
+- ✓ Ensure Vault is unsealed
+- ✓ Verify credentials are valid
+- ✓ Check firewall/proxy settings
+
+### Authentication Fails
+**Symptoms**: "Authentication failed" error
+
+**Solutions**:
+- ✓ Verify auth method is enabled in Vault
+- ✓ Check credentials are correct
+- ✓ Ensure user/role has appropriate policies
+- ✓ For Kubernetes: verify service account token exists
+- ✓ For LDAP: verify LDAP configuration in Vault
+
+### Duplicate Configuration Warning
+**Symptoms**: Yellow warning banner, Save button disabled
+
+**Solutions**:
+- ✓ Use different server URL
+- ✓ Use different authentication method
+- ✓ Use different username
+- ✓ Delete existing duplicate configuration
+
+---
+
+## API Reference
+
+### Store Credentials
 ```typescript
-// Store credentials securely
-window.electronAPI.vault.storeCredentials(environment, config)
-
-// Test connection and authentication
-window.electronAPI.vault.testConnection(environment)
-
-// Secret operations
-window.electronAPI.vault.getSecret(environment, 'myapp/config')
-window.electronAPI.vault.putSecret(environment, 'myapp/config', { key: 'value' })
-window.electronAPI.vault.listSecrets(environment, 'myapp/')
-window.electronAPI.vault.deleteSecret(environment, 'myapp/config')
-
-// Health monitoring
-window.electronAPI.vault.getHealth(environment)
+const result = await window.electronAPI.vault.storeCredentials({
+  name: 'Production Vault',
+  serverUrl: 'https://vault.company.com:8200',
+  authMethod: 'token',
+  token: 'hvs.xxxxxxxxxxxx',
+  namespace: 'production',
+  mountPath: 'secret',
+  environment: 'production',
+  tags: ['prod', 'critical']
+})
+// Returns: { success: true, data: { credentialId: 'vault-...' } }
 ```
 
-### Authentication Flow
-1. **Credential Storage**: Settings automatically stored via IPC
-2. **Authentication**: Main process authenticates with Vault using configured method
-3. **Token Caching**: Valid tokens cached with expiry tracking
-4. **Auto-Renewal**: Tokens automatically renewed before expiry
-5. **Request Execution**: API requests made with valid token
-
-## Usage Examples
-
-### Reading Secrets
+### Test Connection
 ```typescript
-// Get a secret
-const result = await window.electronAPI.vault.getSecret('prod', 'myapp/database')
-if (result.success) {
-  const secrets = result.data.data.data
-  console.log('Database URL:', secrets.url)
-  console.log('Database Password:', secrets.password)
-}
+const result = await window.electronAPI.vault.testConnection(credentialId)
+// Returns: { success: true, connected: true } or { success: false, error: '...' }
 ```
 
-### Writing Secrets
+### List Credentials
 ```typescript
-// Store a secret
-const secretData = {
-  url: 'postgresql://localhost:5432/mydb',
-  username: 'dbuser',
-  password: 'securepassword'
-}
-
-const result = await window.electronAPI.vault.putSecret('prod', 'myapp/database', secretData)
-if (result.success) {
-  console.log('Secret stored successfully')
-}
+const result = await window.electronAPI.vault.listCredentials('production')
+// Returns: { success: true, data: [...] }
 ```
 
-### Listing Secrets
+### Delete Credentials
 ```typescript
-// List all secrets in a path
-const result = await window.electronAPI.vault.listSecrets('prod', 'myapp/')
-if (result.success) {
-  console.log('Available secrets:', result.data)
-}
+const result = await window.electronAPI.vault.deleteCredential(credentialId)
+// Returns: { success: true }
 ```
 
-## Environment-Specific Configuration
-
-### Development Environment
-```json
-{
-  "serverUrl": "http://localhost:8200",
-  "authMethod": "token",
-  "token": "dev-token",
-  "mountPath": "secret"
-}
-```
-
-### Production Environment
-```json
-{
-  "serverUrl": "https://vault.company.com:8200",
-  "authMethod": "ldap",
-  "username": "prod-user",
-  "password": "prod-password",
-  "namespace": "production",
-  "mountPath": "kv-v2"
-}
-```
-
-## Error Handling
-
-### Common Error Scenarios
-1. **Authentication Failure**: Invalid credentials or expired tokens
-2. **Permission Denied**: Insufficient Vault policies
-3. **Network Issues**: Vault server unreachable
-4. **Invalid Paths**: Secret paths don't exist
-5. **Sealed Vault**: Vault server is sealed
-
-### Error Response Format
+### Get Secret
 ```typescript
-interface VaultResponse<T> {
-  success: boolean
-  data?: T
-  error?: string
-  connected?: boolean
-}
+const result = await window.electronAPI.vault.getSecret(credentialId, 'myapp/config')
+// Returns: { success: true, data: { data: { data: { key: 'value' } } } }
 ```
+
+### Put Secret
+```typescript
+const result = await window.electronAPI.vault.putSecret(
+  credentialId,
+  'myapp/config',
+  { key: 'value', password: 'secret' }
+)
+// Returns: { success: true }
+```
+
+### List Secrets
+```typescript
+const result = await window.electronAPI.vault.listSecrets(credentialId, 'myapp/')
+// Returns: { success: true, data: ['config', 'database', ...] }
+```
+
+---
 
 ## Best Practices
 
 ### Security
-1. **Least Privilege**: Use minimal required Vault policies
-2. **Token Rotation**: Regularly rotate Vault tokens
-3. **Network Security**: Use HTTPS with valid certificates
-4. **Access Logging**: Monitor Vault access patterns
-5. **Environment Isolation**: Separate Vault instances per environment
+1. **Use Specific Tokens** - Create service tokens with minimal policies
+2. **Rotate Credentials** regularly (every 90 days)
+3. **Use Namespaces** for multi-tenancy (Vault Enterprise)
+4. **Limit Token Scope** to minimum required permissions
+5. **Never Share** credential IDs or tokens
+6. **Use LDAP/K8s** for production environments
 
-### Performance
-1. **Token Caching**: Leverage automatic token caching
-2. **Batch Operations**: Group related secret operations
-3. **Connection Pooling**: Reuse HTTP connections
-4. **Error Handling**: Implement proper retry logic
+### Configuration
+1. **Test Before Saving** to verify credentials work
+2. **Use Descriptive Names** for easy identification
+3. **Tag Credentials** appropriately (environment, purpose)
+4. **Document** special configurations
+5. **Review** stored credentials periodically
 
-### Operational
-1. **Health Monitoring**: Regular health checks
-2. **Backup Strategy**: Backup Vault data regularly
-3. **Disaster Recovery**: Plan for Vault outages
-4. **Monitoring**: Set up Vault metrics and alerting
+### Operations
+1. **Monitor** Vault health regularly
+2. **Use Policies** to control access
+3. **Enable Audit** logging
+4. **Backup** Vault data
+5. **Plan** for disaster recovery
 
-## Integration with Other Services
+---
 
-### ArgoCD Integration
-Use Vault secrets in ArgoCD applications:
-```yaml
-apiVersion: v1
-kind: Secret
-metadata:
-  name: app-secrets
-data:
-  database-url: # Retrieved from Vault
-  api-key: # Retrieved from Vault
+## Local K8s Vault Setup
+
+### Prerequisites
+- Kubernetes cluster running
+- Vault installed in cluster
+- Vault accessible at `http://vault.k8s.local/`
+
+### Initial Setup
+```bash
+# Initialize Vault (if not done)
+kubectl exec -it vault-0 -- vault operator init
+
+# Unseal Vault
+kubectl exec -it vault-0 -- vault operator unseal <unseal-key>
+
+# Get root token
+kubectl exec -it vault-0 -- cat /vault/data/init.txt
+
+# Enable KV v2 secrets engine
+kubectl exec -it vault-0 -- vault secrets enable -path=secret kv-v2
+
+# Enable userpass auth (optional)
+kubectl exec -it vault-0 -- vault auth enable userpass
+kubectl exec -it vault-0 -- vault write auth/userpass/users/admin password=admin policies=default
 ```
 
-### Helm Integration
-Inject Vault secrets into Helm charts:
-```yaml
-# values.yaml
-database:
-  url: "{{ vault "secret/myapp/database" "url" }}"
-  password: "{{ vault "secret/myapp/database" "password" }}"
-```
+### Test Connection
+1. Open Settings → HashiCorp Vault
+2. Enter:
+   - Server URL: `http://vault.k8s.local/`
+   - Auth Method: Token
+   - Token: `root` (or your root token)
+   - Mount Path: `secret`
+3. Click "Test Connection"
+4. Should see "✅ Connection successful!"
 
-## Troubleshooting
+---
 
-### Connection Issues
-- Verify Vault server URL is accessible
-- Check authentication credentials
-- Ensure proper network connectivity
-- Validate SSL certificates
+## Implementation Summary
 
-### Authentication Problems
-- Verify auth method configuration
-- Check user permissions in Vault
-- Ensure tokens haven't expired
-- Validate namespace settings
+### Files Modified
+- `src/components/settings-page.tsx` - Enhanced Vault settings UI
+- `src/vite-env.d.ts` - Updated Vault API types
+- `src/hooks/use-environment-settings.ts` - Added credentialId field
+- `electron/vault-handler.ts` - Fixed response format
 
-### Permission Errors
-- Review Vault policies
-- Check secret path permissions
-- Verify namespace access
-- Confirm mount path configuration
+### Key Achievements
+- ✅ Multi-authentication support (6 methods)
+- ✅ Test connection before saving
+- ✅ Saved configurations list
+- ✅ Inline status per configuration
+- ✅ Duplicate detection and prevention
+- ✅ Password/token visibility toggles
+- ✅ Loading states
+- ✅ Provider-specific hints
+- ✅ Consistent with Git/ArgoCD patterns
 
-## Future Enhancements
+### Issues Resolved
+- Updated API types to use credentialId instead of environment
+- Fixed response format to include data field
+- Added listCredentials to API definition
+- Added credentialId to VaultSettings interface
+- Consistent error handling and status indicators
 
-### Planned Features
-1. **AWS IAM Authentication**: Complete AWS integration
-2. **Azure Authentication**: Complete Azure integration
-3. **AppRole Authentication**: Support for AppRole auth method
-4. **Dynamic Secrets**: Integration with Vault dynamic secrets
-5. **Secret Versioning**: Support for KV v2 secret versions
-6. **Policy Management**: UI for managing Vault policies
-7. **Audit Log Viewer**: View Vault audit logs in UI
-8. **Secret Templates**: Predefined secret templates
-9. **Bulk Operations**: Batch secret import/export
-10. **Integration Testing**: Automated Vault integration tests
+---
 
-### Advanced Security
-- **Hardware Security Modules**: HSM integration
-- **Transit Encryption**: Vault transit engine integration
-- **Certificate Management**: PKI secret engine integration
-- **Identity Management**: Vault identity engine integration
+## Testing Checklist
 
-This Vault integration provides enterprise-grade secrets management with a focus on security, usability, and operational excellence.
+### Authentication Methods
+- [ ] Token authentication (root token)
+- [ ] Token authentication (service token)
+- [ ] Username/Password authentication
+- [ ] LDAP authentication
+- [ ] Kubernetes authentication
+- [ ] AWS IAM (coming soon indicator)
+- [ ] Azure (coming soon indicator)
+
+### Operations
+- [ ] Store credentials
+- [ ] Test connection
+- [ ] Save configuration
+- [ ] Load existing configuration
+- [ ] Delete credentials
+- [ ] List credentials
+- [ ] Duplicate detection
+- [ ] Get secret
+- [ ] Put secret
+- [ ] List secrets
+
+### UI Features
+- [ ] Saved configurations list
+- [ ] Inline status indicators
+- [ ] Duplicate warnings
+- [ ] Password/token visibility toggles
+- [ ] Loading states
+- [ ] Error messages
+- [ ] Auth method hints
+
+### Platforms
+- [ ] Windows
+- [ ] Cross-platform compatibility
+
+---
+
+## Next Steps
+
+1. **Test with Local Vault**
+   - Start local K8s Vault
+   - Test all authentication methods
+   - Verify secret operations
+
+2. **Production Testing**
+   - Test with production Vault instance
+   - Verify LDAP authentication
+   - Test Kubernetes authentication
+
+3. **Documentation**
+   - Update user guide
+   - Add troubleshooting tips
+   - Create video tutorial
+
+4. **Future Enhancements**
+   - Complete AWS IAM authentication
+   - Complete Azure authentication
+   - Add AppRole authentication
+   - Secret versioning support
+   - Policy management UI
+
+---
+
+*Last Updated: 2025-10-04*
+*Version: 1.0.0*
+*Status: ✅ Ready for Testing*

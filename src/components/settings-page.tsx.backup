@@ -1411,743 +1411,174 @@ export function SettingsPage({ onBack }: SettingsPageProps) {
     </div>
   )
 
-const renderVaultSettings = () => {
-    const [isTestingConnection, setIsTestingConnection] = useState(false)
-    const [isSaving, setIsSaving] = useState(false)
-    const [isLoading, setIsLoading] = useState(false)
-    const [connectionStatus, setConnectionStatus] = useState<'idle' | 'success' | 'error'>('idle')
-    const [connectionMessage, setConnectionMessage] = useState('')
-    const [credentialName, setCredentialName] = useState(`Vault ${environment.toUpperCase()}`)
-    const [serverUrl, setServerUrl] = useState('http://vault.k8s.local/')
-    const [authMethod, setAuthMethod] = useState<'token' | 'userpass' | 'ldap' | 'kubernetes' | 'aws' | 'azure'>('token')
-    const [token, setToken] = useState('')
-    const [username, setUsername] = useState('')
-    const [password, setPassword] = useState('')
-    const [kubernetesRole, setKubernetesRole] = useState('')
-    const [awsRole, setAwsRole] = useState('')
-    const [azureRole, setAzureRole] = useState('')
-    const [namespace, setNamespace] = useState('')
-    const [mountPath, setMountPath] = useState('secret')
-    const [showToken, setShowToken] = useState(false)
-    const [showPassword, setShowPassword] = useState(false)
-    const [savedConfigurations, setSavedConfigurations] = useState<any[]>([])
-    const [showConfigList, setShowConfigList] = useState(true)
-    const [configStatus, setConfigStatus] = useState<Record<string, { status: 'idle' | 'testing' | 'success' | 'error', message?: string }>>({})
-
-    // Load existing credential if available
-    useEffect(() => {
-      const loadExistingCredential = async () => {
-        if (settings.vault.credentialId) {
-          setIsLoading(true)
-          try {
-            const result = await window.electronAPI.vault.getCredential(settings.vault.credentialId)
-            if (result.success && result.data) {
-              const cred = result.data
-              setCredentialName(cred.name || `Vault ${environment.toUpperCase()}`)
-              setServerUrl(cred.serverUrl || 'http://vault.k8s.local/')
-              setAuthMethod(cred.authMethod || 'token')
-              setNamespace(cred.namespace || '')
-              setMountPath(cred.mountPath || 'secret')
-              if (cred.username) setUsername(cred.username)
-              if (cred.kubernetesRole) setKubernetesRole(cred.kubernetesRole)
-              if (cred.awsRole) setAwsRole(cred.awsRole)
-              if (cred.azureRole) setAzureRole(cred.azureRole)
-            }
-          } catch (error) {
-            console.error('Failed to load existing credential:', error)
-          } finally {
-            setIsLoading(false)
-          }
-        }
-      }
-      loadExistingCredential()
-    }, [settings.vault.credentialId, environment])
-
-    // Load saved configurations
-    useEffect(() => {
-      const loadConfigurations = async () => {
-        try {
-          const result = await window.electronAPI.vault.listCredentials(environment)
-          if (result.success && result.data) {
-            setSavedConfigurations(result.data)
-          }
-        } catch (error) {
-          console.error('Failed to load configurations:', error)
-        }
-      }
-      loadConfigurations()
-    }, [environment, settings.vault.credentialId])
-
-    // Get auth method specific hints
-    const getAuthMethodHint = () => {
-      switch (authMethod) {
-        case 'token':
-          return '💡 Tip: Use root token for testing, create specific tokens for production'
-        case 'userpass':
-          return '💡 Tip: Ensure userpass auth method is enabled in Vault'
-        case 'ldap':
-          return '💡 Tip: LDAP must be configured in Vault before use'
-        case 'kubernetes':
-          return '💡 Tip: Requires Kubernetes service account token'
-        case 'aws':
-          return '💡 Tip: AWS IAM authentication (coming soon)'
-        case 'azure':
-          return '💡 Tip: Azure managed identity authentication (coming soon)'
-        default:
-          return ''
-      }
-    }
-
-    // Check for duplicates
-    const checkDuplicate = () => {
-      if (!serverUrl) return null
-      
-      const normalizedUrl = serverUrl.trim().toLowerCase().replace(/\/$/, '')
-      const duplicate = savedConfigurations.find(config => {
-        const configUrl = (config.serverUrl || '').trim().toLowerCase().replace(/\/$/, '')
-        const sameUrl = configUrl === normalizedUrl
-        const sameAuthMethod = config.authMethod === authMethod
-        const sameUser = authMethod === 'userpass' || authMethod === 'ldap' ? config.username === username : true
-        
-        if (settings.vault.credentialId && config.id === settings.vault.credentialId) {
-          return false
-        }
-        
-        return sameUrl && sameAuthMethod && sameUser
-      })
-      
-      return duplicate
-    }
-
-    const duplicateConfig = checkDuplicate()
-
-    const testConnection = async () => {
-      if (!serverUrl) {
-        setConnectionStatus('error')
-        setConnectionMessage('Please provide Vault Server URL')
-        return
-      }
-
-      if (authMethod === 'token' && !token) {
-        setConnectionStatus('error')
-        setConnectionMessage('Please provide Vault Token')
-        return
-      }
-
-      if ((authMethod === 'userpass' || authMethod === 'ldap') && (!username || !password)) {
-        setConnectionStatus('error')
-        setConnectionMessage('Please provide Username and Password')
-        return
-      }
-
-      if (authMethod === 'kubernetes' && !kubernetesRole) {
-        setConnectionStatus('error')
-        setConnectionMessage('Please provide Kubernetes Role')
-        return
-      }
-
-      setIsTestingConnection(true)
-      setConnectionStatus('idle')
-      setConnectionMessage('')
-
-      let tempCredentialId: string | undefined
-
-      try {
-        const config = {
-          name: `${credentialName} (Test)`,
-          serverUrl,
-          authMethod,
-          token: authMethod === 'token' ? token : undefined,
-          username: (authMethod === 'userpass' || authMethod === 'ldap') ? username : undefined,
-          password: (authMethod === 'userpass' || authMethod === 'ldap') ? password : undefined,
-          kubernetesRole: authMethod === 'kubernetes' ? kubernetesRole : undefined,
-          awsRole: authMethod === 'aws' ? awsRole : undefined,
-          azureRole: authMethod === 'azure' ? azureRole : undefined,
-          namespace,
-          mountPath,
-          environment,
-          tags: ['settings-page', 'temporary', 'test']
-        }
-
-        const storeResult = await window.electronAPI.vault.storeCredentials(config)
-        if (!storeResult.success) {
-          throw new Error(storeResult.error || 'Failed to store credentials')
-        }
-
-        if (!storeResult.data?.credentialId) {
-          throw new Error('No credential ID returned from store operation')
-        }
-
-        tempCredentialId = storeResult.data.credentialId
-
-        const testResult = await window.electronAPI.vault.testConnection(storeResult.data.credentialId)
-        
-        await window.electronAPI.vault.deleteCredential(storeResult.data.credentialId)
-        
-        if (testResult.success && testResult.connected) {
-          setConnectionStatus('success')
-          setConnectionMessage('Connection successful! Vault is accessible. Click "Save Configuration" to store permanently.')
-        } else {
-          setConnectionStatus('error')
-          setConnectionMessage(testResult.error || 'Connection failed. Please check your credentials and Vault URL.')
-        }
-      } catch (error) {
-        if (tempCredentialId) {
-          try {
-            await window.electronAPI.vault.deleteCredential(tempCredentialId)
-          } catch (cleanupError) {
-            console.error('Failed to cleanup temporary credential:', cleanupError)
-          }
-        }
-        setConnectionStatus('error')
-        setConnectionMessage(error instanceof Error ? error.message : 'Connection test failed')
-      } finally {
-        setIsTestingConnection(false)
-      }
-    }
-
-    const saveConfiguration = async () => {
-      if (!serverUrl) {
-        setConnectionStatus('error')
-        setConnectionMessage('Please provide Vault Server URL')
-        return
-      }
-
-      if (authMethod === 'token' && !token) {
-        setConnectionStatus('error')
-        setConnectionMessage('Please provide Vault Token')
-        return
-      }
-
-      if ((authMethod === 'userpass' || authMethod === 'ldap') && (!username || !password)) {
-        setConnectionStatus('error')
-        setConnectionMessage('Please provide Username and Password')
-        return
-      }
-
-      if (authMethod === 'kubernetes' && !kubernetesRole) {
-        setConnectionStatus('error')
-        setConnectionMessage('Please provide Kubernetes Role')
-        return
-      }
-
-      const normalizedUrl = serverUrl.trim().toLowerCase().replace(/\/$/, '')
-      const duplicateConfig = savedConfigurations.find(config => {
-        const configUrl = (config.serverUrl || '').trim().toLowerCase().replace(/\/$/, '')
-        const sameUrl = configUrl === normalizedUrl
-        const sameAuthMethod = config.authMethod === authMethod
-        const sameUser = (authMethod === 'userpass' || authMethod === 'ldap') ? config.username === username : true
-        
-        if (settings.vault.credentialId && config.id === settings.vault.credentialId) {
-          return false
-        }
-        
-        return sameUrl && sameAuthMethod && sameUser
-      })
-
-      if (duplicateConfig) {
-        setConnectionStatus('error')
-        setConnectionMessage(
-          `A configuration already exists for ${serverUrl} with ${authMethod}` +
-          ((authMethod === 'userpass' || authMethod === 'ldap') ? ` (user: ${username})` : '') +
-          '. Please use a different URL, authentication method, or username.'
-        )
-        return
-      }
-
-      setIsSaving(true)
-      setConnectionStatus('idle')
-      setConnectionMessage('')
-
-      try {
-        if (settings.vault.credentialId) {
-          try {
-            await window.electronAPI.vault.deleteCredential(settings.vault.credentialId)
-          } catch (deleteError) {
-            console.warn('Failed to delete old credential:', deleteError)
-          }
-        }
-
-        const config = {
-          name: credentialName,
-          serverUrl,
-          authMethod,
-          token: authMethod === 'token' ? token : undefined,
-          username: (authMethod === 'userpass' || authMethod === 'ldap') ? username : undefined,
-          password: (authMethod === 'userpass' || authMethod === 'ldap') ? password : undefined,
-          kubernetesRole: authMethod === 'kubernetes' ? kubernetesRole : undefined,
-          awsRole: authMethod === 'aws' ? awsRole : undefined,
-          azureRole: authMethod === 'azure' ? azureRole : undefined,
-          namespace,
-          mountPath,
-          environment,
-          tags: ['settings-page', 'saved']
-        }
-
-        const result = await window.electronAPI.vault.storeCredentials(config)
-        if (result.success && result.data?.credentialId) {
-          setConnectionStatus('success')
-          setConnectionMessage('Configuration saved successfully! Credentials are now stored securely.')
-          updateSection('vault', { credentialId: result.data.credentialId })
-        } else {
-          throw new Error(result.error || 'Failed to save configuration')
-        }
-      } catch (error) {
-        setConnectionStatus('error')
-        setConnectionMessage(error instanceof Error ? error.message : 'Failed to save configuration')
-      } finally {
-        setIsSaving(false)
-      }
-    }
-
-    return (
-      <div className="space-y-6">
-        {isLoading && (
-          <div className="p-4 bg-blue-50 border border-blue-200 rounded-md">
-            <div className="flex items-center gap-2 text-blue-800">
-              <RefreshCw className="w-4 h-4 animate-spin" />
-              <span className="text-sm">Loading existing configuration...</span>
-            </div>
-          </div>
-        )}
-
-        {/* Saved Configurations List */}
-        {savedConfigurations.length > 0 && showConfigList && (
+  const renderVaultSettings = () => (
+    <div className="space-y-6">
+      <div>
+        <h3 className="text-lg font-medium mb-4">HashiCorp Vault Configuration</h3>
+        <div className="space-y-4">
           <div>
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-medium">Saved Configurations</h3>
-              <Button 
-                variant="ghost" 
-                size="sm"
-                onClick={() => setShowConfigList(!showConfigList)}
-              >
-                {showConfigList ? 'Hide' : 'Show'}
-              </Button>
-            </div>
-            <div className="space-y-3">
-              {savedConfigurations.map((config) => {
-                const status = configStatus[config.id]
-                return (
-                  <Card key={config.id}>
-                    <CardContent className="p-4">
-                      <div className="flex items-start justify-between gap-4">
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2 mb-1 flex-wrap">
-                            <span className="text-lg">🔐</span>
-                            <h4 className="font-medium">{config.name}</h4>
-                            <Badge variant="outline" className="text-xs">
-                              {config.authMethod}
-                            </Badge>
-                            {status && status.status !== 'idle' && (
-                              <Badge 
-                                variant={status.status === 'success' ? 'default' : status.status === 'error' ? 'destructive' : 'secondary'}
-                                className="text-xs"
-                              >
-                                {status.status === 'testing' && '🔄 Testing...'}
-                                {status.status === 'success' && '✅ Connected'}
-                                {status.status === 'error' && '❌ Failed'}
-                              </Badge>
-                            )}
-                          </div>
-                          <p className="text-sm text-muted-foreground truncate">{config.serverUrl}</p>
-                          {config.username && (
-                            <p className="text-xs text-muted-foreground mt-1">User: {config.username}</p>
-                          )}
-                          {config.namespace && (
-                            <p className="text-xs text-muted-foreground mt-1">Namespace: {config.namespace}</p>
-                          )}
-                          {status && status.status === 'error' && status.message && (
-                            <p className="text-xs text-red-600 mt-1">⚠️ {status.message}</p>
-                          )}
-                        </div>
-                        <div className="flex items-center gap-2 flex-shrink-0">
-                          <Button 
-                            variant="outline" 
-                            size="sm"
-                            disabled={status?.status === 'testing'}
-                            onClick={async () => {
-                              setConfigStatus(prev => ({ ...prev, [config.id]: { status: 'testing' } }))
-                              try {
-                                const result = await window.electronAPI.vault.testConnection(config.id)
-                                if (result.success && result.connected) {
-                                  setConfigStatus(prev => ({ ...prev, [config.id]: { status: 'success' } }))
-                                } else {
-                                  setConfigStatus(prev => ({ ...prev, [config.id]: { status: 'error', message: result.error || 'Test failed' } }))
-                                }
-                              } catch (error) {
-                                setConfigStatus(prev => ({ ...prev, [config.id]: { status: 'error', message: 'Test failed' } }))
-                              }
-                            }}
-                          >
-                            {status?.status === 'testing' ? (
-                              <RefreshCw className="w-4 h-4 animate-spin" />
-                            ) : (
-                              'Test'
-                            )}
-                          </Button>
-                          <Button 
-                            variant="ghost" 
-                            size="sm"
-                            onClick={async () => {
-                              if (confirm('Delete this configuration?')) {
-                                await window.electronAPI.vault.deleteCredential(config.id)
-                                setSavedConfigurations(prev => prev.filter(c => c.id !== config.id))
-                                setConfigStatus(prev => {
-                                  const newStatus = { ...prev }
-                                  delete newStatus[config.id]
-                                  return newStatus
-                                })
-                              }
-                            }}
-                          >
-                            Delete
-                          </Button>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                )
-              })}
-            </div>
-            <Separator className="my-6" />
+            <Label htmlFor="vaultUrl">Vault Server URL</Label>
+            <Input
+              id="vaultUrl"
+              placeholder="https://vault.example.com:8200"
+              value={settings.vault.serverUrl}
+              onChange={(e) => updateSection('vault', { serverUrl: e.target.value })}
+            />
           </div>
-        )}
 
-        <div>
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-lg font-medium">
-              {savedConfigurations.length > 0 ? 'Add New Configuration' : 'HashiCorp Vault Configuration'}
-            </h3>
+          <div>
+            <Label htmlFor="vaultAuthMethod">Authentication Method</Label>
+            <select
+              id="vaultAuthMethod"
+              className="w-full px-3 py-2 border border-input bg-background rounded-md"
+              value={settings.vault.authMethod}
+              onChange={(e) => updateSection('vault', { authMethod: e.target.value as any })}
+            >
+              <option value="token">Token</option>
+              <option value="userpass">Username/Password</option>
+              <option value="ldap">LDAP</option>
+              <option value="kubernetes">Kubernetes</option>
+              <option value="aws">AWS IAM</option>
+              <option value="azure">Azure</option>
+            </select>
           </div>
-          <div className="space-y-4">
+
+          {/* Token Authentication */}
+          {settings.vault.authMethod === 'token' && (
             <div>
-              <Label htmlFor="vaultCredentialName">Configuration Name</Label>
+              <Label htmlFor="vaultToken">Vault Token</Label>
               <Input
-                id="vaultCredentialName"
-                placeholder={`Vault ${environment.toUpperCase()}`}
-                value={credentialName}
-                onChange={(e) => setCredentialName(e.target.value)}
+                id="vaultToken"
+                type="password"
+                placeholder="hvs.CAESIJ..."
+                value={settings.vault.token}
+                onChange={(e) => updateSection('vault', { token: e.target.value })}
               />
-              <p className="text-xs text-muted-foreground mt-1">
-                A friendly name to identify this Vault configuration
-              </p>
             </div>
+          )}
 
-            <div>
-              <Label htmlFor="vaultServerUrl">Vault Server URL *</Label>
-              <Input
-                id="vaultServerUrl"
-                placeholder="http://vault.k8s.local/"
-                value={serverUrl}
-                onChange={(e) => setServerUrl(e.target.value)}
-              />
-              <p className="text-xs text-muted-foreground mt-1">
-                💡 Tip: Local K8s cluster Vault is at http://vault.k8s.local/
-              </p>
-            </div>
-
-            <div>
-              <Label htmlFor="vaultAuthMethod">Authentication Method *</Label>
-              <select
-                id="vaultAuthMethod"
-                className="w-full px-3 py-2 border border-input bg-background rounded-md"
-                value={authMethod}
-                onChange={(e) => setAuthMethod(e.target.value as typeof authMethod)}
-              >
-                <option value="token">🔑 Token (Root/Service Token)</option>
-                <option value="userpass">👤 Username/Password</option>
-                <option value="ldap">🏢 LDAP</option>
-                <option value="kubernetes">☸️ Kubernetes</option>
-                <option value="aws">☁️ AWS IAM (Coming Soon)</option>
-                <option value="azure">🔷 Azure (Coming Soon)</option>
-              </select>
-              <p className="text-xs text-muted-foreground mt-1">
-                {getAuthMethodHint()}
-              </p>
-            </div>
-
-            {/* Token Authentication */}
-            {authMethod === 'token' && (
-              <div className="p-4 bg-muted/50 rounded-md border">
-                <p className="text-sm font-medium mb-3">Token Authentication</p>
-                <div>
-                  <Label htmlFor="vaultToken">Vault Token *</Label>
-                  <div className="relative">
-                    <Input
-                      id="vaultToken"
-                      type={showToken ? "text" : "password"}
-                      placeholder="hvs.CAESIJ... or root"
-                      value={token}
-                      onChange={(e) => setToken(e.target.value)}
-                      className="pr-10"
-                    />
-                    {token && (
-                      <button
-                        type="button"
-                        onClick={() => setShowToken(!showToken)}
-                        className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                      >
-                        {showToken ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                      </button>
-                    )}
-                  </div>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Use 'root' for local development or a service token for production
-                  </p>
-                </div>
-              </div>
-            )}
-
-            {/* Username/Password Authentication */}
-            {authMethod === 'userpass' && (
-              <div className="p-4 bg-muted/50 rounded-md border">
-                <p className="text-sm font-medium mb-3">Username/Password Authentication</p>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <Label htmlFor="vaultUsername">Username *</Label>
-                    <Input
-                      id="vaultUsername"
-                      placeholder="myuser"
-                      value={username}
-                      onChange={(e) => setUsername(e.target.value)}
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="vaultPassword">Password *</Label>
-                    <div className="relative">
-                      <Input
-                        id="vaultPassword"
-                        type={showPassword ? "text" : "password"}
-                        placeholder="Your password"
-                        value={password}
-                        onChange={(e) => setPassword(e.target.value)}
-                        className="pr-10"
-                      />
-                      {password && (
-                        <button
-                          type="button"
-                          onClick={() => setShowPassword(!showPassword)}
-                          className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                        >
-                          {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* LDAP Authentication */}
-            {authMethod === 'ldap' && (
-              <div className="p-4 bg-muted/50 rounded-md border">
-                <p className="text-sm font-medium mb-3">LDAP Authentication</p>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <Label htmlFor="vaultLdapUsername">LDAP Username *</Label>
-                    <Input
-                      id="vaultLdapUsername"
-                      placeholder="ldapuser"
-                      value={username}
-                      onChange={(e) => setUsername(e.target.value)}
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="vaultLdapPassword">LDAP Password *</Label>
-                    <div className="relative">
-                      <Input
-                        id="vaultLdapPassword"
-                        type={showPassword ? "text" : "password"}
-                        placeholder="Your LDAP password"
-                        value={password}
-                        onChange={(e) => setPassword(e.target.value)}
-                        className="pr-10"
-                      />
-                      {password && (
-                        <button
-                          type="button"
-                          onClick={() => setShowPassword(!showPassword)}
-                          className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                        >
-                          {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* Kubernetes Authentication */}
-            {authMethod === 'kubernetes' && (
-              <div className="p-4 bg-muted/50 rounded-md border">
-                <p className="text-sm font-medium mb-3">Kubernetes Authentication</p>
-                <div>
-                  <Label htmlFor="vaultK8sRole">Kubernetes Role *</Label>
-                  <Input
-                    id="vaultK8sRole"
-                    placeholder="my-k8s-role"
-                    value={kubernetesRole}
-                    onChange={(e) => setKubernetesRole(e.target.value)}
-                  />
-                  <p className="text-xs text-muted-foreground mt-1">
-                    The Kubernetes role configured in Vault
-                  </p>
-                </div>
-              </div>
-            )}
-
-            {/* AWS Authentication */}
-            {authMethod === 'aws' && (
-              <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-md">
-                <p className="text-sm font-medium text-yellow-800 mb-2">AWS IAM Authentication</p>
-                <p className="text-xs text-yellow-700">
-                  AWS IAM authentication is coming soon. Please use Token or Username/Password for now.
-                </p>
-              </div>
-            )}
-
-            {/* Azure Authentication */}
-            {authMethod === 'azure' && (
-              <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-md">
-                <p className="text-sm font-medium text-yellow-800 mb-2">Azure Authentication</p>
-                <p className="text-xs text-yellow-700">
-                  Azure managed identity authentication is coming soon. Please use Token or Username/Password for now.
-                </p>
-              </div>
-            )}
-
-            <Separator />
-
-            {/* Common Settings */}
+          {/* Username/Password Authentication */}
+          {settings.vault.authMethod === 'userpass' && (
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <Label htmlFor="vaultNamespace">Vault Namespace (Optional)</Label>
+                <Label htmlFor="vaultUsername">Username</Label>
                 <Input
-                  id="vaultNamespace"
-                  placeholder="admin"
-                  value={namespace}
-                  onChange={(e) => setNamespace(e.target.value)}
+                  id="vaultUsername"
+                  value={settings.vault.username}
+                  onChange={(e) => updateSection('vault', { username: e.target.value })}
                 />
-                <p className="text-xs text-muted-foreground mt-1">
-                  For Vault Enterprise only
-                </p>
               </div>
               <div>
-                <Label htmlFor="vaultMountPath">Mount Path *</Label>
+                <Label htmlFor="vaultPassword">Password</Label>
                 <Input
-                  id="vaultMountPath"
-                  placeholder="secret"
-                  value={mountPath}
-                  onChange={(e) => setMountPath(e.target.value)}
+                  id="vaultPassword"
+                  type="password"
+                  value={settings.vault.password}
+                  onChange={(e) => updateSection('vault', { password: e.target.value })}
                 />
-                <p className="text-xs text-muted-foreground mt-1">
-                  KV secrets engine mount path
-                </p>
               </div>
             </div>
+          )}
 
-            {/* Duplicate Warning */}
-            {duplicateConfig && (
-              <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-md">
-                <div className="flex items-start gap-2">
-                  <span className="text-yellow-600 text-lg">⚠️</span>
-                  <div className="flex-1">
-                    <p className="text-sm font-medium text-yellow-800">Duplicate Configuration Detected</p>
-                    <p className="text-xs text-yellow-700 mt-1">
-                      A configuration already exists for {serverUrl} with {authMethod}
-                      {(authMethod === 'userpass' || authMethod === 'ldap') && username ? ` (user: ${username})` : ''}.
-                      Please use a different URL, authentication method, or username.
-                    </p>
-                  </div>
-                </div>
+          {/* LDAP Authentication */}
+          {settings.vault.authMethod === 'ldap' && (
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="vaultLdapUsername">LDAP Username</Label>
+                <Input
+                  id="vaultLdapUsername"
+                  value={settings.vault.username}
+                  onChange={(e) => updateSection('vault', { username: e.target.value })}
+                />
               </div>
-            )}
-
-            {/* Status Messages */}
-            {connectionStatus !== 'idle' && (
-              <div className={`p-4 rounded-md border ${
-                connectionStatus === 'success' ? 'bg-green-50 border-green-200' :
-                connectionStatus === 'error' ? 'bg-red-50 border-red-200' :
-                'bg-blue-50 border-blue-200'
-              }`}>
-                <div className="flex items-start gap-2">
-                  <span className={`text-lg ${
-                    connectionStatus === 'success' ? 'text-green-600' :
-                    connectionStatus === 'error' ? 'text-red-600' :
-                    'text-blue-600'
-                  }`}>
-                    {connectionStatus === 'success' ? '✅' : connectionStatus === 'error' ? '❌' : 'ℹ️'}
-                  </span>
-                  <p className={`text-sm ${
-                    connectionStatus === 'success' ? 'text-green-800' :
-                    connectionStatus === 'error' ? 'text-red-800' :
-                    'text-blue-800'
-                  }`}>
-                    {connectionMessage}
-                  </p>
-                </div>
+              <div>
+                <Label htmlFor="vaultLdapPassword">LDAP Password</Label>
+                <Input
+                  id="vaultLdapPassword"
+                  type="password"
+                  value={settings.vault.password}
+                  onChange={(e) => updateSection('vault', { password: e.target.value })}
+                />
               </div>
-            )}
+            </div>
+          )}
 
-            {/* Action Buttons */}
-            <div className="flex gap-2 pt-4">
-              <Button
-                onClick={testConnection}
-                disabled={
-                  isTestingConnection || 
-                  isSaving || 
-                  !serverUrl || 
-                  !!duplicateConfig ||
-                  (authMethod === 'token' && !token) ||
-                  ((authMethod === 'userpass' || authMethod === 'ldap') && (!username || !password)) ||
-                  (authMethod === 'kubernetes' && !kubernetesRole)
-                }
-              >
-                {isTestingConnection ? (
-                  <>
-                    <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
-                    Testing...
-                  </>
-                ) : (
-                  <>
-                    <RefreshCw className="w-4 h-4 mr-2" />
-                    Test Connection
-                  </>
-                )}
-              </Button>
-              <Button
-                variant="outline"
-                onClick={saveConfiguration}
-                disabled={
-                  isTestingConnection || 
-                  isSaving || 
-                  !serverUrl || 
-                  !!duplicateConfig ||
-                  (authMethod === 'token' && !token) ||
-                  ((authMethod === 'userpass' || authMethod === 'ldap') && (!username || !password)) ||
-                  (authMethod === 'kubernetes' && !kubernetesRole)
-                }
-              >
-                {isSaving ? (
-                  <>
-                    <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
-                    Saving...
-                  </>
-                ) : (
-                  <>
-                    <Save className="w-4 h-4 mr-2" />
-                    Save Configuration
-                  </>
-                )}
-              </Button>
+          {/* Kubernetes Authentication */}
+          {settings.vault.authMethod === 'kubernetes' && (
+            <div>
+              <Label htmlFor="vaultK8sRole">Kubernetes Role</Label>
+              <Input
+                id="vaultK8sRole"
+                placeholder="my-role"
+                value={settings.vault.kubernetesRole}
+                onChange={(e) => updateSection('vault', { kubernetesRole: e.target.value })}
+              />
+            </div>
+          )}
+
+          {/* AWS Authentication */}
+          {settings.vault.authMethod === 'aws' && (
+            <div>
+              <Label htmlFor="vaultAwsRole">AWS Role</Label>
+              <Input
+                id="vaultAwsRole"
+                placeholder="my-aws-role"
+                value={settings.vault.awsRole}
+                onChange={(e) => updateSection('vault', { awsRole: e.target.value })}
+              />
+            </div>
+          )}
+
+          {/* Azure Authentication */}
+          {settings.vault.authMethod === 'azure' && (
+            <div>
+              <Label htmlFor="vaultAzureRole">Azure Role</Label>
+              <Input
+                id="vaultAzureRole"
+                placeholder="my-azure-role"
+                value={settings.vault.azureRole}
+                onChange={(e) => updateSection('vault', { azureRole: e.target.value })}
+              />
+            </div>
+          )}
+
+          <Separator />
+
+          {/* Common Settings */}
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <Label htmlFor="vaultNamespace">Vault Namespace</Label>
+              <Input
+                id="vaultNamespace"
+                placeholder="admin (optional)"
+                value={settings.vault.namespace}
+                onChange={(e) => updateSection('vault', { namespace: e.target.value })}
+              />
+            </div>
+            <div>
+              <Label htmlFor="vaultMountPath">Mount Path</Label>
+              <Input
+                id="vaultMountPath"
+                placeholder="secret"
+                value={settings.vault.mountPath}
+                onChange={(e) => updateSection('vault', { mountPath: e.target.value })}
+              />
             </div>
           </div>
         </div>
       </div>
-    )
-  }
 
+      <div className="flex gap-2">
+        <Button>
+          <Save className="w-4 h-4 mr-2" />
+          Test Connection
+        </Button>
+        <Button variant="outline">
+          Save Configuration
+        </Button>
+      </div>
+    </div>
+  )
 
 
 
