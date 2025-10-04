@@ -365,6 +365,26 @@ Use these in Config Hub filters to test the search functionality!
 
 ---
 
+## 🔄 Auto-Refresh Behavior
+
+Config Hub automatically polls the ArgoCD API to keep application status up-to-date:
+
+- **Polling Interval**: Configurable (default: 30 seconds)
+- **Configuration**: Settings → ArgoCD → Auto-Refresh (5-300 seconds)
+- **API Endpoint**: GET /applications
+- **What Updates**: Sync status, health status, and all application metadata
+- **Manual Refresh**: Click the Refresh button anytime for immediate update
+- **Performance**: Lightweight polling with minimal overhead
+
+**Adjusting the Interval:**
+- Lower values (5-15 seconds): More responsive, higher API load
+- Default (30 seconds): Balanced responsiveness and performance
+- Higher values (60-300 seconds): Reduced API load, less frequent updates
+
+This ensures you always see current application states without manual intervention.
+
+---
+
 ## 🎓 Learning Opportunities
 
 These sample applications are perfect for:

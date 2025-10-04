@@ -10,10 +10,10 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { 
+import {
   ArrowLeft,
-  ZoomIn, 
-  ZoomOut, 
+  ZoomIn,
+  ZoomOut,
   RotateCcw,
   PanelLeftClose,
   Type,
@@ -48,10 +48,10 @@ export function HelpDialog({ open, onOpenChange, initialSection = 'overview' }: 
       content: (
         <div className="space-y-4">
           <p className="text-body">
-            Welcome to your modern Electron app! This application combines the power of desktop 
+            Welcome to your modern Electron app! This application combines the power of desktop
             software with modern web technologies to provide a seamless user experience.
           </p>
-          
+
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <Card>
               <CardHeader className="pb-3">
@@ -76,7 +76,7 @@ export function HelpDialog({ open, onOpenChange, initialSection = 'overview' }: 
                 </div>
               </CardContent>
             </Card>
-            
+
             <Card>
               <CardHeader className="pb-3">
                 <CardTitle className="text-base">Key Features</CardTitle>
@@ -116,7 +116,7 @@ export function HelpDialog({ open, onOpenChange, initialSection = 'overview' }: 
         </div>
       )
     },
-    
+
     'quick-start': {
       title: 'Quick Start Guide',
       icon: Lightbulb,
@@ -125,7 +125,7 @@ export function HelpDialog({ open, onOpenChange, initialSection = 'overview' }: 
           <p className="text-body">
             Get up and running quickly with these essential tips:
           </p>
-          
+
           <div className="space-y-4">
             <div className="flex gap-3">
               <div className="flex-shrink-0 w-6 h-6 bg-primary text-primary-foreground rounded-full flex items-center justify-center text-sm font-medium">1</div>
@@ -134,7 +134,7 @@ export function HelpDialog({ open, onOpenChange, initialSection = 'overview' }: 
                 <p className="text-sm text-muted-foreground">Use the sidebar to access different sections. Click the chevron to collapse it.</p>
               </div>
             </div>
-            
+
             <div className="flex gap-3">
               <div className="flex-shrink-0 w-6 h-6 bg-primary text-primary-foreground rounded-full flex items-center justify-center text-sm font-medium">2</div>
               <div>
@@ -142,7 +142,7 @@ export function HelpDialog({ open, onOpenChange, initialSection = 'overview' }: 
                 <p className="text-sm text-muted-foreground">Use Ctrl+Plus/Minus or the zoom controls in the header to adjust text size.</p>
               </div>
             </div>
-            
+
             <div className="flex gap-3">
               <div className="flex-shrink-0 w-6 h-6 bg-primary text-primary-foreground rounded-full flex items-center justify-center text-sm font-medium">3</div>
               <div>
@@ -150,7 +150,7 @@ export function HelpDialog({ open, onOpenChange, initialSection = 'overview' }: 
                 <p className="text-sm text-muted-foreground">Press Ctrl+K to open the command palette or click the help button.</p>
               </div>
             </div>
-            
+
             <div className="flex gap-3">
               <div className="flex-shrink-0 w-6 h-6 bg-primary text-primary-foreground rounded-full flex items-center justify-center text-sm font-medium">4</div>
               <div>
@@ -162,7 +162,7 @@ export function HelpDialog({ open, onOpenChange, initialSection = 'overview' }: 
         </div>
       )
     },
-    
+
     zoom: {
       title: 'Zoom Controls',
       icon: ZoomIn,
@@ -171,7 +171,7 @@ export function HelpDialog({ open, onOpenChange, initialSection = 'overview' }: 
           <p className="text-body">
             Adjust the app's zoom level for better readability and comfort.
           </p>
-          
+
           <Card>
             <CardHeader>
               <CardTitle className="text-base">Available Methods</CardTitle>
@@ -187,7 +187,7 @@ export function HelpDialog({ open, onOpenChange, initialSection = 'overview' }: 
                   <Badge variant="outline" className="font-mono text-xs">Ctrl+Wheel↑</Badge>
                 </div>
               </div>
-              
+
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <ZoomOut className="h-4 w-4" />
@@ -198,7 +198,7 @@ export function HelpDialog({ open, onOpenChange, initialSection = 'overview' }: 
                   <Badge variant="outline" className="font-mono text-xs">Ctrl+Wheel↓</Badge>
                 </div>
               </div>
-              
+
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <RotateCcw className="h-4 w-4" />
@@ -206,7 +206,7 @@ export function HelpDialog({ open, onOpenChange, initialSection = 'overview' }: 
                 </div>
                 <Badge variant="outline" className="font-mono text-xs">Ctrl+0</Badge>
               </div>
-              
+
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <Monitor className="h-4 w-4" />
@@ -216,7 +216,7 @@ export function HelpDialog({ open, onOpenChange, initialSection = 'overview' }: 
               </div>
             </CardContent>
           </Card>
-          
+
           <div className="bg-blue-50 dark:bg-blue-950/20 p-3 rounded-lg border border-blue-200 dark:border-blue-800">
             <p className="text-sm text-blue-800 dark:text-blue-200">
               <strong>Tip:</strong> Your zoom level is automatically saved and restored when you restart the app.
@@ -225,7 +225,7 @@ export function HelpDialog({ open, onOpenChange, initialSection = 'overview' }: 
         </div>
       )
     },
-    
+
     sidebar: {
       title: 'Sidebar Management',
       icon: PanelLeftClose,
@@ -234,7 +234,7 @@ export function HelpDialog({ open, onOpenChange, initialSection = 'overview' }: 
           <p className="text-body">
             The sidebar provides quick access to different sections of the app and can be customized to your preference.
           </p>
-          
+
           <Card>
             <CardHeader>
               <CardTitle className="text-base">Sidebar Features</CardTitle>
@@ -247,7 +247,7 @@ export function HelpDialog({ open, onOpenChange, initialSection = 'overview' }: 
                   <p className="text-xs text-muted-foreground">Click the chevron button to collapse/expand the sidebar</p>
                 </div>
               </div>
-              
+
               <div className="flex items-start gap-3">
                 <Save className="h-4 w-4 mt-0.5" />
                 <div>
@@ -255,7 +255,7 @@ export function HelpDialog({ open, onOpenChange, initialSection = 'overview' }: 
                   <p className="text-xs text-muted-foreground">Your collapse preference is remembered between sessions</p>
                 </div>
               </div>
-              
+
               <div className="flex items-start gap-3">
                 <Monitor className="h-4 w-4 mt-0.5" />
                 <div>
@@ -268,7 +268,7 @@ export function HelpDialog({ open, onOpenChange, initialSection = 'overview' }: 
         </div>
       )
     },
-    
+
     typography: {
       title: 'Typography System',
       icon: Type,
@@ -277,7 +277,7 @@ export function HelpDialog({ open, onOpenChange, initialSection = 'overview' }: 
           <p className="text-body">
             The app uses a carefully crafted typography system for optimal readability and visual hierarchy.
           </p>
-          
+
           <Card>
             <CardHeader>
               <CardTitle className="text-base">Font Stack</CardTitle>
@@ -287,14 +287,14 @@ export function HelpDialog({ open, onOpenChange, initialSection = 'overview' }: 
                 <h4 className="text-sm font-medium">Primary Font: Inter</h4>
                 <p className="text-xs text-muted-foreground">Optimized for UI elements and body text</p>
               </div>
-              
+
               <div>
                 <h4 className="text-sm font-medium font-mono">Monospace Font: JetBrains Mono</h4>
                 <p className="text-xs text-muted-foreground">Perfect for code blocks and technical content</p>
               </div>
             </CardContent>
           </Card>
-          
+
           <Card>
             <CardHeader>
               <CardTitle className="text-base">Typography Features</CardTitle>
@@ -312,7 +312,7 @@ export function HelpDialog({ open, onOpenChange, initialSection = 'overview' }: 
         </div>
       )
     },
-    
+
     shortcuts: {
       title: 'Keyboard Shortcuts',
       icon: Keyboard,
@@ -321,7 +321,7 @@ export function HelpDialog({ open, onOpenChange, initialSection = 'overview' }: 
           <p className="text-body">
             Master these keyboard shortcuts to work more efficiently.
           </p>
-          
+
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <Card>
               <CardHeader className="pb-3">
@@ -338,7 +338,7 @@ export function HelpDialog({ open, onOpenChange, initialSection = 'overview' }: 
                 </div>
               </CardContent>
             </Card>
-            
+
             <Card>
               <CardHeader className="pb-3">
                 <CardTitle className="text-base">Zoom</CardTitle>
@@ -362,7 +362,7 @@ export function HelpDialog({ open, onOpenChange, initialSection = 'overview' }: 
         </div>
       )
     },
-    
+
     preferences: {
       title: 'App Preferences',
       icon: Settings,
@@ -371,7 +371,7 @@ export function HelpDialog({ open, onOpenChange, initialSection = 'overview' }: 
           <p className="text-body">
             Your app preferences are automatically managed and persisted.
           </p>
-          
+
           <Card>
             <CardHeader>
               <CardTitle className="text-base">Automatically Saved</CardTitle>
@@ -384,7 +384,7 @@ export function HelpDialog({ open, onOpenChange, initialSection = 'overview' }: 
                   <p className="text-xs text-muted-foreground">Current zoom preference (25% - 500%)</p>
                 </div>
               </div>
-              
+
               <div className="flex items-center gap-3">
                 <PanelLeftClose className="h-4 w-4 text-muted-foreground" />
                 <div>
@@ -392,7 +392,7 @@ export function HelpDialog({ open, onOpenChange, initialSection = 'overview' }: 
                   <p className="text-xs text-muted-foreground">Collapsed or expanded preference</p>
                 </div>
               </div>
-              
+
               <div className="flex items-center gap-3">
                 <Monitor className="h-4 w-4 text-muted-foreground" />
                 <div>
@@ -405,7 +405,7 @@ export function HelpDialog({ open, onOpenChange, initialSection = 'overview' }: 
         </div>
       )
     },
-    
+
     persistence: {
       title: 'Data Persistence',
       icon: HelpCircle,
@@ -414,7 +414,7 @@ export function HelpDialog({ open, onOpenChange, initialSection = 'overview' }: 
           <p className="text-body">
             Learn how your data and preferences are stored and managed.
           </p>
-          
+
           <Card>
             <CardHeader>
               <CardTitle className="text-base">Storage Location</CardTitle>
@@ -423,13 +423,13 @@ export function HelpDialog({ open, onOpenChange, initialSection = 'overview' }: 
               <p className="text-sm text-muted-foreground">
                 Your preferences are stored in JSON files in your system's user data directory:
               </p>
-              
+
               <div className="bg-muted p-3 rounded-md font-mono text-xs">
                 <div>Windows: %APPDATA%/electron-react-app/</div>
                 <div>macOS: ~/Library/Application Support/electron-react-app/</div>
                 <div>Linux: ~/.config/electron-react-app/</div>
               </div>
-              
+
               <div className="space-y-2">
                 <div className="text-xs">
                   <strong>zoom-state.json</strong> - Zoom level preference
@@ -446,7 +446,7 @@ export function HelpDialog({ open, onOpenChange, initialSection = 'overview' }: 
         </div>
       )
     },
-    
+
     'user-management': {
       title: 'User Management',
       icon: Users,
@@ -455,7 +455,7 @@ export function HelpDialog({ open, onOpenChange, initialSection = 'overview' }: 
           <p className="text-body">
             Manage system users and user contexts within the application.
           </p>
-          
+
           <Card>
             <CardHeader>
               <CardTitle className="text-base">Features</CardTitle>
@@ -468,7 +468,7 @@ export function HelpDialog({ open, onOpenChange, initialSection = 'overview' }: 
                   <p className="text-xs text-muted-foreground">Automatically detects current system user, domain, and admin privileges</p>
                 </div>
               </div>
-              
+
               <div className="flex items-start gap-3">
                 <Users className="h-4 w-4 mt-0.5" />
                 <div>
@@ -476,7 +476,7 @@ export function HelpDialog({ open, onOpenChange, initialSection = 'overview' }: 
                   <p className="text-xs text-muted-foreground">Lists other users on the system (requires admin privileges)</p>
                 </div>
               </div>
-              
+
               <div className="flex items-start gap-3">
                 <Key className="h-4 w-4 mt-0.5" />
                 <div>
@@ -486,7 +486,7 @@ export function HelpDialog({ open, onOpenChange, initialSection = 'overview' }: 
               </div>
             </CardContent>
           </Card>
-          
+
           <Card>
             <CardHeader>
               <CardTitle className="text-base">How to Access</CardTitle>
@@ -500,7 +500,7 @@ export function HelpDialog({ open, onOpenChange, initialSection = 'overview' }: 
               </div>
             </CardContent>
           </Card>
-          
+
           <div className="bg-amber-50 dark:bg-amber-950/20 p-3 rounded-lg border border-amber-200 dark:border-amber-800">
             <p className="text-sm text-amber-800 dark:text-amber-200">
               <strong>Note:</strong> Some features require administrator privileges and work best on Windows domain environments.
@@ -509,7 +509,7 @@ export function HelpDialog({ open, onOpenChange, initialSection = 'overview' }: 
         </div>
       )
     },
-    
+
     'argocd-integration': {
       title: 'ArgoCD Integration',
       icon: GitBranch,
@@ -518,7 +518,7 @@ export function HelpDialog({ open, onOpenChange, initialSection = 'overview' }: 
           <p className="text-body">
             Connect to and manage ArgoCD applications directly from the desktop app.
           </p>
-          
+
           <Card>
             <CardHeader>
               <CardTitle className="text-base">Features</CardTitle>
@@ -531,7 +531,7 @@ export function HelpDialog({ open, onOpenChange, initialSection = 'overview' }: 
                   <p className="text-xs text-muted-foreground">View, sync, and manage ArgoCD applications</p>
                 </div>
               </div>
-              
+
               <div className="flex items-start gap-3">
                 <Monitor className="h-4 w-4 mt-0.5" />
                 <div>
@@ -539,7 +539,7 @@ export function HelpDialog({ open, onOpenChange, initialSection = 'overview' }: 
                   <p className="text-xs text-muted-foreground">Monitor sync and health status of applications</p>
                 </div>
               </div>
-              
+
               <div className="flex items-start gap-3">
                 <Settings className="h-4 w-4 mt-0.5" />
                 <div>
@@ -549,7 +549,7 @@ export function HelpDialog({ open, onOpenChange, initialSection = 'overview' }: 
               </div>
             </CardContent>
           </Card>
-          
+
           <Card>
             <CardHeader>
               <CardTitle className="text-base">Quick Setup</CardTitle>
@@ -563,7 +563,7 @@ export function HelpDialog({ open, onOpenChange, initialSection = 'overview' }: 
                   <div>3. Click "Test Connection" then "Save"</div>
                   <div>4. Navigate to ArgoCD page</div>
                 </div>
-                
+
                 <div className="font-medium pt-2">Option 2: Service Account Token</div>
                 <div className="pl-3 space-y-1">
                   <div>1. Run setup script (see ARGOCD_README.md)</div>
@@ -575,7 +575,7 @@ export function HelpDialog({ open, onOpenChange, initialSection = 'overview' }: 
               </div>
             </CardContent>
           </Card>
-          
+
           <Card>
             <CardHeader>
               <CardTitle className="text-base">Features</CardTitle>
@@ -587,10 +587,27 @@ export function HelpDialog({ open, onOpenChange, initialSection = 'overview' }: 
                 <div>• Secure credential storage (OS-level encryption)</div>
                 <div>• Test connection before saving</div>
                 <div>• Support for self-signed certificates</div>
+                <div>• Configurable auto-refresh interval (5-300 seconds)</div>
               </div>
             </CardContent>
           </Card>
-          
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">Auto-Refresh Configuration</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-2">
+              <div className="text-xs space-y-1">
+                <div>• Default: 30 seconds polling interval</div>
+                <div>• Configurable range: 5-300 seconds</div>
+                <div>• Set in Settings → ArgoCD → Auto-Refresh field</div>
+                <div>• Polls GET /applications API endpoint</div>
+                <div>• Updates sync status, health status, and metadata</div>
+                <div>• Manual refresh available anytime via Refresh button</div>
+              </div>
+            </CardContent>
+          </Card>
+
           <Card>
             <CardHeader>
               <CardTitle className="text-base">Documentation</CardTitle>
@@ -608,7 +625,7 @@ export function HelpDialog({ open, onOpenChange, initialSection = 'overview' }: 
         </div>
       )
     },
-    
+
     'vault-integration': {
       title: 'HashiCorp Vault',
       icon: Lock,
@@ -617,7 +634,7 @@ export function HelpDialog({ open, onOpenChange, initialSection = 'overview' }: 
           <p className="text-body">
             Securely manage secrets and credentials using HashiCorp Vault integration.
           </p>
-          
+
           <Card>
             <CardHeader>
               <CardTitle className="text-base">Supported Authentication</CardTitle>
@@ -630,7 +647,7 @@ export function HelpDialog({ open, onOpenChange, initialSection = 'overview' }: 
                   <p className="text-xs text-muted-foreground">Direct token-based access</p>
                 </div>
               </div>
-              
+
               <div className="flex items-start gap-3">
                 <Users className="h-4 w-4 mt-0.5" />
                 <div>
@@ -638,7 +655,7 @@ export function HelpDialog({ open, onOpenChange, initialSection = 'overview' }: 
                   <p className="text-xs text-muted-foreground">Traditional username and password authentication</p>
                 </div>
               </div>
-              
+
               <div className="flex items-start gap-3">
                 <Shield className="h-4 w-4 mt-0.5" />
                 <div>
@@ -646,7 +663,7 @@ export function HelpDialog({ open, onOpenChange, initialSection = 'overview' }: 
                   <p className="text-xs text-muted-foreground">Enterprise LDAP authentication</p>
                 </div>
               </div>
-              
+
               <div className="flex items-start gap-3">
                 <Database className="h-4 w-4 mt-0.5" />
                 <div>
@@ -656,7 +673,7 @@ export function HelpDialog({ open, onOpenChange, initialSection = 'overview' }: 
               </div>
             </CardContent>
           </Card>
-          
+
           <Card>
             <CardHeader>
               <CardTitle className="text-base">Secret Management</CardTitle>
@@ -671,7 +688,7 @@ export function HelpDialog({ open, onOpenChange, initialSection = 'overview' }: 
               </div>
             </CardContent>
           </Card>
-          
+
           <Card>
             <CardHeader>
               <CardTitle className="text-base">Setup</CardTitle>
@@ -686,7 +703,7 @@ export function HelpDialog({ open, onOpenChange, initialSection = 'overview' }: 
               </div>
             </CardContent>
           </Card>
-          
+
           <div className="bg-green-50 dark:bg-green-950/20 p-3 rounded-lg border border-green-200 dark:border-green-800">
             <p className="text-sm text-green-800 dark:text-green-200">
               <strong>Security:</strong> All Vault operations are performed securely through the main process with encrypted credential storage.
@@ -695,7 +712,7 @@ export function HelpDialog({ open, onOpenChange, initialSection = 'overview' }: 
         </div>
       )
     },
-    
+
     'environment-management': {
       title: 'Environment Management',
       icon: Settings,
@@ -704,7 +721,7 @@ export function HelpDialog({ open, onOpenChange, initialSection = 'overview' }: 
           <p className="text-body">
             Manage different environments and instances for your integrations and configurations.
           </p>
-          
+
           <Card>
             <CardHeader>
               <CardTitle className="text-base">Available Environments</CardTitle>
@@ -730,7 +747,7 @@ export function HelpDialog({ open, onOpenChange, initialSection = 'overview' }: 
               </div>
             </CardContent>
           </Card>
-          
+
           <Card>
             <CardHeader>
               <CardTitle className="text-base">Instance Support</CardTitle>
@@ -747,7 +764,7 @@ export function HelpDialog({ open, onOpenChange, initialSection = 'overview' }: 
               </div>
             </CardContent>
           </Card>
-          
+
           <Card>
             <CardHeader>
               <CardTitle className="text-base">How to Switch</CardTitle>
@@ -761,7 +778,7 @@ export function HelpDialog({ open, onOpenChange, initialSection = 'overview' }: 
               </div>
             </CardContent>
           </Card>
-          
+
           <div className="bg-blue-50 dark:bg-blue-950/20 p-3 rounded-lg border border-blue-200 dark:border-blue-800">
             <p className="text-sm text-blue-800 dark:text-blue-200">
               <strong>Tip:</strong> Your environment selection is automatically saved and restored when you restart the app.
@@ -794,15 +811,15 @@ export function HelpDialog({ open, onOpenChange, initialSection = 'overview' }: 
             <DialogTitle>{currentSectionData?.title || 'Help'}</DialogTitle>
           </div>
           <DialogDescription>
-            Press <Badge variant="outline" className="font-mono text-xs mx-1">Ctrl+K</Badge> 
+            Press <Badge variant="outline" className="font-mono text-xs mx-1">Ctrl+K</Badge>
             to open the command palette for quick navigation.
           </DialogDescription>
         </DialogHeader>
-        
+
         <div className="mt-4">
           {currentSectionData?.content}
         </div>
-        
+
         {currentSection === 'overview' && (
           <>
             <Separator />

@@ -24,6 +24,7 @@ export interface EnvironmentSettings {
     password: string
     namespace: string
     syncPolicy: string
+    refreshInterval: number
     credentialId?: string
     credentialName?: string
   }
@@ -73,6 +74,7 @@ const defaultSettings: EnvironmentSettings = {
     password: '',
     namespace: 'argocd',
     syncPolicy: 'manual',
+    refreshInterval: 30,
     credentialId: undefined,
     credentialName: undefined
   },

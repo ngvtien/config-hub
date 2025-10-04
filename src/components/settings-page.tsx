@@ -408,7 +408,7 @@ export function SettingsPage({ onBack }: SettingsPageProps) {
               </p>
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-3 gap-4">
               <div>
                 <Label htmlFor="argoCDNamespace">Namespace</Label>
                 <Input
@@ -429,6 +429,21 @@ export function SettingsPage({ onBack }: SettingsPageProps) {
                   <option value="manual">Manual</option>
                   <option value="automatic">Automatic</option>
                 </select>
+              </div>
+              <div>
+                <Label htmlFor="refreshInterval">Auto-Refresh (seconds)</Label>
+                <Input
+                  id="refreshInterval"
+                  type="number"
+                  min="5"
+                  max="300"
+                  placeholder="30"
+                  value={settings.argocd.refreshInterval}
+                  onChange={(e) => updateSection('argocd', { refreshInterval: parseInt(e.target.value) || 30 })}
+                />
+                <p className="text-xs text-muted-foreground mt-1">
+                  Polling interval: 5-300 seconds
+                </p>
               </div>
             </div>
 
