@@ -21,8 +21,11 @@ export interface EnvironmentSettings {
     serverUrl: string
     username: string
     token: string
+    password: string
     namespace: string
     syncPolicy: string
+    credentialId?: string
+    credentialName?: string
   }
   helm: {
     registryUrl: string
@@ -67,8 +70,11 @@ const defaultSettings: EnvironmentSettings = {
     serverUrl: '',
     username: '',
     token: '',
+    password: '',
     namespace: 'argocd',
-    syncPolicy: 'manual'
+    syncPolicy: 'manual',
+    credentialId: undefined,
+    credentialName: undefined
   },
   helm: {
     registryUrl: '',

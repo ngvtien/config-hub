@@ -24,8 +24,8 @@ export class ArgoCDService {
     }
   }
 
-  // Store credentials securely via IPC
-  private async storeCredentials(environment: Environment, settings: EnvironmentSettings): Promise<void> {
+  // Store credentials securely via IPC and return credential ID
+  private async ensureCredentials(environment: Environment, settings: EnvironmentSettings): Promise<string> {
     if (!this.isElectron) {
       throw new Error('ArgoCD integration requires Electron environment')
     }
@@ -35,10 +35,32 @@ export class ArgoCDService {
       throw new Error(`ArgoCD configuration incomplete for environment: ${environment}`)
     }
 
-    const result = await window.electronAPI.argocd.storeCredentials(environment, config)
+    // If we already have a credential ID, return it
+    if (settings.argocd.credentialId) {
+      return settings.argocd.credentialId
+    }
+
+    // Store new credentials
+    const storeConfig = {
+      name: settings.argocd.credentialName || `ArgoCD ${environment.toUpperCase()}`,
+      serverUrl: config.serverUrl,
+      token: config.token,
+      username: config.username,
+      namespace: config.namespace,
+      environment,
+      tags: ['argocd-service']
+    }
+
+    const result = await window.electronAPI.argocd.storeCredentials(storeConfig)
     if (!result.success) {
       throw new Error(result.error || 'Failed to store credentials')
     }
+
+    if (!result.credentialId) {
+      throw new Error('No credential ID returned from store operation')
+    }
+
+    return result.credentialId
   }
 
   // Test connection for environment
@@ -48,11 +70,11 @@ export class ArgoCDService {
         throw new Error('ArgoCD integration requires Electron environment')
       }
 
-      // Store credentials first
-      await this.storeCredentials(environment, settings)
+      // Ensure credentials are stored and get credential ID
+      const credentialId = await this.ensureCredentials(environment, settings)
       
       // Test connection via IPC
-      const result = await window.electronAPI.argocd.testConnection(environment)
+      const result = await window.electronAPI.argocd.testConnection(credentialId)
       return result.success && result.connected === true
     } catch (error) {
       console.error(`Failed to test ArgoCD connection for ${environment}:`, error)
@@ -67,11 +89,11 @@ export class ArgoCDService {
         throw new Error('ArgoCD integration requires Electron environment')
       }
 
-      // Store credentials first
-      await this.storeCredentials(environment, settings)
+      // Ensure credentials are stored and get credential ID
+      const credentialId = await this.ensureCredentials(environment, settings)
       
       // Get applications via IPC
-      const result = await window.electronAPI.argocd.getApplications(environment)
+      const result = await window.electronAPI.argocd.getApplications(credentialId)
       if (!result.success) {
         throw new Error(result.error || 'Failed to get applications')
       }
@@ -95,11 +117,11 @@ export class ArgoCDService {
         throw new Error('ArgoCD integration requires Electron environment')
       }
 
-      // Store credentials first
-      await this.storeCredentials(environment, settings)
+      // Ensure credentials are stored and get credential ID
+      const credentialId = await this.ensureCredentials(environment, settings)
       
       // Get application via IPC
-      const result = await window.electronAPI.argocd.getApplication(environment, name, namespace)
+      const result = await window.electronAPI.argocd.getApplication(credentialId, name, namespace)
       if (!result.success) {
         throw new Error(result.error || 'Failed to get application')
       }
@@ -228,11 +250,11 @@ export class ArgoCDService {
         throw new Error('ArgoCD integration requires Electron environment')
       }
 
-      // Store credentials first
-      await this.storeCredentials(environment, settings)
+      // Ensure credentials are stored and get credential ID
+      const credentialId = await this.ensureCredentials(environment, settings)
       
       // Get logs via IPC
-      const result = await window.electronAPI.argocd.getApplicationLogs(environment, name, {
+      const result = await window.electronAPI.argocd.getApplicationLogs(credentialId, name, {
         namespace: options?.namespace,
         container: options?.container,
         sinceSeconds: options?.sinceSeconds,
@@ -262,11 +284,11 @@ export class ArgoCDService {
         throw new Error('ArgoCD integration requires Electron environment')
       }
 
-      // Store credentials first
-      await this.storeCredentials(environment, settings)
+      // Ensure credentials are stored and get credential ID
+      const credentialId = await this.ensureCredentials(environment, settings)
       
       // Get events via IPC
-      const result = await window.electronAPI.argocd.getApplicationEvents(environment, name, namespace)
+      const result = await window.electronAPI.argocd.getApplicationEvents(credentialId, name, namespace)
       if (!result.success) {
         throw new Error(result.error || 'Failed to get application events')
       }
@@ -359,11 +381,11 @@ export class ArgoCDService {
         throw new Error('ArgoCD integration requires Electron environment')
       }
 
-      // Store credentials first
-      await this.storeCredentials(environment, settings)
+      // Ensure credentials are stored and get credential ID
+      const credentialId = await this.ensureCredentials(environment, settings)
       
       // Sync application via IPC
-      const result = await window.electronAPI.argocd.syncApplication(environment, name, {
+      const result = await window.electronAPI.argocd.syncApplication(credentialId, name, {
         namespace: options?.namespace,
         dryRun: options?.dryRun,
         prune: options?.prune,

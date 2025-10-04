@@ -19,7 +19,9 @@ import {
   Shield,
   Save,
   RefreshCw,
-  Globe
+  Globe,
+  Eye,
+  EyeOff
 } from 'lucide-react'
 
 interface SettingsPageProps {
@@ -185,77 +187,320 @@ export function SettingsPage({ onBack }: SettingsPageProps) {
     </div>
   )
 
-  const renderArgoCDSettings = () => (
-    <div className="space-y-6">
-      <div>
-        <h3 className="text-lg font-medium mb-4">ArgoCD Configuration</h3>
-        <div className="space-y-4">
-          <div>
-            <Label htmlFor="argoCDUrl">Server URL</Label>
-            <Input
-              id="argoCDUrl"
-              placeholder="https://argocd.example.com"
-              value={settings.argocd.serverUrl}
-              onChange={(e) => updateSection('argocd', { serverUrl: e.target.value })}
-            />
-          </div>
+  const renderArgoCDSettings = () => {
+    const [isTestingConnection, setIsTestingConnection] = useState(false)
+    const [isSaving, setIsSaving] = useState(false)
+    const [connectionStatus, setConnectionStatus] = useState<'idle' | 'success' | 'error'>('idle')
+    const [connectionMessage, setConnectionMessage] = useState('')
+    const [credentialName, setCredentialName] = useState(settings.argocd.credentialName || `ArgoCD ${environment.toUpperCase()}`)
+    const [showToken, setShowToken] = useState(false)
+    const [showPassword, setShowPassword] = useState(false)
 
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <Label htmlFor="argoCDUsername">Username</Label>
-              <Input
-                id="argoCDUsername"
-                value={settings.argocd.username}
-                onChange={(e) => updateSection('argocd', { username: e.target.value })}
-              />
-            </div>
-            <div>
-              <Label htmlFor="argoCDToken">Auth Token</Label>
-              <Input
-                id="argoCDToken"
-                type="password"
-                value={settings.argocd.token}
-                onChange={(e) => updateSection('argocd', { token: e.target.value })}
-              />
-            </div>
-          </div>
+    const testConnection = async () => {
+      if (!settings.argocd.serverUrl) {
+        setConnectionStatus('error')
+        setConnectionMessage('Please provide Server URL')
+        return
+      }
 
-          <div className="grid grid-cols-2 gap-4">
+      if (!settings.argocd.token && (!settings.argocd.username || !settings.argocd.password)) {
+        setConnectionStatus('error')
+        setConnectionMessage('Please provide either Auth Token or Username/Password')
+        return
+      }
+
+      setIsTestingConnection(true)
+      setConnectionStatus('idle')
+      setConnectionMessage('')
+
+      try {
+        // First store the credentials temporarily for testing
+        const config = {
+          name: credentialName,
+          serverUrl: settings.argocd.serverUrl,
+          token: settings.argocd.token,
+          username: settings.argocd.username,
+          password: settings.argocd.password,
+          namespace: settings.argocd.namespace,
+          environment,
+          tags: ['settings-page']
+        }
+
+        console.log('Test Connection - Config:', {
+          serverUrl: config.serverUrl,
+          hasToken: !!config.token,
+          username: config.username,
+          hasPassword: !!config.password,
+          namespace: config.namespace
+        })
+
+        const storeResult = await window.electronAPI.argocd.storeCredentials(config)
+        if (!storeResult.success) {
+          throw new Error(storeResult.error || 'Failed to store credentials')
+        }
+
+        // Test the connection
+        if (!storeResult.credentialId) {
+          throw new Error('No credential ID returned from store operation')
+        }
+
+        const testResult = await window.electronAPI.argocd.testConnection(storeResult.credentialId)
+        if (testResult.success && testResult.connected) {
+          setConnectionStatus('success')
+          setConnectionMessage('Connection successful! ArgoCD server is reachable.')
+          // Store the credential ID for future use
+          updateSection('argocd', { credentialId: storeResult.credentialId })
+        } else {
+          setConnectionStatus('error')
+          setConnectionMessage(testResult.error || 'Connection failed. Please check your credentials and server URL.')
+        }
+      } catch (error) {
+        setConnectionStatus('error')
+        setConnectionMessage(error instanceof Error ? error.message : 'Connection test failed')
+      } finally {
+        setIsTestingConnection(false)
+      }
+    }
+
+    const saveConfiguration = async () => {
+      if (!settings.argocd.serverUrl) {
+        setConnectionStatus('error')
+        setConnectionMessage('Please provide Server URL')
+        return
+      }
+
+      if (!settings.argocd.token && (!settings.argocd.username || !settings.argocd.password)) {
+        setConnectionStatus('error')
+        setConnectionMessage('Please provide either Auth Token or Username/Password before saving')
+        return
+      }
+
+      setIsSaving(true)
+      setConnectionStatus('idle')
+      setConnectionMessage('')
+
+      try {
+        const config = {
+          name: credentialName,
+          serverUrl: settings.argocd.serverUrl,
+          token: settings.argocd.token,
+          username: settings.argocd.username,
+          password: settings.argocd.password,
+          namespace: settings.argocd.namespace,
+          environment,
+          tags: ['settings-page', 'production']
+        }
+
+        const result = await window.electronAPI.argocd.storeCredentials(config)
+        if (result.success && result.credentialId) {
+          setConnectionStatus('success')
+          setConnectionMessage('Configuration saved successfully!')
+          // Update settings with credential ID and name
+          updateSection('argocd', { 
+            credentialId: result.credentialId,
+            credentialName: credentialName
+          })
+        } else {
+          throw new Error(result.error || 'Failed to save configuration')
+        }
+      } catch (error) {
+        setConnectionStatus('error')
+        setConnectionMessage(error instanceof Error ? error.message : 'Failed to save configuration')
+      } finally {
+        setIsSaving(false)
+      }
+    }
+
+    return (
+      <div className="space-y-6">
+        <div>
+          <h3 className="text-lg font-medium mb-4">ArgoCD Configuration</h3>
+          <div className="space-y-4">
             <div>
-              <Label htmlFor="argoCDNamespace">Namespace</Label>
+              <Label htmlFor="argoCDName">Configuration Name</Label>
               <Input
-                id="argoCDNamespace"
-                value={settings.argocd.namespace}
-                onChange={(e) => updateSection('argocd', { namespace: e.target.value })}
+                id="argoCDName"
+                placeholder={`ArgoCD ${environment.toUpperCase()}`}
+                value={credentialName}
+                onChange={(e) => setCredentialName(e.target.value)}
               />
+              <p className="text-xs text-muted-foreground mt-1">
+                A friendly name to identify this ArgoCD configuration
+              </p>
             </div>
+
             <div>
-              <Label htmlFor="syncPolicy">Sync Policy</Label>
-              <select
-                id="syncPolicy"
-                className="w-full px-3 py-2 border border-input bg-background rounded-md"
-                value={settings.argocd.syncPolicy}
-                onChange={(e) => updateSection('argocd', { syncPolicy: e.target.value })}
-              >
-                <option value="manual">Manual</option>
-                <option value="automatic">Automatic</option>
-              </select>
+              <Label htmlFor="argoCDUrl">Server URL *</Label>
+              <Input
+                id="argoCDUrl"
+                placeholder="https://argocd.k8s.local"
+                value={settings.argocd.serverUrl}
+                onChange={(e) => updateSection('argocd', { serverUrl: e.target.value })}
+              />
+              <p className="text-xs text-muted-foreground mt-1">
+                The base URL of your ArgoCD server (without /api/v1)
+              </p>
             </div>
+
+            <div>
+              <Label htmlFor="argoCDToken">Auth Token (Optional if using Username/Password)</Label>
+              <div className="relative">
+                <Input
+                  id="argoCDToken"
+                  type={showToken ? "text" : "password"}
+                  placeholder="Bearer token from ArgoCD"
+                  value={settings.argocd.token}
+                  onChange={(e) => updateSection('argocd', { token: e.target.value })}
+                  className="pr-10"
+                />
+                {settings.argocd.token && (
+                  <button
+                    type="button"
+                    onClick={() => setShowToken(!showToken)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                  >
+                    {showToken ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
+                )}
+              </div>
+              <p className="text-xs text-muted-foreground mt-1">
+                Preferred method: Generate via ArgoCD CLI or use username/password below
+              </p>
+            </div>
+
+            <div className="p-4 bg-muted/50 rounded-md border">
+              <p className="text-sm font-medium mb-3">Or use Username/Password Authentication</p>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="argoCDUsername">Username</Label>
+                  <Input
+                    id="argoCDUsername"
+                    placeholder="admin"
+                    value={settings.argocd.username}
+                    onChange={(e) => updateSection('argocd', { username: e.target.value })}
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="argoCDPassword">Password</Label>
+                  <div className="relative">
+                    <Input
+                      id="argoCDPassword"
+                      type={showPassword ? "text" : "password"}
+                      placeholder="Your ArgoCD password"
+                      value={settings.argocd.password}
+                      onChange={(e) => updateSection('argocd', { password: e.target.value })}
+                      className="pr-10"
+                    />
+                    {settings.argocd.password && (
+                      <button
+                        type="button"
+                        onClick={() => setShowPassword(!showPassword)}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                      >
+                        {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </div>
+              <p className="text-xs text-muted-foreground mt-2">
+                💡 A session token will be automatically generated from your credentials
+              </p>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="argoCDNamespace">Namespace</Label>
+                <Input
+                  id="argoCDNamespace"
+                  placeholder="argocd"
+                  value={settings.argocd.namespace}
+                  onChange={(e) => updateSection('argocd', { namespace: e.target.value })}
+                />
+              </div>
+              <div>
+                <Label htmlFor="syncPolicy">Sync Policy</Label>
+                <select
+                  id="syncPolicy"
+                  className="w-full px-3 py-2 border border-input bg-background rounded-md"
+                  value={settings.argocd.syncPolicy}
+                  onChange={(e) => updateSection('argocd', { syncPolicy: e.target.value })}
+                >
+                  <option value="manual">Manual</option>
+                  <option value="automatic">Automatic</option>
+                </select>
+              </div>
+            </div>
+
+            {/* Connection Status */}
+            {connectionStatus !== 'idle' && (
+              <div className={`p-3 rounded-md border ${
+                connectionStatus === 'success' 
+                  ? 'bg-green-50 border-green-200 text-green-800' 
+                  : 'bg-red-50 border-red-200 text-red-800'
+              }`}>
+                <div className="flex items-center gap-2">
+                  {connectionStatus === 'success' ? (
+                    <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                  ) : (
+                    <div className="w-2 h-2 bg-red-500 rounded-full"></div>
+                  )}
+                  <span className="text-sm font-medium">{connectionMessage}</span>
+                </div>
+              </div>
+            )}
+
+            {/* Current Credential Info */}
+            {settings.argocd.credentialId && (
+              <div className="p-3 rounded-md bg-blue-50 border border-blue-200">
+                <div className="flex items-center gap-2 text-blue-800">
+                  <Shield className="w-4 h-4" />
+                  <span className="text-sm font-medium">
+                    Secure credentials stored for: {settings.argocd.credentialName || 'ArgoCD Configuration'}
+                  </span>
+                </div>
+                <p className="text-xs text-blue-600 mt-1">
+                  Credential ID: {settings.argocd.credentialId}
+                </p>
+              </div>
+            )}
           </div>
         </div>
-      </div>
 
-      <div className="flex gap-2">
-        <Button>
-          <Save className="w-4 h-4 mr-2" />
-          Test Connection
-        </Button>
-        <Button variant="outline">
-          Save Configuration
-        </Button>
+        <div className="flex gap-2">
+          <Button 
+            onClick={testConnection}
+            disabled={isTestingConnection || !settings.argocd.serverUrl || (!settings.argocd.token && (!settings.argocd.username || !settings.argocd.password))}
+          >
+            {isTestingConnection ? (
+              <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
+            ) : (
+              <RefreshCw className="w-4 h-4 mr-2" />
+            )}
+            Test Connection
+          </Button>
+          <Button 
+            variant="outline" 
+            onClick={saveConfiguration}
+            disabled={isSaving || !settings.argocd.serverUrl || (!settings.argocd.token && (!settings.argocd.username || !settings.argocd.password))}
+          >
+            {isSaving ? (
+              <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
+            ) : (
+              <Save className="w-4 h-4 mr-2" />
+            )}
+            Save Configuration
+          </Button>
+        </div>
+
+        <div className="text-xs text-muted-foreground space-y-1">
+          <p>• Credentials are encrypted and stored securely using OS-level encryption</p>
+          <p>• Test connection validates server accessibility and token authentication</p>
+          <p>• Save configuration stores credentials for use across the application</p>
+        </div>
       </div>
-    </div>
-  )
+    )
+  }
 
   const renderHelmOCISettings = () => (
     <div className="space-y-6">

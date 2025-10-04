@@ -1,5 +1,6 @@
 import { ipcMain } from 'electron'
 import axios, { AxiosInstance, AxiosRequestConfig } from 'axios'
+import https from 'https'
 import { simpleCredentialManager, ArgoCDCredential } from './simple-credential-manager'
 
 // Types for ArgoCD API
@@ -7,8 +8,9 @@ interface ArgoCDConfig {
   id?: string
   name: string
   serverUrl: string
-  token: string
+  token?: string
   username?: string
+  password?: string
   namespace?: string
   environment?: string
   tags?: string[]
@@ -25,6 +27,46 @@ interface ArgoCDRequest {
 class SecureArgoCDClient {
   private clients: Map<string, AxiosInstance> = new Map()
 
+  // Helper: Get session token from username/password
+  private async getSessionToken(serverUrl: string, username: string, password: string): Promise<string> {
+    try {
+      console.log(`Attempting to get session token from: ${serverUrl}/api/v1/session`)
+      console.log(`Username: ${username}`)
+      
+      const response = await axios.post(
+        `${serverUrl}/api/v1/session`,
+        { username, password },
+        {
+          headers: { 'Content-Type': 'application/json' },
+          httpsAgent: new https.Agent({ rejectUnauthorized: false }),
+          timeout: 10000
+        }
+      )
+      
+      console.log('Session token response received')
+      if (!response.data || !response.data.token) {
+        throw new Error('No token in response')
+      }
+      
+      return response.data.token
+    } catch (error: any) {
+      console.error('Failed to get session token:', {
+        message: error.message,
+        status: error.response?.status,
+        statusText: error.response?.statusText,
+        data: error.response?.data
+      })
+      
+      if (error.response?.status === 401) {
+        throw new Error('Invalid username or password')
+      } else if (error.response?.status === 404) {
+        throw new Error('ArgoCD session endpoint not found. Check server URL.')
+      } else {
+        throw new Error(`Failed to authenticate: ${error.message}`)
+      }
+    }
+  }
+
   // Create or get client for credential
   private async getClient(credentialId: string): Promise<AxiosInstance> {
     if (!this.clients.has(credentialId)) {
@@ -40,10 +82,10 @@ class SecureArgoCDClient {
           'Content-Type': 'application/json',
         },
         timeout: 30000,
-        // Security: Validate SSL certificates
-        httpsAgent: {
-          rejectUnauthorized: true
-        }
+        // Security: Validate SSL certificates (set to false for local development with self-signed certs)
+        httpsAgent: new https.Agent({
+          rejectUnauthorized: false // Set to true in production with valid certificates
+        })
       })
 
       // Add request interceptor for logging (without sensitive data)
@@ -111,9 +153,10 @@ class SecureArgoCDClient {
   // Test connection
   async testConnection(credentialId: string): Promise<boolean> {
     try {
+      // Test by fetching applications list (this endpoint requires authentication)
       await this.makeRequest({
         credentialId,
-        endpoint: '/version',
+        endpoint: '/applications',
         method: 'GET'
       })
       return true
@@ -127,12 +170,24 @@ class SecureArgoCDClient {
   async storeCredentials(config: ArgoCDConfig): Promise<string> {
     const credentialId = config.id || simpleCredentialManager.generateCredentialId('argocd', config.serverUrl)
     
+    // If password is provided but no token, get session token
+    let token = config.token
+    if (!token && config.username && config.password) {
+      console.log(`Getting session token for user: ${config.username}`)
+      token = await this.getSessionToken(config.serverUrl, config.username, config.password)
+      console.log('Session token obtained successfully')
+    }
+
+    if (!token) {
+      throw new Error('Either token or username/password must be provided')
+    }
+
     const credential: ArgoCDCredential = {
       id: credentialId,
       name: config.name,
       type: 'argocd',
       serverUrl: config.serverUrl,
-      token: config.token,
+      token: token,
       username: config.username,
       namespace: config.namespace,
       environment: config.environment,

@@ -552,14 +552,56 @@ export function HelpDialog({ open, onOpenChange, initialSection = 'overview' }: 
           
           <Card>
             <CardHeader>
-              <CardTitle className="text-base">Setup</CardTitle>
+              <CardTitle className="text-base">Quick Setup</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <div className="text-xs space-y-2">
+                <div className="font-medium">Option 1: Username/Password (Easiest)</div>
+                <div className="pl-3 space-y-1">
+                  <div>1. Go to Settings → ArgoCD</div>
+                  <div>2. Enter Server URL, Username, and Password</div>
+                  <div>3. Click "Test Connection" then "Save"</div>
+                  <div>4. Navigate to ArgoCD page</div>
+                </div>
+                
+                <div className="font-medium pt-2">Option 2: Service Account Token</div>
+                <div className="pl-3 space-y-1">
+                  <div>1. Run setup script (see ARGOCD_README.md)</div>
+                  <div>2. Copy the generated token</div>
+                  <div>3. Go to Settings → ArgoCD</div>
+                  <div>4. Paste token in "Auth Token" field</div>
+                  <div>5. Click "Test Connection" then "Save"</div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+          
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">Features</CardTitle>
             </CardHeader>
             <CardContent className="space-y-2">
               <div className="text-xs space-y-1">
-                <div>1. Go to Settings → ArgoCD Configuration</div>
-                <div>2. Enter your ArgoCD server URL and authentication token</div>
-                <div>3. Test the connection and save</div>
-                <div>4. Navigate to ArgoCD page to view applications</div>
+                <div>• Multiple authentication methods</div>
+                <div>• Password visibility toggle (eye icon)</div>
+                <div>• Secure credential storage (OS-level encryption)</div>
+                <div>• Test connection before saving</div>
+                <div>• Support for self-signed certificates</div>
+              </div>
+            </CardContent>
+          </Card>
+          
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">Documentation</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-2">
+              <div className="text-xs space-y-1">
+                <div>📖 See <span className="font-mono">ARGOCD_README.md</span> for:</div>
+                <div className="pl-3">• Complete setup guide</div>
+                <div className="pl-3">• Troubleshooting tips</div>
+                <div className="pl-3">• Security best practices</div>
+                <div className="pl-3">• WSL/MicroK8s instructions</div>
               </div>
             </CardContent>
           </Card>

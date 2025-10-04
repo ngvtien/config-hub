@@ -1,10 +1,14 @@
 /// <reference types="vite/client" />
 
 interface ArgoCDConfig {
+  name: string
   serverUrl: string
-  token: string
+  token?: string
   username?: string
+  password?: string
   namespace?: string
+  environment?: string
+  tags?: string[]
 }
 
 interface ArgoCDResponse<T = any> {
@@ -12,6 +16,7 @@ interface ArgoCDResponse<T = any> {
   data?: T
   error?: string
   connected?: boolean
+  credentialId?: string
 }
 
 interface VaultConfig {
@@ -68,23 +73,26 @@ interface Window {
     
     // ArgoCD API (secure IPC-based)
     argocd: {
-      storeCredentials: (environment: string, config: ArgoCDConfig) => Promise<ArgoCDResponse>
-      testConnection: (environment: string) => Promise<ArgoCDResponse<{ connected: boolean }>>
-      getApplications: (environment: string) => Promise<ArgoCDResponse<any[]>>
-      getApplication: (environment: string, name: string, namespace?: string) => Promise<ArgoCDResponse<any>>
-      getApplicationLogs: (environment: string, name: string, options?: {
+      storeCredentials: (config: ArgoCDConfig) => Promise<ArgoCDResponse>
+      testConnection: (credentialId: string) => Promise<ArgoCDResponse<{ connected: boolean }>>
+      getApplications: (credentialId: string) => Promise<ArgoCDResponse<any[]>>
+      getApplication: (credentialId: string, name: string, namespace?: string) => Promise<ArgoCDResponse<any>>
+      getApplicationLogs: (credentialId: string, name: string, options?: {
         namespace?: string
         container?: string
         sinceSeconds?: number
         tailLines?: number
       }) => Promise<ArgoCDResponse<any[]>>
-      getApplicationEvents: (environment: string, name: string, namespace?: string) => Promise<ArgoCDResponse<any[]>>
-      syncApplication: (environment: string, name: string, options?: {
+      getApplicationEvents: (credentialId: string, name: string, namespace?: string) => Promise<ArgoCDResponse<any[]>>
+      syncApplication: (credentialId: string, name: string, options?: {
         namespace?: string
         dryRun?: boolean
         prune?: boolean
         force?: boolean
       }) => Promise<ArgoCDResponse<any>>
+      listCredentials: (environment?: string) => Promise<ArgoCDResponse<any[]>>
+      getCredential: (credentialId: string) => Promise<ArgoCDResponse<any>>
+      deleteCredential: (credentialId: string) => Promise<ArgoCDResponse>
       clearCache: () => Promise<ArgoCDResponse>
     }
     
