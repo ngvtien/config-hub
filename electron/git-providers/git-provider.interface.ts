@@ -86,6 +86,14 @@ export interface GitProvider {
   ): Promise<PullRequest>
 
   /**
+   * List Pull Requests
+   * @param state - Filter by state (open, merged, declined, all)
+   * @param limit - Maximum number of PRs to return
+   * @returns Array of Pull Requests
+   */
+  listPullRequests(state?: 'open' | 'merged' | 'declined' | 'all', limit?: number): Promise<PullRequest[]>
+
+  /**
    * Get Pull Request by ID
    * @param prId - Pull Request ID
    * @returns Pull Request information

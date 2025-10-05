@@ -886,6 +886,25 @@ export function setupGitHandlers(): void {
     }
   })
 
+  // List Pull Requests
+  ipcMain.handle('git:listPullRequests', async (_, credentialId: string, state?: 'open' | 'merged' | 'declined' | 'all', limit?: number) => {
+    try {
+      const credential = await secureCredentialManager.getCredential(credentialId) as GitCredential
+      if (!credential) {
+        return { success: false, error: 'Credential not found' }
+      }
+
+      const providerType = gitCredentialManager.detectProviderType(credential.repoUrl)
+      const client = await gitCredentialManager.createProviderClient(providerType, credential)
+      
+      const pullRequests = await client.listPullRequests(state, limit)
+      return { success: true, data: pullRequests }
+    } catch (error) {
+      console.error('Failed to list pull requests:', error)
+      return { success: false, error: error instanceof Error ? error.message : 'Unknown error' }
+    }
+  })
+
   // Get Pull Request details
   ipcMain.handle('git:getPullRequest', async (_, credentialId: string, prId: number) => {
     try {

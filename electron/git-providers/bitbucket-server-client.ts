@@ -491,6 +491,36 @@ export class BitbucketServerClient implements GitProvider {
   }
 
   /**
+   * List Pull Requests
+   * Uses Bitbucket Server REST API /pull-requests endpoint
+   */
+  async listPullRequests(state: 'open' | 'merged' | 'declined' | 'all' = 'open', limit: number = 25): Promise<PullRequest[]> {
+    try {
+      const endpoint = `/rest/api/1.0/projects/${this.projectKey}/repos/${this.repositorySlug}/pull-requests`
+      
+      // Map state to Bitbucket Server API state parameter
+      const params: any = {
+        limit,
+        start: 0
+      }
+      
+      if (state !== 'all') {
+        params.state = state.toUpperCase()
+      }
+      
+      const response = await this.axiosInstance.get<{
+        values: BitbucketPullRequest[]
+        size: number
+        isLastPage: boolean
+      }>(endpoint, { params })
+      
+      return response.data.values.map(pr => this.convertBitbucketPullRequest(pr))
+    } catch (error) {
+      this.handleApiError(error, 'listPullRequests')
+    }
+  }
+
+  /**
    * Get Pull Request by ID
    * Uses Bitbucket Server REST API /pull-requests/{id} endpoint
    */

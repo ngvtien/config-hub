@@ -4,20 +4,23 @@ import { Button } from '@/components/ui/button'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { RefreshCw, AlertCircle, FileText, Loader2, Lock, Edit, File, Folder, ChevronRight, Home } from 'lucide-react'
 import { ArgoCDApplication, getApplicationSource } from '@/types/argocd'
+import type { GitSourceInfo } from '@/lib/git-source-utils'
 import { useGitCredentials } from '@/hooks/use-git-credentials'
 import { useGitFiles } from '@/hooks/use-git-files'
 import { GitAuthDialog, GitCredentials } from './git-auth-dialog'
 
 interface ConfigFilesSectionProps {
   application: ArgoCDApplication
+  selectedSource?: GitSourceInfo | null
 }
 
-export function ConfigFilesSection({ application }: ConfigFilesSectionProps) {
+export function ConfigFilesSection({ application, selectedSource }: ConfigFilesSectionProps) {
   const [showAuthDialog, setShowAuthDialog] = useState(false)
   const [currentPath, setCurrentPath] = useState<string>('')
 
-  // Extract Git source information from the ArgoCD application
-  const source = getApplicationSource(application)
+  // Use selected source if provided, otherwise fall back to legacy behavior
+  const legacySource = getApplicationSource(application)
+  const source = selectedSource || legacySource
   const repoUrl = source.repoURL
   const basePath = source.path || ''
   const branch = source.targetRevision || 'main'
@@ -26,7 +29,10 @@ export function ConfigFilesSection({ application }: ConfigFilesSectionProps) {
   const path = currentPath ? `${basePath}/${currentPath}` : basePath
 
   // Check if this is a Git-based application
-  const isGitSource = repoUrl && !repoUrl.includes('oci://') && !source.chart
+  // For GitSourceInfo, isGitSource is already true, for legacy source check chart
+  const isGitSource = selectedSource 
+    ? selectedSource.isGitSource 
+    : (repoUrl && !repoUrl.includes('oci://') && !('chart' in legacySource && legacySource.chart))
 
   // Check Git credentials using the hook (following ArgoCD pattern)
   const {

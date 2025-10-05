@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useArgoCDApplication } from '@/hooks/use-argocd'
 import { getTargetRevision } from '@/types/argocd'
 import { Button } from '@/components/ui/button'
@@ -6,6 +6,10 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { ConfigFilesSection } from '@/components/config-files-section'
+import { PRStatusSection } from '@/components/pr-status-section'
+import { GitSourceSelector } from '@/components/git-source-selector'
+import { getGitSources } from '@/lib/git-source-utils'
+import type { GitSourceInfo } from '@/lib/git-source-utils'
 
 import {
   Dialog,
@@ -62,6 +66,18 @@ export function ArgoCDApplicationDetail({
   const [showParameters, setShowParameters] = useState(false)
   const [syncing, setSyncing] = useState(false)
   const [activeTab, setActiveTab] = useState('overview')
+  const [selectedSourceIndex, setSelectedSourceIndex] = useState(0)
+  const [gitSources, setGitSources] = useState<GitSourceInfo[]>([])
+
+  // Extract Git sources when application loads
+  useEffect(() => {
+    if (application) {
+      const sources = getGitSources(application)
+      setGitSources(sources)
+      // Reset to first source when application changes
+      setSelectedSourceIndex(sources.length > 0 ? sources[0].index : 0)
+    }
+  }, [application])
 
   if (!application && !loading) {
     return (
@@ -346,8 +362,9 @@ export function ArgoCDApplicationDetail({
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <GitBranch className="h-5 w-5 text-primary" />
-            Git Source {application.spec.sources && application.spec.sources.length > 1 && (
-              <Badge variant="secondary">{application.spec.sources.length} repos</Badge>
+            Git Sources
+            {application.spec.sources && application.spec.sources.length > 0 && (
+              <Badge variant="secondary">{application.spec.sources.length} {application.spec.sources.length === 1 ? 'source' : 'sources'}</Badge>
             )}
           </CardTitle>
         </CardHeader>
@@ -367,66 +384,102 @@ export function ArgoCDApplicationDetail({
             </div>
           )}
 
-          {/* Primary Repository Details */}
+          {/* Display all sources */}
           <div className="space-y-3">
-            <div>
-              <p className="text-sm font-medium text-muted-foreground mb-1">
-                {application.spec.sources && application.spec.sources.length > 1 ? 'Primary Repository' : 'Repository'}
-              </p>
-              <a
-                href={application.status.sync.comparedTo.source.repoURL}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="font-mono text-sm text-primary hover:underline break-all inline-flex items-center gap-1"
-              >
-                {application.status.sync.comparedTo.source.repoURL}
-                <Eye className="h-3 w-3" />
-              </a>
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <p className="text-sm font-medium text-muted-foreground mb-1">Branch/Tag</p>
-                <Badge variant="outline" className="font-mono">
-                  {application.status.sync.comparedTo.source.targetRevision}
-                </Badge>
+            {/* Single source (legacy format) */}
+            {application.spec.source && !application.spec.sources && (
+              <div className="space-y-3 p-3 border rounded-lg">
+                <div className="flex items-center gap-2">
+                  <Badge variant="outline">Source 1</Badge>
+                  {application.spec.source.ref && (
+                    <Badge variant="secondary" className="text-xs">ref: {application.spec.source.ref}</Badge>
+                  )}
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-muted-foreground mb-1">Repository</p>
+                  <a
+                    href={application.spec.source.repoURL}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="font-mono text-sm text-primary hover:underline break-all inline-flex items-center gap-1"
+                  >
+                    {application.spec.source.repoURL}
+                    <Eye className="h-3 w-3" />
+                  </a>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <p className="text-sm font-medium text-muted-foreground mb-1">Branch/Tag</p>
+                    <Badge variant="outline" className="font-mono text-xs">
+                      {application.spec.source.targetRevision}
+                    </Badge>
+                  </div>
+                  {application.spec.source.path && (
+                    <div>
+                      <p className="text-sm font-medium text-muted-foreground mb-1">Path</p>
+                      <p className="font-mono text-xs">{application.spec.source.path}</p>
+                    </div>
+                  )}
+                  {application.spec.source.chart && (
+                    <div>
+                      <p className="text-sm font-medium text-muted-foreground mb-1">Chart</p>
+                      <p className="font-mono text-xs">{application.spec.source.chart}</p>
+                    </div>
+                  )}
+                </div>
               </div>
-              <div>
-                <p className="text-sm font-medium text-muted-foreground mb-1">Path</p>
-                <p className="font-mono text-sm">
-                  {application.status.sync.comparedTo.source.path || '/'}
-                </p>
-              </div>
-            </div>
+            )}
 
-            {/* Additional Sources for Multi-Source Apps */}
-            {application.spec.sources && application.spec.sources.length > 1 && (
-              <div className="pt-2 border-t">
-                <p className="text-sm font-medium text-muted-foreground mb-2">Additional Sources</p>
-                <div className="space-y-2">
-                  {application.spec.sources.slice(1).map((source, index) => (
-                    <div key={index} className="text-sm bg-muted/30 p-2 rounded">
-                      <div className="flex items-center gap-2 mb-1">
-                        <Badge variant="outline" className="text-xs">Source {index + 2}</Badge>
-                        {source.ref && <Badge variant="secondary" className="text-xs">ref: {source.ref}</Badge>}
-                      </div>
+            {/* Multiple sources (new format) */}
+            {application.spec.sources && application.spec.sources.length > 0 && (
+              <div className="space-y-3">
+                {application.spec.sources.map((source, index) => (
+                  <div key={index} className="p-3 border rounded-lg space-y-3">
+                    <div className="flex items-center gap-2">
+                      <Badge variant="outline">Source {index + 1}</Badge>
+                      {source.ref && (
+                        <Badge variant="secondary" className="text-xs">ref: {source.ref}</Badge>
+                      )}
+                      {source.chart && (
+                        <Badge variant="secondary" className="text-xs">Helm Chart</Badge>
+                      )}
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-muted-foreground mb-1">Repository</p>
                       <a
                         href={source.repoURL}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="font-mono text-xs text-primary hover:underline break-all inline-flex items-center gap-1"
+                        className="font-mono text-sm text-primary hover:underline break-all inline-flex items-center gap-1"
                       >
                         {source.repoURL}
                         <Eye className="h-3 w-3" />
                       </a>
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
                       {source.targetRevision && (
-                        <p className="font-mono text-xs text-muted-foreground mt-1">
-                          → {source.targetRevision}
-                        </p>
+                        <div>
+                          <p className="text-sm font-medium text-muted-foreground mb-1">Branch/Tag</p>
+                          <Badge variant="outline" className="font-mono text-xs">
+                            {source.targetRevision}
+                          </Badge>
+                        </div>
+                      )}
+                      {source.path && (
+                        <div>
+                          <p className="text-sm font-medium text-muted-foreground mb-1">Path</p>
+                          <p className="font-mono text-xs">{source.path}</p>
+                        </div>
+                      )}
+                      {source.chart && (
+                        <div>
+                          <p className="text-sm font-medium text-muted-foreground mb-1">Chart</p>
+                          <p className="font-mono text-xs">{source.chart}</p>
+                        </div>
                       )}
                     </div>
-                  ))}
-                </div>
+                  </div>
+                ))}
               </div>
             )}
 
@@ -451,11 +504,31 @@ export function ArgoCDApplicationDetail({
           </div>
         </CardContent>
       </Card>
+
         </TabsContent>
 
         {/* Configuration Tab */}
         <TabsContent value="configuration" className="space-y-6">
-          <ConfigFilesSection application={application} />
+          {/* Git Source Selector (shown when Git sources exist) */}
+          {gitSources.length > 0 && (
+            <GitSourceSelector
+              sources={gitSources}
+              selectedIndex={selectedSourceIndex}
+              onSelectSource={setSelectedSourceIndex}
+            />
+          )}
+
+          {/* Pull Request Status */}
+          <PRStatusSection 
+            application={application}
+            selectedSource={gitSources.find(s => s.index === selectedSourceIndex)}
+          />
+          
+          {/* Configuration Files */}
+          <ConfigFilesSection 
+            application={application}
+            selectedSource={gitSources.find(s => s.index === selectedSourceIndex)}
+          />
         </TabsContent>
 
         {/* Resources Tab */}

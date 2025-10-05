@@ -664,23 +664,44 @@ This implementation plan breaks down the Git Configuration Management feature in
 ## Phase 7: Pull Request Review and Merge
 
 - [ ] 15. Implement PR Status Display
-  - [ ] 15.1 Add PR status section to application detail page
+  - [x] 15.1 Add PR status section to application detail page
+
+
+
+
+
+
+
+
+
+
     - Fetch open PRs for the application's repository and path
     - Display PR list with status, reviewers, approvals
     - _Requirements: 4.2_
 
-  - [ ] 15.2 Implement PR detail view
+  - [x] 15.2 Implement PR detail view
+
+
+
+
+
     - Show PR description and changes
     - Display reviewer status and approvals
     - Show merge conflicts if any
     - _Requirements: 4.2, 4.5_
 
-  - [ ] 15.3 Add merge button for approved PRs
+  - [x] 15.3 Add merge button for approved PRs
+
+
+
     - Enable merge button when PR has required approvals
     - Check user permissions before allowing merge
     - _Requirements: 4.3_
 
-  - [ ] 15.4 Implement merge functionality
+  - [x] 15.4 Implement merge functionality
+
+
+
     - Call gitService.mergePullRequest()
     - Handle merge conflicts
     - Display merge result
@@ -691,6 +712,20 @@ This implementation plan breaks down the Git Configuration Management feature in
     - Test merge button behavior
     - Test merge functionality
     - _Requirements: All from 15.1-15.4_
+
+  - [x] 15.6 Reorganize and enhance Configuration tab for multi-source support
+
+
+    - Move PRStatusSection from Source tab to Configuration tab (consolidate Git workflow)
+    - Create unified source selector component for Configuration tab
+    - Update PRStatusSection to handle multiple Git sources
+    - Update ConfigFilesSection to handle multiple Git sources
+    - Add source selector UI at top of Configuration tab when multiple Git sources exist
+    - Show PRs and files from selected Git source
+    - Display source indicator (badge/label) for each PR and file
+    - Filter out non-Git sources (OCI, Helm charts)
+    - Simplify Source tab to show read-only deployment metadata
+    - _Requirements: 7.1, 7.3_
 
 ## Phase 8: ArgoCD Sync Integration
 
