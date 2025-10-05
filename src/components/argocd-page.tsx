@@ -645,11 +645,11 @@ export function ArgoCDPage() {
                     {/* Status Badges */}
                     <div className="flex items-center gap-2">
                       <Badge variant={syncBadge.variant} className="flex items-center gap-1">
-                        <SyncIcon className="h-3 w-3" />
+                        {syncBadge.icon && <syncBadge.icon className="h-3 w-3" />}
                         {application.status.sync.status}
                       </Badge>
                       <Badge variant={healthBadge.variant} className="flex items-center gap-1">
-                        <HealthIcon className="h-3 w-3" />
+                        {healthBadge.icon && <healthBadge.icon className="h-3 w-3" />}
                         {application.status.health.status}
                       </Badge>
                       <Button variant="ghost" size="sm">
