@@ -117,6 +117,13 @@ export interface ArgoCDApplicationLogs {
   content: string
   timeStamp: string
   last: boolean
+  // Optional wrapper format from API
+  result?: {
+    content: string
+    timeStamp?: string
+    timeStampStr?: string
+    last?: boolean
+  }
 }
 
 export interface ArgoCDApplicationEvents {
