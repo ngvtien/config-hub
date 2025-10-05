@@ -8,6 +8,8 @@ import type { GitSourceInfo } from '@/lib/git-source-utils'
 import { useGitCredentials } from '@/hooks/use-git-credentials'
 import { useGitFiles } from '@/hooks/use-git-files'
 import { GitAuthDialog, GitCredentials } from './git-auth-dialog'
+import { FileEditorDialog } from './file-editor-dialog'
+import { PullRequestDialog } from './pull-request-dialog'
 
 interface ConfigFilesSectionProps {
   application: ArgoCDApplication
@@ -17,6 +19,9 @@ interface ConfigFilesSectionProps {
 export function ConfigFilesSection({ application, selectedSource }: ConfigFilesSectionProps) {
   const [showAuthDialog, setShowAuthDialog] = useState(false)
   const [currentPath, setCurrentPath] = useState<string>('')
+  const [editingFile, setEditingFile] = useState<{ path: string; name: string; content: string; originalContent: string } | null>(null)
+  const [showEditorDialog, setShowEditorDialog] = useState(false)
+  const [showPRDialog, setShowPRDialog] = useState(false)
 
   // Use selected source if provided, otherwise fall back to legacy behavior
   const legacySource = getApplicationSource(application)
@@ -105,9 +110,57 @@ export function ConfigFilesSection({ application, selectedSource }: ConfigFilesS
     }
   }
 
-  const handleEditFile = (filePath: string) => {
-    // TODO: Open file editor dialog (will be implemented in task 10)
-    console.log('Edit file:', filePath)
+  const handleEditFile = async (fileName: string) => {
+    if (!credentials?.id || !window.electronAPI) return
+
+    try {
+      // Construct full file path: basePath/currentPath/fileName
+      const fullPath = currentPath 
+        ? `${basePath}/${currentPath}/${fileName}`
+        : basePath 
+          ? `${basePath}/${fileName}`
+          : fileName
+
+      // Fetch file content
+      const result = await window.electronAPI.git.getFileContent(
+        credentials.id,
+        fullPath,
+        branch
+      )
+
+      if (result.success && result.data) {
+        setEditingFile({
+          path: fullPath,
+          name: fileName,
+          content: result.data.content,
+          originalContent: result.data.content
+        })
+        setShowEditorDialog(true)
+      } else {
+        console.error('Failed to fetch file content:', result.error)
+      }
+    } catch (err) {
+      console.error('Error fetching file:', err)
+    }
+  }
+
+  const handleSaveFile = async (content: string) => {
+    if (!editingFile) return
+
+    // Update the editing file with new content and open PR dialog
+    setEditingFile({
+      ...editingFile,
+      content
+    })
+    setShowEditorDialog(false)
+    setShowPRDialog(true)
+  }
+
+  const handlePRSuccess = () => {
+    // Close PR dialog and refresh file list
+    setShowPRDialog(false)
+    setEditingFile(null)
+    refreshFiles()
   }
 
   const handleNavigateToDirectory = (dirPath: string) => {
@@ -134,6 +187,7 @@ export function ConfigFilesSection({ application, selectedSource }: ConfigFilesS
   }
 
   return (
+    <>
     <Card>
       <CardHeader>
         <div className="flex items-center justify-between">
@@ -371,7 +425,7 @@ export function ConfigFilesSection({ application, selectedSource }: ConfigFilesS
                         variant="outline"
                         size="sm"
                         disabled={!hasCredentials}
-                        onClick={() => handleEditFile(file.path)}
+                        onClick={() => handleEditFile(file.name)}
                       >
                         <Edit className="h-4 w-4 mr-2" />
                         Edit
@@ -414,6 +468,35 @@ export function ConfigFilesSection({ application, selectedSource }: ConfigFilesS
         onAuthenticate={handleAuthenticate}
       />
     </Card>
+
+      {/* File Editor Dialog */}
+      {editingFile && (
+        <FileEditorDialog
+          open={showEditorDialog}
+          onOpenChange={setShowEditorDialog}
+          filePath={editingFile.path}
+          fileName={editingFile.name}
+          branch={branch}
+          initialContent={editingFile.originalContent}
+          onSave={handleSaveFile}
+        />
+      )}
+
+      {/* Pull Request Dialog */}
+      {editingFile && credentials?.id && (
+        <PullRequestDialog
+          open={showPRDialog}
+          onOpenChange={setShowPRDialog}
+          filePath={editingFile.path}
+          fileName={editingFile.name}
+          newContent={editingFile.content}
+          branch={branch}
+          credentialId={credentials.id}
+          applicationName={application.metadata.name}
+          onSuccess={handlePRSuccess}
+        />
+      )}
+    </>
   )
 }
 

@@ -859,7 +859,13 @@ export function setupGitHandlers(): void {
       const providerType = gitCredentialManager.detectProviderType(credential.repoUrl)
       const client = await gitCredentialManager.createProviderClient(providerType, credential)
       
-      const commit = await client.createCommit(branch, changes, commitMessage)
+      // Use credential username and a default email for author
+      const author = {
+        name: credential.username,
+        email: `${credential.username}@config-hub.local`
+      }
+      
+      const commit = await client.createCommit(branch, changes, commitMessage, author)
       return { success: true, data: commit }
     } catch (error) {
       console.error('Failed to commit changes:', error)

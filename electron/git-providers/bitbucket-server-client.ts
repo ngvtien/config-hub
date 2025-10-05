@@ -377,19 +377,32 @@ export class BitbucketServerClient implements GitProvider {
         const normalizedPath = change.path.replace(/^\/+/, '')
         
         if (change.action === 'add' || change.action === 'modify') {
-          // Use the file edit endpoint
+          // Bitbucket Server file edit requires using the correct API
+          // The endpoint is /rest/api/1.0/projects/{project}/repos/{repo}/browse/{path}
+          // with specific query parameters
+          
           const endpoint = `/rest/api/1.0/projects/${this.projectKey}/repos/${this.repositorySlug}/browse/${normalizedPath}`
           
-          // For Bitbucket Server, we need to use a different approach
-          // The /browse endpoint with PUT method allows file updates
+          // Build query parameters
+          const params: any = {
+            message: message,
+            branch: branch
+          }
+          
+          // Try to get the source commit ID for the file
+          try {
+            const currentFile = await this.getFileContent(normalizedPath, branch)
+            params.sourceCommitId = currentFile.sha
+          } catch (e) {
+            // File might not exist (new file), don't include sourceCommitId
+            console.log('File does not exist, creating new file')
+          }
+          
+          // Send as plain text with query parameters
           await this.axiosInstance.put(endpoint, change.content, {
-            params: {
-              branch,
-              message,
-              sourceCommitId: 'HEAD' // Use HEAD as the source
-            },
+            params: params,
             headers: {
-              'Content-Type': 'text/plain'
+              'Content-Type': 'text/plain; charset=utf-8'
             }
           })
         } else if (change.action === 'delete') {
