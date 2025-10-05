@@ -4,6 +4,7 @@ import { getTargetRevision } from '@/types/argocd'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { ConfigFilesSection } from '@/components/config-files-section'
 
 import {
@@ -26,7 +27,9 @@ import {
   FileText,
   Calendar,
   Settings,
-  Eye
+  Eye,
+  Activity,
+  Box
 } from 'lucide-react'
 
 interface ArgoCDApplicationDetailProps {
@@ -58,6 +61,7 @@ export function ArgoCDApplicationDetail({
   const [showEvents, setShowEvents] = useState(false)
   const [showParameters, setShowParameters] = useState(false)
   const [syncing, setSyncing] = useState(false)
+  const [activeTab, setActiveTab] = useState('overview')
 
   if (!application && !loading) {
     return (
@@ -196,8 +200,86 @@ export function ArgoCDApplicationDetail({
         </div>
       </div>
 
-      {/* Status Overview */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+      {/* Tabs Navigation */}
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
+        <TabsList className="grid w-full grid-cols-5">
+          <TabsTrigger value="overview" className="flex items-center gap-2">
+            <Eye className="h-4 w-4" />
+            Overview
+          </TabsTrigger>
+          <TabsTrigger value="source" className="flex items-center gap-2">
+            <GitBranch className="h-4 w-4" />
+            Source
+          </TabsTrigger>
+          <TabsTrigger value="resources" className="flex items-center gap-2">
+            <Box className="h-4 w-4" />
+            Resources
+          </TabsTrigger>
+          <TabsTrigger value="configuration" className="flex items-center gap-2">
+            <FileText className="h-4 w-4" />
+            Configuration
+          </TabsTrigger>
+          <TabsTrigger value="activity" className="flex items-center gap-2">
+            <Activity className="h-4 w-4" />
+            Activity
+          </TabsTrigger>
+        </TabsList>
+
+        {/* Overview Tab */}
+        <TabsContent value="overview" className="space-y-6">
+          {/* Application Metadata */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Application Information</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 text-sm">
+                <div>
+                  <span className="text-muted-foreground">Project:</span>
+                  <p className="font-medium mt-1">{application.spec.project}</p>
+                </div>
+                {application.metadata.labels && Object.keys(application.metadata.labels).length > 0 && (
+                  <div>
+                    <span className="text-muted-foreground">Labels:</span>
+                    <div className="mt-1 flex flex-wrap gap-1">
+                      {Object.entries(application.metadata.labels).map(([key, value]) => (
+                        <Badge key={key} variant="outline" className="text-xs">
+                          {key}={value}
+                        </Badge>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                <div>
+                  <span className="text-muted-foreground">Namespace:</span>
+                  <p className="font-medium mt-1">{application.spec.destination.namespace}</p>
+                </div>
+                <div>
+                  <span className="text-muted-foreground">Destination:</span>
+                  <p className="font-medium mt-1">{application.spec.destination.server}</p>
+                </div>
+                {application.metadata.creationTimestamp && (
+                  <div>
+                    <span className="text-muted-foreground">Created At:</span>
+                    <p className="font-medium mt-1">
+                      {new Date(application.metadata.creationTimestamp).toLocaleString()}
+                    </p>
+                  </div>
+                )}
+                {application.status.operationState?.finishedAt && (
+                  <div>
+                    <span className="text-muted-foreground">Last Sync:</span>
+                    <p className="font-medium mt-1">
+                      {new Date(application.status.operationState.finishedAt).toLocaleString()}
+                    </p>
+                  </div>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Status Overview */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <Card>
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
@@ -255,9 +337,12 @@ export function ArgoCDApplicationDetail({
           </CardContent>
         </Card>
       </div>
+        </TabsContent>
 
-      {/* Git Source Information - Prominent Display */}
-      <Card className="border-2 border-primary/20">
+        {/* Source Tab */}
+        <TabsContent value="source" className="space-y-6">
+          {/* Git Source Information - Prominent Display */}
+          <Card className="border-2 border-primary/20">
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <GitBranch className="h-5 w-5 text-primary" />
@@ -366,11 +451,16 @@ export function ArgoCDApplicationDetail({
           </div>
         </CardContent>
       </Card>
+        </TabsContent>
 
-      {/* Configuration Files Section */}
-      <ConfigFilesSection application={application} />
+        {/* Configuration Tab */}
+        <TabsContent value="configuration" className="space-y-6">
+          <ConfigFilesSection application={application} />
+        </TabsContent>
 
-      {/* Application Details */}
+        {/* Resources Tab */}
+        <TabsContent value="resources" className="space-y-6">
+          {/* Application Details */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Source Configuration */}
         <Card>
@@ -665,7 +755,7 @@ export function ArgoCDApplicationDetail({
       {application.status.resources && application.status.resources.length > 0 && (
         <Card>
           <CardHeader>
-            <CardTitle>Resources</CardTitle>
+            <CardTitle>Resources ({application.status.resources.length})</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="space-y-2">
@@ -692,6 +782,25 @@ export function ArgoCDApplicationDetail({
           </CardContent>
         </Card>
       )}
+        </TabsContent>
+
+        {/* Activity Tab */}
+        <TabsContent value="activity" className="space-y-6">
+          <div className="grid grid-cols-1 gap-6">
+            {/* Logs and Events will be shown here */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Activity & Logs</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <p className="text-sm text-muted-foreground">
+                  View application logs and events using the buttons in the Application Details section.
+                </p>
+              </CardContent>
+            </Card>
+          </div>
+        </TabsContent>
+      </Tabs>
     </div>
   )
 }

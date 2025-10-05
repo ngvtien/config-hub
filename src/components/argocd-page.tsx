@@ -16,7 +16,6 @@ import {
 } from '@/components/ui/select'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import { Separator } from '@/components/ui/separator'
 import {
   Search,
   RefreshCw,
@@ -455,8 +454,6 @@ export function ArgoCDPage() {
           {displayApplications.map(({ application }) => {
             const syncBadge = getStatusBadge(application.status.sync.status, 'sync')
             const healthBadge = getStatusBadge(application.status.health.status, 'health')
-            const SyncIcon = syncBadge.icon
-            const HealthIcon = healthBadge.icon
 
             return (
               <Card
@@ -486,57 +483,99 @@ export function ArgoCDPage() {
                 </CardHeader>
 
                 <CardContent className="space-y-3">
-                  {/* Application Info */}
-                  <div className="space-y-1">
-                    {application.metadata.labels?.product && (
-                      <div className="flex items-center gap-2 text-sm">
-                        <span className="font-medium">Product:</span>
-                        <span>{application.metadata.labels.product}</span>
-                      </div>
-                    )}
-                    {application.metadata.labels?.customer && (
-                      <div className="flex items-center gap-2 text-sm">
-                        <span className="font-medium">Customer:</span>
-                        <span>{application.metadata.labels.customer}</span>
-                      </div>
-                    )}
-                    {getTargetRevision(application) && (
-                      <div className="flex items-center gap-2 text-sm">
-                        <GitBranch className="h-3 w-3" />
-                        <span>{getTargetRevision(application)}</span>
-                      </div>
-                    )}
-                  </div>
-
-                  <Separator />
-
-                  {/* Status Badges */}
-                  <div className="flex gap-2">
-                    <Badge variant={syncBadge.variant} className="flex items-center gap-1">
-                      <SyncIcon className="h-3 w-3" />
-                      {application.status.sync.status}
-                    </Badge>
-                    <Badge variant={healthBadge.variant} className="flex items-center gap-1">
-                      <HealthIcon className="h-3 w-3" />
-                      {application.status.health.status}
-                    </Badge>
-                  </div>
-
-                  {/* Repository Info */}
-                  <div className="text-xs text-muted-foreground">
-                    <div className="truncate">
-                      {getApplicationSource(application).repoURL}
+                  {/* Metadata Grid */}
+                  <div className="space-y-2 text-xs">
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Project:</span>
+                      <span className="font-medium">{application.spec.project}</span>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <span className="truncate">
-                        {getApplicationSource(application).path} • {application.spec.destination.namespace}
-                      </span>
-                      {application.spec.sources && application.spec.sources.length > 1 && (
-                        <Badge variant="secondary" className="text-xs">
-                          +{application.spec.sources.length - 1} more
+                    
+                    {application.metadata.labels && Object.keys(application.metadata.labels).length > 0 && (
+                      <div className="flex justify-between items-start">
+                        <span className="text-muted-foreground">Labels:</span>
+                        <div className="flex flex-wrap gap-1 justify-end max-w-[60%]">
+                          {Object.entries(application.metadata.labels).slice(0, 2).map(([key, value]) => (
+                            <span key={key} className="text-xs">
+                              {key}={value}
+                            </span>
+                          ))}
+                          {Object.keys(application.metadata.labels).length > 2 && (
+                            <span className="text-muted-foreground">+{Object.keys(application.metadata.labels).length - 2}</span>
+                          )}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Status Badges */}
+                    <div className="flex justify-between items-center">
+                      <span className="text-muted-foreground">Status:</span>
+                      <div className="flex gap-1">
+                        <Badge variant={healthBadge.variant} className="text-xs px-1.5 py-0">
+                          {application.status.health.status}
                         </Badge>
-                      )}
+                        <Badge variant={syncBadge.variant} className="text-xs px-1.5 py-0">
+                          {application.status.sync.status}
+                        </Badge>
+                      </div>
                     </div>
+
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Repository:</span>
+                      <span className="font-medium truncate max-w-[60%]" title={getApplicationSource(application).repoURL}>
+                        {getApplicationSource(application).repoURL.split('/').pop()?.replace('.git', '')}
+                      </span>
+                    </div>
+
+                    {getTargetRevision(application) && (
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Target Revis...:</span>
+                        <span className="font-medium">{getTargetRevision(application)}</span>
+                      </div>
+                    )}
+
+                    {getApplicationSource(application).path && (
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Path:</span>
+                        <span className="font-medium truncate max-w-[60%]">
+                          {getApplicationSource(application).path}
+                        </span>
+                      </div>
+                    )}
+
+                    {getApplicationSource(application).chart && (
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Chart:</span>
+                        <span className="font-medium">{getApplicationSource(application).chart}</span>
+                      </div>
+                    )}
+
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Destination:</span>
+                      <span className="font-medium">in-cluster</span>
+                    </div>
+
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Namespace:</span>
+                      <span className="font-medium">{application.spec.destination.namespace}</span>
+                    </div>
+
+                    {application.metadata.creationTimestamp && (
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Created At:</span>
+                        <span className="font-medium">
+                          {new Date(application.metadata.creationTimestamp).toLocaleDateString()}
+                        </span>
+                      </div>
+                    )}
+
+                    {application.status.operationState?.finishedAt && (
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Last Sync:</span>
+                        <span className="font-medium">
+                          {new Date(application.status.operationState.finishedAt).toLocaleDateString()}
+                        </span>
+                      </div>
+                    )}
                   </div>
                 </CardContent>
               </Card>
@@ -551,8 +590,6 @@ export function ArgoCDPage() {
           {displayApplications.map(({ application }) => {
             const syncBadge = getStatusBadge(application.status.sync.status, 'sync')
             const healthBadge = getStatusBadge(application.status.health.status, 'health')
-            const SyncIcon = syncBadge.icon
-            const HealthIcon = healthBadge.icon
 
             return (
               <Card
