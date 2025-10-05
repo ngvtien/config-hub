@@ -12,6 +12,7 @@ const UsersPage = lazy(() => import('@/components/users-page').then(m => ({ defa
 const DocumentsPage = lazy(() => import('@/components/documents-page').then(m => ({ default: m.DocumentsPage })))
 const AnalyticsPage = lazy(() => import('@/components/analytics-page').then(m => ({ default: m.AnalyticsPage })))
 const ArgoCDPage = lazy(() => import('@/components/argocd-page').then(m => ({ default: m.ArgoCDPage })))
+const TestFileEditor = lazy(() => import('@/pages/test-file-editor').then(m => ({ default: m.TestFileEditor })))
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -21,10 +22,10 @@ import { ExternalLink, Zap, Code, Palette, Type } from 'lucide-react'
 function App() {
   const [count, setCount] = useState(0)
   const [currentPage, setCurrentPage] = useState('dashboard')
-  
+
   // Enable zoom keyboard shortcuts
   useZoomShortcuts()
-  
+
   // Get asset paths for logos
   const lightLogo = useAssetPath('config-hub-logo-light.svg')
   const darkLogo = useAssetPath('config-hub-logo-dark.svg')
@@ -45,6 +46,8 @@ function App() {
         return <LazyWrapper><TypographyShowcase /></LazyWrapper>
       case 'argocd':
         return <LazyWrapper><ArgoCDPage /></LazyWrapper>
+      case 'test-editor':
+        return <LazyWrapper><TestFileEditor /></LazyWrapper>
       case 'settings':
         return <LazyWrapper><SettingsPage onBack={() => setCurrentPage('dashboard')} /></LazyWrapper>
       case 'users':
@@ -60,16 +63,16 @@ function App() {
               <div className="flex justify-center mb-6">
                 <div className="w-16 h-16">
                   {lightLogo && (
-                    <img 
-                      src={lightLogo} 
-                      alt="Config Hub Logo" 
+                    <img
+                      src={lightLogo}
+                      alt="Config Hub Logo"
                       className="w-16 h-16 dark:hidden"
                     />
                   )}
                   {darkLogo && (
-                    <img 
-                      src={darkLogo} 
-                      alt="Config Hub Logo" 
+                    <img
+                      src={darkLogo}
+                      alt="Config Hub Logo"
                       className="w-16 h-16 hidden dark:block"
                     />
                   )}
@@ -81,7 +84,7 @@ function App() {
               <p className="text-body text-muted-foreground mb-6">
                 Secure credential management for Git, Helm, ArgoCD, and Vault
               </p>
-              
+
               <div className="flex justify-center gap-2 mb-8">
                 <Badge variant="secondary" className="flex items-center gap-1">
                   <Zap className="w-3 h-3" />
@@ -113,16 +116,16 @@ function App() {
                 <div className="flex items-center justify-between">
                   <span className="text-sm font-medium">Counter:</span>
                   <div className="flex items-center gap-2">
-                    <Button 
-                      variant="outline" 
+                    <Button
+                      variant="outline"
                       size="sm"
                       onClick={() => setCount(count - 1)}
                     >
                       -
                     </Button>
                     <span className="text-2xl font-bold w-12 text-center font-mono">{count}</span>
-                    <Button 
-                      variant="outline" 
+                    <Button
+                      variant="outline"
                       size="sm"
                       onClick={() => setCount(count + 1)}
                     >
@@ -130,9 +133,9 @@ function App() {
                     </Button>
                   </div>
                 </div>
-                
+
                 <Separator />
-                
+
                 <div className="space-y-3">
                   <h3 className="text-title">Typography Features:</h3>
                   <ul className="text-body space-y-2">
@@ -143,24 +146,38 @@ function App() {
                     <li>• <strong>Optimized rendering</strong> - Antialiasing and subpixel rendering</li>
                   </ul>
                 </div>
-                
+
                 <Separator />
-                
+
                 <div className="flex gap-2">
-                  <Button 
-                    className="flex-1" 
+                  <Button
+                    className="flex-1"
                     onClick={() => setCurrentPage('typography')}
                   >
                     <Type className="w-4 h-4 mr-2" />
                     View Typography
                   </Button>
-                  <Button 
-                    variant="outline" 
-                    className="flex-1" 
+                  <Button
+                    variant="outline"
+                    className="flex-1"
                     onClick={() => window.open('https://fonts.google.com/specimen/Inter')}
                   >
                     <ExternalLink className="w-4 h-4 mr-2" />
                     Inter Font
+                  </Button>
+                </div>
+
+                <Separator />
+
+                <div className="space-y-2">
+                  <h3 className="text-sm font-semibold">🧪 Test Pages</h3>
+                  <Button
+                    variant="secondary"
+                    className="w-full"
+                    onClick={() => setCurrentPage('test-editor')}
+                  >
+                    <Code className="w-4 h-4 mr-2" />
+                    Test File Editor
                   </Button>
                 </div>
               </CardContent>
@@ -203,6 +220,8 @@ const config: TypographyConfig = {
         return 'Typography System'
       case 'argocd':
         return 'ArgoCD Applications'
+      case 'test-editor':
+        return 'File Editor Test'
       case 'settings':
         return 'Settings'
       case 'users':
@@ -222,8 +241,8 @@ const config: TypographyConfig = {
       <AppLayout title={getPageTitle()} currentPage={currentPage} onNavigate={setCurrentPage}>
         {currentPage === 'typography' && (
           <div className="mb-4">
-            <Button 
-              variant="outline" 
+            <Button
+              variant="outline"
               onClick={() => setCurrentPage('dashboard')}
             >
               ← Back to Dashboard
