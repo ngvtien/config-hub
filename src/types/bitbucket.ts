@@ -14,6 +14,21 @@ export interface BitbucketPagedResponse<T> {
 }
 
 /**
+ * Bitbucket Server browse API response
+ * The browse endpoint returns a different structure with nested children
+ */
+export interface BitbucketBrowseResponse {
+  path: {
+    components: string[]
+    parent: string
+    name: string
+    toString: string
+  }
+  revision: string
+  children: BitbucketPagedResponse<BitbucketFile>
+}
+
+/**
  * Bitbucket file/directory entry
  */
 export interface BitbucketFile {

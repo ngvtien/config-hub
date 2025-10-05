@@ -544,9 +544,19 @@ export function SettingsPage({ onBack }: SettingsPageProps) {
                           {config.username && (
                             <p className="text-xs text-muted-foreground mt-1">User: {config.username}</p>
                           )}
+                          {!config.username && config.authType !== 'ssh' && (
+                            <p className="text-xs text-amber-600 mt-1">⚠️ Username missing - required for Bitbucket Server</p>
+                          )}
                           {/* Inline Error Message */}
                           {status && status.status === 'error' && status.message && (
-                            <p className="text-xs text-red-600 mt-1">⚠️ {status.message}</p>
+                            <div className="text-xs text-red-600 mt-1 space-y-1">
+                              <p>⚠️ {status.message}</p>
+                              {status.message.includes('Username required') && (
+                                <p className="text-amber-600">
+                                  💡 Please delete this configuration and create a new one with your username
+                                </p>
+                              )}
+                            </div>
                           )}
                         </div>
                         <div className="flex items-center gap-2 flex-shrink-0">

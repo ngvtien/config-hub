@@ -450,6 +450,9 @@ This implementation plan breaks down the Git Configuration Management feature in
 
 
 
+
+
+
     - Import ConfigFilesSection component
     - Add ConfigFilesSection below existing Git Source section
     - Pass application and environment props

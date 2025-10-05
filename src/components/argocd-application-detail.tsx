@@ -4,6 +4,7 @@ import { getTargetRevision } from '@/types/argocd'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
+import { ConfigFilesSection } from '@/components/config-files-section'
 
 import {
   Dialog,
@@ -365,6 +366,9 @@ export function ArgoCDApplicationDetail({
           </div>
         </CardContent>
       </Card>
+
+      {/* Configuration Files Section */}
+      <ConfigFilesSection application={application} />
 
       {/* Application Details */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">

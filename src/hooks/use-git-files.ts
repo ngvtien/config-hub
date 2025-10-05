@@ -98,7 +98,8 @@ export function useGitFiles(
     if (options.autoFetch !== false && credentialId) {
       fetchFiles()
     }
-  }, [fetchFiles, options.autoFetch, credentialId])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [credentialId, path, branch]) // Only re-fetch when these core dependencies change
 
   return {
     files,

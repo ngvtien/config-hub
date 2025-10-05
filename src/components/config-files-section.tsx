@@ -1,8 +1,8 @@
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Alert, AlertDescription } from '@/components/ui/alert'
-import { RefreshCw, AlertCircle, FileText, Loader2, Lock, Edit, File } from 'lucide-react'
+import { RefreshCw, AlertCircle, FileText, Loader2, Lock, Edit, File, Folder, ChevronRight, Home } from 'lucide-react'
 import { ArgoCDApplication, getApplicationSource } from '@/types/argocd'
 import { useGitCredentials } from '@/hooks/use-git-credentials'
 import { useGitFiles } from '@/hooks/use-git-files'
@@ -14,12 +14,16 @@ interface ConfigFilesSectionProps {
 
 export function ConfigFilesSection({ application }: ConfigFilesSectionProps) {
   const [showAuthDialog, setShowAuthDialog] = useState(false)
+  const [currentPath, setCurrentPath] = useState<string>('')
 
   // Extract Git source information from the ArgoCD application
   const source = getApplicationSource(application)
   const repoUrl = source.repoURL
-  const path = source.path || ''
+  const basePath = source.path || ''
   const branch = source.targetRevision || 'main'
+  
+  // Combine base path with current navigation path
+  const path = currentPath ? `${basePath}/${currentPath}` : basePath
 
   // Check if this is a Git-based application
   const isGitSource = repoUrl && !repoUrl.includes('oci://') && !source.chart
@@ -34,26 +38,35 @@ export function ConfigFilesSection({ application }: ConfigFilesSectionProps) {
     refresh: refreshCredentials
   } = useGitCredentials(repoUrl)
 
+  // Memoize the options to prevent unnecessary re-renders
+  // Don't filter by extension - we want to show directories too
+  const gitFilesOptions = useMemo(() => ({
+    autoFetch: hasCredentials,
+    filterExtensions: [] // Show all files and directories
+  }), [hasCredentials])
+
   // Fetch files using the hook - only fetch YAML and JSON files
   const {
     files: rawFiles,
     loading: filesLoading,
     error: filesError,
     refresh: refreshFiles
-  } = useGitFiles(credentials?.id || null, path, branch, {
-    autoFetch: hasCredentials,
-    filterExtensions: ['.yaml', '.yml', '.json']
-  })
+  } = useGitFiles(credentials?.id || null, path, branch, gitFilesOptions)
 
-  // Apply path restriction - only show files within the app's configured path
+  // Filter files: show all directories, but only YAML/JSON files
   const files = rawFiles.filter((file) => {
-    // Ensure file path starts with the app's path
-    const normalizedFilePath = file.path.startsWith('/') ? file.path : `/${file.path}`
-    const normalizedAppPath = path.startsWith('/') ? path : `/${path}`
+    // Always show directories
+    if (file.type === 'directory') {
+      return true
+    }
     
-    // File must be within the app's path
-    return normalizedFilePath.startsWith(normalizedAppPath)
+    // For files, only show YAML and JSON
+    const ext = file.extension || getFileExtension(file.name)
+    return ['.yaml', '.yml', '.json'].includes(ext.toLowerCase())
   })
+  
+  // Count hidden files for the warning
+  const hiddenFilesCount = rawFiles.length - files.length
 
   const handleRetry = async () => {
     // Refresh both credentials and files
@@ -91,6 +104,24 @@ export function ConfigFilesSection({ application }: ConfigFilesSectionProps) {
     console.log('Edit file:', filePath)
   }
 
+  const handleNavigateToDirectory = (dirPath: string) => {
+    // Navigate into a directory
+    const newPath = currentPath ? `${currentPath}/${dirPath}` : dirPath
+    setCurrentPath(newPath)
+  }
+
+  const handleNavigateUp = () => {
+    // Navigate up one level
+    const pathParts = currentPath.split('/').filter(p => p)
+    pathParts.pop()
+    setCurrentPath(pathParts.join('/'))
+  }
+
+  const handleNavigateToRoot = () => {
+    // Navigate back to base path
+    setCurrentPath('')
+  }
+
   // Don't render if not a Git source
   if (!isGitSource) {
     return null
@@ -126,12 +157,50 @@ export function ConfigFilesSection({ application }: ConfigFilesSectionProps) {
             <p className="font-mono text-xs mt-1 break-all">{repoUrl}</p>
           </div>
           <div className="text-sm">
-            <span className="text-muted-foreground">Path:</span>
-            <p className="font-mono text-xs mt-1">{path || '/'}</p>
-          </div>
-          <div className="text-sm">
             <span className="text-muted-foreground">Branch:</span>
             <p className="font-mono text-xs mt-1">{branch}</p>
+          </div>
+          
+          {/* Show authenticated user */}
+          {hasCredentials && credentials && (
+            <div className="text-sm">
+              <span className="text-muted-foreground">Authenticated as:</span>
+              <p className="font-mono text-xs mt-1 text-green-600 dark:text-green-400">
+                ✓ {credentials.username || 'Unknown user'}
+              </p>
+            </div>
+          )}
+          
+          {/* Breadcrumb Navigation */}
+          <div className="text-sm">
+            <span className="text-muted-foreground">Path:</span>
+            <div className="flex items-center gap-1 mt-1 flex-wrap">
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-6 px-2 font-mono text-xs"
+                onClick={handleNavigateToRoot}
+              >
+                <Home className="h-3 w-3 mr-1" />
+                {basePath || '/'}
+              </Button>
+              {currentPath.split('/').filter(p => p).map((part, index) => (
+                <div key={index} className="flex items-center gap-1">
+                  <ChevronRight className="h-3 w-3 text-muted-foreground" />
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-6 px-2 font-mono text-xs"
+                    onClick={() => {
+                      const pathParts = currentPath.split('/').filter(p => p).slice(0, index + 1)
+                      setCurrentPath(pathParts.join('/'))
+                    }}
+                  >
+                    {part}
+                  </Button>
+                </div>
+              ))}
+            </div>
           </div>
         </div>
 
@@ -152,13 +221,20 @@ export function ConfigFilesSection({ application }: ConfigFilesSectionProps) {
                 <div>
                   <p className="font-medium mb-1">Git Authentication Required</p>
                   <p className="text-sm text-muted-foreground">
-                    To view and edit configuration files, please authenticate with your Git credentials.
-                    Your credentials will be securely stored and used for all Git operations with proper user attribution.
+                    No credentials found for this Git server. Please configure your Git credentials in Settings.
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-2">
+                    Server: <span className="font-mono">{new URL(repoUrl).protocol}//{new URL(repoUrl).host}</span>
                   </p>
                 </div>
-                <Button onClick={handleAuthenticateClick} size="sm">
-                  Authenticate with Git
-                </Button>
+                <div className="flex gap-2">
+                  <Button onClick={() => window.location.hash = '#/settings'} size="sm" variant="default">
+                    Go to Settings
+                  </Button>
+                  <Button onClick={handleAuthenticateClick} size="sm" variant="outline">
+                    Quick Setup
+                  </Button>
+                </div>
               </div>
             </AlertDescription>
           </Alert>
@@ -211,15 +287,13 @@ export function ConfigFilesSection({ application }: ConfigFilesSectionProps) {
               </Alert>
             )}
 
-            {/* Path Restriction Warning */}
-            {!filesLoading && !filesError && rawFiles.length > files.length && (
+            {/* File Filter Info */}
+            {!filesLoading && !filesError && hiddenFilesCount > 0 && (
               <Alert className="mb-4">
                 <AlertCircle className="h-4 w-4" />
                 <AlertDescription>
-                  <p className="font-medium mb-1">Path Restriction Active</p>
                   <p className="text-sm">
-                    {rawFiles.length - files.length} file{rawFiles.length - files.length !== 1 ? 's' : ''} hidden due to path restrictions.
-                    Only files within <span className="font-mono">{path || '/'}</span> are displayed.
+                    {hiddenFilesCount} file{hiddenFilesCount !== 1 ? 's' : ''} hidden. Only YAML and JSON files are displayed.
                   </p>
                 </AlertDescription>
               </Alert>
@@ -228,11 +302,44 @@ export function ConfigFilesSection({ application }: ConfigFilesSectionProps) {
             {/* File List */}
             {!filesLoading && !filesError && files.length > 0 && (
               <div className="space-y-2">
+                {/* Up Navigation */}
+                {currentPath && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="w-full justify-start mb-2"
+                    onClick={handleNavigateUp}
+                  >
+                    <Folder className="h-4 w-4 mr-2" />
+                    .. (Go up)
+                  </Button>
+                )}
+                
                 <div className="text-sm text-muted-foreground mb-3">
-                  Found {files.length} configuration file{files.length !== 1 ? 's' : ''}
+                  {files.filter(f => f.type === 'directory').length} folder{files.filter(f => f.type === 'directory').length !== 1 ? 's' : ''}, {files.filter(f => f.type === 'file').length} file{files.filter(f => f.type === 'file').length !== 1 ? 's' : ''}
                 </div>
+                
                 <div className="space-y-2">
-                  {files.map((file) => (
+                  {/* Directories first */}
+                  {files.filter(f => f.type === 'directory').map((dir) => (
+                    <div
+                      key={dir.path}
+                      className="flex items-center justify-between p-3 border rounded-lg hover:bg-muted/50 transition-colors cursor-pointer"
+                      onClick={() => handleNavigateToDirectory(dir.name)}
+                    >
+                      <div className="flex items-center gap-3 flex-1 min-w-0">
+                        <Folder className="h-4 w-4 text-blue-500 flex-shrink-0" />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium truncate">{dir.name}</p>
+                          <p className="text-xs text-muted-foreground">Directory</p>
+                        </div>
+                      </div>
+                      <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                    </div>
+                  ))}
+                  
+                  {/* Then files */}
+                  {files.filter(f => f.type === 'file').map((file) => (
                     <div
                       key={file.path}
                       className="flex items-center justify-between p-3 border rounded-lg hover:bg-muted/50 transition-colors"
@@ -242,7 +349,6 @@ export function ConfigFilesSection({ application }: ConfigFilesSectionProps) {
                         <div className="flex-1 min-w-0">
                           <p className="text-sm font-medium truncate">{file.name}</p>
                           <div className="flex items-center gap-3 text-xs text-muted-foreground mt-1">
-                            <span className="font-mono">{file.path}</span>
                             {file.size && (
                               <span>{formatFileSize(file.size)}</span>
                             )}
@@ -274,10 +380,20 @@ export function ConfigFilesSection({ application }: ConfigFilesSectionProps) {
             {!filesLoading && !filesError && files.length === 0 && (
               <div className="text-center py-8 text-muted-foreground">
                 <FileText className="h-12 w-12 mx-auto mb-2 opacity-50" />
-                <p className="text-sm">No YAML or JSON files found</p>
+                <p className="text-sm">No files or folders found</p>
                 <p className="text-xs mt-1">
-                  Only .yaml, .yml, and .json files are displayed
+                  This directory appears to be empty
                 </p>
+                {currentPath && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="mt-4"
+                    onClick={handleNavigateUp}
+                  >
+                    Go back
+                  </Button>
+                )}
               </div>
             )}
           </>
@@ -319,4 +435,11 @@ function formatDate(dateString: string): string {
   } catch {
     return dateString
   }
+}
+
+// Helper function to get file extension
+function getFileExtension(filename: string): string {
+  const lastDot = filename.lastIndexOf('.')
+  if (lastDot === -1) return ''
+  return filename.substring(lastDot)
 }

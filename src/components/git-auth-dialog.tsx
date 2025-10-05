@@ -100,7 +100,7 @@ export function GitAuthDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[500px]">
+      <DialogContent className="sm:max-w-[600px]">
         <DialogHeader>
           <DialogTitle>Git Authentication</DialogTitle>
           <DialogDescription>
@@ -112,7 +112,7 @@ export function GitAuthDialog({
           {/* Repository URL Display */}
           <div className="rounded-md bg-muted p-3">
             <p className="text-sm font-medium mb-1">Repository</p>
-            <p className="text-sm text-muted-foreground font-mono break-all">
+            <p className="text-xs text-muted-foreground font-mono break-all leading-relaxed">
               {repositoryUrl}
             </p>
           </div>

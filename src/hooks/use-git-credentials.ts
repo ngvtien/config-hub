@@ -31,7 +31,17 @@ export function useGitCredentials(repoUrl: string): UseGitCredentialsResult {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  // Check if credentials exist for this repository
+  // Extract server base URL from repository URL
+  const getServerBaseUrl = useCallback((url: string): string => {
+    try {
+      const parsed = new URL(url)
+      return `${parsed.protocol}//${parsed.host}`
+    } catch {
+      return url
+    }
+  }, [])
+
+  // Check if credentials exist for this Git server (not specific repo)
   const checkCredentials = useCallback(async () => {
     if (!repoUrl) {
       setHasCredentials(false)
@@ -49,7 +59,27 @@ export function useGitCredentials(repoUrl: string): UseGitCredentialsResult {
       setLoading(true)
       setError(null)
 
-      const result = await window.electronAPI.git.findCredentialsByRepo(repoUrl)
+      // Get server base URL (e.g., http://172.27.161.37:7990)
+      const serverBaseUrl = getServerBaseUrl(repoUrl)
+
+      // First try exact repo match
+      let result = await window.electronAPI.git.findCredentialsByRepo(repoUrl)
+
+      // If no exact match, try to find any credential for the same server
+      if (!result.success || !result.data || result.data.length === 0) {
+        // List all credentials and find one matching the server
+        const allCredsResult = await window.electronAPI.git.listCredentials()
+        if (allCredsResult.success && allCredsResult.data) {
+          const matchingCred = allCredsResult.data.find((cred: any) => {
+            const credServerUrl = getServerBaseUrl(cred.repoUrl)
+            return credServerUrl === serverBaseUrl
+          })
+          
+          if (matchingCred) {
+            result = { success: true, data: [matchingCred] }
+          }
+        }
+      }
 
       if (result.success && result.data && result.data.length > 0) {
         // Use the first matching credential
@@ -68,7 +98,7 @@ export function useGitCredentials(repoUrl: string): UseGitCredentialsResult {
     } finally {
       setLoading(false)
     }
-  }, [repoUrl])
+  }, [repoUrl, getServerBaseUrl])
 
   // Store new credentials
   const storeCredentials = useCallback(
@@ -125,7 +155,8 @@ export function useGitCredentials(repoUrl: string): UseGitCredentialsResult {
     if (repoUrl) {
       checkCredentials()
     }
-  }, [checkCredentials, repoUrl])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [repoUrl]) // Only re-run when repoUrl changes, not when checkCredentials changes
 
   return {
     hasCredentials,

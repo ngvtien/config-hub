@@ -17,6 +17,7 @@ import {
 } from '../../src/types/git'
 import {
   BitbucketPagedResponse,
+  BitbucketBrowseResponse,
   BitbucketFile,
   BitbucketCommit,
   BitbucketBranch,
@@ -162,14 +163,18 @@ export class BitbucketServerClient implements GitProvider {
       const normalizedPath = path.replace(/^\/+|\/+$/g, '')
       
       // Bitbucket Server API endpoint for browsing files
-      const endpoint = `/rest/api/1.0/projects/${this.projectKey}/repos/${this.repositorySlug}/browse/${normalizedPath}`
+      // If path is empty, don't include it in the URL
+      const pathSegment = normalizedPath ? `/${normalizedPath}` : ''
+      const endpoint = `/rest/api/1.0/projects/${this.projectKey}/repos/${this.repositorySlug}/browse${pathSegment}`
+      
+      console.log('Bitbucket listFiles endpoint:', endpoint, 'branch:', branch)
       
       let start = 0
       let isLastPage = false
 
       // Handle pagination
       while (!isLastPage) {
-        const response = await this.axiosInstance.get<BitbucketPagedResponse<BitbucketFile>>(endpoint, {
+        const response = await this.axiosInstance.get<BitbucketBrowseResponse>(endpoint, {
           params: {
             at: branch,
             start,
@@ -179,8 +184,16 @@ export class BitbucketServerClient implements GitProvider {
 
         const data = response.data
 
+        // Bitbucket Server returns files in data.children.values
+        const children = data.children
+        
+        if (!children || !children.values || !Array.isArray(children.values)) {
+          console.error('Invalid response structure. Expected data.children.values. Got:', data)
+          throw new Error(`Invalid response from Bitbucket Server: children.values not found`)
+        }
+
         // Convert Bitbucket files to GitFile format
-        for (const file of data.values) {
+        for (const file of children.values) {
           const gitFile: GitFile = {
             path: file.path.toString,
             name: file.path.name,
@@ -199,8 +212,8 @@ export class BitbucketServerClient implements GitProvider {
           }
         }
 
-        isLastPage = data.isLastPage
-        start = data.nextPageStart || 0
+        isLastPage = children.isLastPage
+        start = children.nextPageStart || 0
       }
 
       // Optionally fetch last commit info for each file (can be expensive)

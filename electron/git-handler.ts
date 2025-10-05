@@ -232,6 +232,9 @@ Host ${hostAlias}
         return { success: false, error: 'Token not found' }
       }
 
+      // Detect provider type
+      const providerType = this.detectProviderType(credential.repoUrl)
+
       // Test token by making API call to Git provider
       const repoUrl = new URL(credential.repoUrl)
       let apiUrl = ''
@@ -249,6 +252,30 @@ Host ${hostAlias}
         const repo = pathParts[2]?.replace('.git', '')
         apiUrl = `https://gitlab.com/api/v4/projects/${encodeURIComponent(`${owner}/${repo}`)}`
         headers = { 'Authorization': `Bearer ${credential.token}` }
+      } else if (providerType === 'bitbucket-server') {
+        // Bitbucket Server: Test with user API endpoint
+        // Format: http://server:port/rest/api/1.0/users/{username}
+        const baseUrl = `${repoUrl.protocol}//${repoUrl.host}`
+        apiUrl = `${baseUrl}/rest/api/1.0/application-properties`
+        
+        // Bitbucket Server uses Basic Auth with username:token
+        if (credential.username) {
+          const auth = Buffer.from(`${credential.username}:${credential.token}`).toString('base64')
+          headers = { 'Authorization': `Basic ${auth}` }
+        } else {
+          return { success: false, error: 'Username required for Bitbucket Server authentication' }
+        }
+      } else if (providerType === 'bitbucket-cloud') {
+        // Bitbucket Cloud: Test with user API endpoint
+        apiUrl = 'https://api.bitbucket.org/2.0/user'
+        
+        // Bitbucket Cloud uses Basic Auth with username:app_password
+        if (credential.username) {
+          const auth = Buffer.from(`${credential.username}:${credential.token}`).toString('base64')
+          headers = { 'Authorization': `Basic ${auth}` }
+        } else {
+          return { success: false, error: 'Username required for Bitbucket Cloud authentication' }
+        }
       } else {
         return { success: false, error: 'Unsupported Git provider for token testing' }
       }
@@ -256,8 +283,11 @@ Host ${hostAlias}
       const { stdout } = await execAsync(`curl -s -H "Authorization: ${headers.Authorization}" "${apiUrl}"`)
       const response = JSON.parse(stdout)
       
-      if (response.id || response.name) {
+      // Check for successful response
+      if (response.id || response.name || response.version || response.username || response.display_name) {
         return { success: true }
+      } else if (response.errors || response.error) {
+        return { success: false, error: response.errors?.[0]?.message || response.error?.message || 'Authentication failed' }
       } else {
         return { success: false, error: 'Invalid token or repository not accessible' }
       }
@@ -289,6 +319,45 @@ Host ${hostAlias}
     try {
       if (!credential.username || !credential.password) {
         return { success: false, error: 'Username or password not found' }
+      }
+
+      // Detect provider type
+      const providerType = this.detectProviderType(credential.repoUrl)
+
+      // For Bitbucket Server/Cloud, test using API (same as token auth but with password)
+      if (providerType === 'bitbucket-server' || providerType === 'bitbucket-cloud') {
+        const repoUrl = new URL(credential.repoUrl)
+        let apiUrl = ''
+        
+        if (providerType === 'bitbucket-server') {
+          const baseUrl = `${repoUrl.protocol}//${repoUrl.host}`
+          apiUrl = `${baseUrl}/rest/api/1.0/application-properties`
+        } else {
+          apiUrl = 'https://api.bitbucket.org/2.0/user'
+        }
+        
+        // Use Basic Auth with username:password
+        const auth = Buffer.from(`${credential.username}:${credential.password}`).toString('base64')
+        const headers = { 'Authorization': `Basic ${auth}` }
+
+        const { stdout } = await execAsync(`curl -s -H "Authorization: ${headers.Authorization}" "${apiUrl}"`)
+        const response = JSON.parse(stdout)
+        
+        // Check for successful response
+        if (response.id || response.name || response.version || response.username || response.display_name) {
+          return { success: true }
+        } else if (response.errors || response.error) {
+          return { success: false, error: response.errors?.[0]?.message || response.error?.message || 'Authentication failed' }
+        } else {
+          return { success: false, error: 'Invalid credentials or server not accessible' }
+        }
+      }
+
+      // For other providers (GitHub, GitLab, etc.), try to clone if it's a valid repo URL
+      // Only attempt clone if the URL looks like a repository (ends with .git or has path segments)
+      const pathSegments = credential.repoUrl.split('/').filter(s => s)
+      if (!credential.repoUrl.endsWith('.git') && pathSegments.length <= 3) {
+        return { success: false, error: 'Please provide a full repository URL (e.g., https://github.com/user/repo.git)' }
       }
 
       // Create a temporary directory for testing
