@@ -99,6 +99,31 @@ npm run build
 - **Radix UI** - Headless UI primitives
 - **Lucide React** - Icons
 
+## Documentation
+
+Comprehensive documentation is available in the [docs/](./docs/) directory, organized by feature:
+
+- **[ArgoCD Integration](./docs/argocd/)** - ArgoCD features, integration, and UI guides
+- **[Git Integration](./docs/git/)** - Git repository integration and configuration management
+- **[Vault Integration](./docs/vault/)** - HashiCorp Vault secrets management
+- **[User Interface](./docs/ui/)** - UI components and user experience
+- **[Deployment](./docs/deployment/)** - Deployment guides and sample applications
+- **[Security](./docs/security/)** - Security implementation and best practices
+- **[Development](./docs/development/)** - Development notes and project documentation
+
+See the [Documentation Index](./docs/README.md) for a complete list of available documentation.
+
+## Scripts
+
+Utility scripts are available in the [scripts/](./scripts/) directory, organized by feature:
+
+- **[ArgoCD Scripts](./scripts/argocd/)** - Setup, configuration, and testing scripts
+- **[Vault Scripts](./scripts/vault/)** - Vault configuration scripts
+- **[Deployment Scripts](./scripts/deployment/)** - Sample app deployment scripts
+- **[Development Scripts](./scripts/development/)** - Development workflow scripts
+
+See the [Scripts Index](./scripts/README.md) for usage instructions.
+
 ## License
 
 MIT
