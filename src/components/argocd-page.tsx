@@ -57,6 +57,7 @@ export function ArgoCDPage() {
   const [quickSearch, setQuickSearch] = useState('')
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false)
   const [syncStatusFilter, setSyncStatusFilter] = useState<string | undefined>(undefined)
+  const [healthStatusFilter, setHealthStatusFilter] = useState<string | undefined>(undefined)
   const [versionFilter, setVersionFilter] = useState('')
 
   // Get status badge variant
@@ -101,6 +102,13 @@ export function ArgoCDPage() {
   if (syncStatusFilter) {
     displayApplications = displayApplications.filter(({ application }) =>
       application.status.sync.status === syncStatusFilter
+    )
+  }
+
+  // Apply health status filter (inline)
+  if (healthStatusFilter) {
+    displayApplications = displayApplications.filter(({ application }) =>
+      application.status.health.status === healthStatusFilter
     )
   }
 
@@ -255,9 +263,28 @@ export function ArgoCDPage() {
               <SelectValue placeholder="Sync Status" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">All Status</SelectItem>
+              <SelectItem value="all">All Sync</SelectItem>
               <SelectItem value="Synced">Synced</SelectItem>
               <SelectItem value="OutOfSync">Out of Sync</SelectItem>
+              <SelectItem value="Unknown">Unknown</SelectItem>
+            </SelectContent>
+          </Select>
+
+          {/* Health Status Filter */}
+          <Select
+            value={healthStatusFilter || 'all'}
+            onValueChange={(value) => setHealthStatusFilter(value === 'all' ? undefined : value)}
+          >
+            <SelectTrigger className="w-[140px] h-8">
+              <SelectValue placeholder="Health Status" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Health</SelectItem>
+              <SelectItem value="Healthy">Healthy</SelectItem>
+              <SelectItem value="Degraded">Degraded</SelectItem>
+              <SelectItem value="Progressing">Progressing</SelectItem>
+              <SelectItem value="Suspended">Suspended</SelectItem>
+              <SelectItem value="Missing">Missing</SelectItem>
               <SelectItem value="Unknown">Unknown</SelectItem>
             </SelectContent>
           </Select>
@@ -281,12 +308,13 @@ export function ArgoCDPage() {
           </div>
 
           {/* Active Filters Indicator */}
-          {(syncStatusFilter || versionFilter) && (
+          {(syncStatusFilter || healthStatusFilter || versionFilter) && (
             <Button
               variant="ghost"
               size="sm"
               onClick={() => {
                 setSyncStatusFilter(undefined)
+                setHealthStatusFilter(undefined)
                 setVersionFilter('')
               }}
               className="h-8 text-xs"
