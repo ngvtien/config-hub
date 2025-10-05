@@ -262,14 +262,14 @@ app.on('browser-window-created', async () => {
       { setupArgoCDHandlers },
       { setupVaultHandlers },
       { setupUserHandlers },
-      { setupSimpleGitHandlers },
+      // { setupSimpleGitHandlers }, // Disabled - conflicts with setupGitHandlers()
       { setupSimpleHelmHandlers },
       { setupGitHandlers }
     ] = await Promise.all([
       import('./argocd-handler'),
       import('./vault-handler'),
       import('./user-handler'),
-      import('./simple-git-handler'),
+      // import('./simple-git-handler'), // Disabled - conflicts with setupGitHandlers()
       import('./simple-helm-handler'),
       import('./git-handler')
     ])
@@ -277,7 +277,7 @@ app.on('browser-window-created', async () => {
     setupArgoCDHandlers()
     setupVaultHandlers()
     setupUserHandlers()
-    setupSimpleGitHandlers()
+    // setupSimpleGitHandlers() // Disabled - conflicts with setupGitHandlers()
     setupSimpleHelmHandlers()
     setupGitHandlers()
     console.log('Handlers loaded')
