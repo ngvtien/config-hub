@@ -1853,6 +1853,59 @@ describe('Path Restrictions', () => {
 - Implement rate limiting
 - Handle token expiration gracefully
 
+### Local Git Isolation (Critical Safety Guardrail)
+
+**Problem:** Bitbucket API operations must not interfere with local Git repositories or operations.
+
+**Guardrails:**
+
+1. **No Local Git Commands**
+   - Never use `git` CLI commands for file operations
+   - All operations go through Bitbucket REST API only
+   - No local repository cloning for file viewing/editing
+
+2. **API-Only Operations**
+   - File listing: Use Bitbucket API `/browse` endpoint
+   - File content: Use Bitbucket API `/raw` endpoint
+   - Branch creation: Use Bitbucket API `/branches` endpoint
+   - Commits: Use Bitbucket API `/commits` endpoint
+   - PRs: Use Bitbucket API `/pull-requests` endpoint
+
+3. **No File System Access**
+   - Never write files to local disk for editing
+   - All editing happens in-memory in the browser
+   - No temporary Git repositories
+
+4. **Stateless Operations**
+   - Each operation is independent
+   - No persistent Git state
+   - No working directory or index
+
+5. **Clear Separation**
+   - Bitbucket client only makes HTTP requests
+   - No interaction with local `.git` directories
+   - No modification of user's local Git config
+
+**Implementation:**
+```typescript
+// ❌ NEVER DO THIS
+await execAsync(`git clone ${repoUrl}`)
+await execAsync(`git add ${file}`)
+await execAsync(`git commit -m "${message}"`)
+
+// ✅ ALWAYS DO THIS
+await bitbucketClient.getFileContent(path, branch)
+await bitbucketClient.createCommit(branch, changes, message)
+await bitbucketClient.createPullRequest(...)
+```
+
+**Benefits:**
+- No risk of modifying user's local repositories
+- No risk of committing unintended files
+- No risk of Git state corruption
+- Clean, predictable behavior
+- Works even if Git is not installed locally
+
 ## Performance Considerations
 
 ### Caching Strategy
