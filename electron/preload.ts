@@ -78,6 +78,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
   // Git API (secure IPC-based)
   git: {
+    // Credential management (existing)
     storeCredential: (config: any) => 
       ipcRenderer.invoke('git:store-credential', config),
     testCredential: (credentialId: string) => 
@@ -93,7 +94,31 @@ contextBridge.exposeInMainWorld('electronAPI', {
     cloneRepository: (credentialId: string, localPath: string, branch?: string) => 
       ipcRenderer.invoke('git:clone-repository', credentialId, localPath, branch),
     findCredentialsByRepo: (repoUrl: string) => 
-      ipcRenderer.invoke('git:find-credentials-by-repo', repoUrl)
+      ipcRenderer.invoke('git:find-credentials-by-repo', repoUrl),
+    
+    // File operations (new)
+    listFiles: (credentialId: string, path: string, branch: string) => 
+      ipcRenderer.invoke('git:listFiles', credentialId, path, branch),
+    getFileContent: (credentialId: string, filePath: string, branch: string) => 
+      ipcRenderer.invoke('git:getFileContent', credentialId, filePath, branch),
+    
+    // Branch and commit operations (new)
+    createBranch: (credentialId: string, baseBranch: string, newBranchName: string) => 
+      ipcRenderer.invoke('git:createBranch', credentialId, baseBranch, newBranchName),
+    commitChanges: (credentialId: string, branch: string, changes: any[], commitMessage: string) => 
+      ipcRenderer.invoke('git:commitChanges', credentialId, branch, changes, commitMessage),
+    
+    // Pull Request operations (new)
+    createPullRequest: (credentialId: string, sourceBranch: string, targetBranch: string, title: string, description: string, reviewers?: string[]) => 
+      ipcRenderer.invoke('git:createPullRequest', credentialId, sourceBranch, targetBranch, title, description, reviewers),
+    getPullRequest: (credentialId: string, prId: number) => 
+      ipcRenderer.invoke('git:getPullRequest', credentialId, prId),
+    mergePullRequest: (credentialId: string, prId: number, mergeStrategy?: string) => 
+      ipcRenderer.invoke('git:mergePullRequest', credentialId, prId, mergeStrategy),
+    
+    // Webhook notifications (new)
+    sendWebhookNotification: (webhookUrl: string, payload: any) => 
+      ipcRenderer.invoke('git:sendWebhookNotification', webhookUrl, payload)
   },
 
   // Helm API (secure IPC-based)

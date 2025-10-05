@@ -154,6 +154,7 @@ interface Window {
     
     // Git API (secure IPC-based)
     git: {
+      // Credential management (existing)
       storeCredential: (config: GitConfig) => Promise<GitResponse>
       testCredential: (credentialId: string) => Promise<GitResponse<{ success: boolean }>>
       listCredentials: (environment?: string) => Promise<GitResponse<any[]>>
@@ -162,6 +163,22 @@ interface Window {
       generateSSHKey: (keyName: string, passphrase?: string) => Promise<GitResponse<{ privateKey: string; publicKey: string }>>
       cloneRepository: (credentialId: string, localPath: string, branch?: string) => Promise<GitResponse>
       findCredentialsByRepo: (repoUrl: string) => Promise<GitResponse<any[]>>
+      
+      // File operations (new)
+      listFiles: (credentialId: string, path: string, branch: string) => Promise<GitResponse<any[]>>
+      getFileContent: (credentialId: string, filePath: string, branch: string) => Promise<GitResponse<any>>
+      
+      // Branch and commit operations (new)
+      createBranch: (credentialId: string, baseBranch: string, newBranchName: string) => Promise<GitResponse<any>>
+      commitChanges: (credentialId: string, branch: string, changes: any[], commitMessage: string) => Promise<GitResponse<any>>
+      
+      // Pull Request operations (new)
+      createPullRequest: (credentialId: string, sourceBranch: string, targetBranch: string, title: string, description: string, reviewers?: string[]) => Promise<GitResponse<any>>
+      getPullRequest: (credentialId: string, prId: number) => Promise<GitResponse<any>>
+      mergePullRequest: (credentialId: string, prId: number, mergeStrategy?: string) => Promise<GitResponse<any>>
+      
+      // Webhook notifications (new)
+      sendWebhookNotification: (webhookUrl: string, payload: any) => Promise<GitResponse<void>>
     }
     
     // Helm API (secure IPC-based)

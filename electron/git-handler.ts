@@ -178,7 +178,7 @@ Host ${hostAlias}
 
       // Remove existing entry for this credential
       const lines = existingConfig.split('\n')
-      const filteredLines = []
+      const filteredLines: string[] = []
       let skipSection = false
 
       for (const line of lines) {
@@ -403,7 +403,7 @@ Host ${hostAlias}
       if (fs.existsSync(sshConfigPath)) {
         const existingConfig = fs.readFileSync(sshConfigPath, 'utf8')
         const lines = existingConfig.split('\n')
-        const filteredLines = []
+        const filteredLines: string[] = []
         let skipSection = false
 
         for (const line of lines) {
@@ -424,6 +424,209 @@ Host ${hostAlias}
     } catch (error) {
       console.error('Failed to cleanup SSH key:', error)
     }
+  }
+
+  // Detect the type of Git provider from URL
+  detectProviderType(repoUrl: string): 'bitbucket-server' | 'bitbucket-cloud' | 'git-repo' {
+    // Bitbucket Cloud
+    if (repoUrl.includes('bitbucket.org')) {
+      return 'bitbucket-cloud'
+    }
+
+    // Bitbucket Server (self-hosted)
+    // Indicators: localhost, custom port, /scm/ path pattern, or base URL without .git
+    if (repoUrl.includes('localhost') ||
+      repoUrl.includes('/scm/') ||
+      repoUrl.match(/:\d+\//) ||
+      (!repoUrl.endsWith('.git') && !repoUrl.includes('bitbucket.org'))) {
+      return 'bitbucket-server'
+    }
+
+    // Regular Git repository
+    return 'git-repo'
+  }
+
+  // Create appropriate Git provider client based on provider type
+  async createProviderClient(providerType: string, credential: GitCredential): Promise<any> {
+    switch (providerType) {
+      case 'bitbucket-server': {
+        const { BitbucketServerClient } = await import('./git-providers/bitbucket-server-client')
+        return new BitbucketServerClient(credential.repoUrl, credential)
+      }
+      case 'bitbucket-cloud': {
+        // TODO: Implement BitbucketCloudClient in Phase 11
+        throw new Error('Bitbucket Cloud support not yet implemented')
+      }
+      default:
+        throw new Error(`Unsupported provider type: ${providerType}`)
+    }
+  }
+
+  // Send webhook notification
+  async sendWebhookNotification(webhookUrl: string, payload: any): Promise<void> {
+    try {
+      const https = await import('https')
+      const http = await import('http')
+      const url = new URL(webhookUrl)
+
+      const isHttps = url.protocol === 'https:'
+      const httpModule = isHttps ? https : http
+
+      // Detect webhook type and format payload accordingly
+      const formattedPayload = this.formatWebhookPayload(webhookUrl, payload)
+      const body = JSON.stringify(formattedPayload)
+
+      return new Promise((resolve, reject) => {
+        const options = {
+          hostname: url.hostname,
+          port: url.port || (isHttps ? 443 : 80),
+          path: url.pathname + url.search,
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Content-Length': Buffer.byteLength(body)
+          },
+          rejectUnauthorized: false // Allow self-signed certificates
+        }
+
+        const req = httpModule.request(options, (res) => {
+          let data = ''
+
+          res.on('data', (chunk) => {
+            data += chunk
+          })
+
+          res.on('end', () => {
+            if (res.statusCode && res.statusCode >= 200 && res.statusCode < 300) {
+              resolve()
+            } else {
+              reject(new Error(`Webhook returned status ${res.statusCode}: ${data}`))
+            }
+          })
+        })
+
+        req.on('error', (error) => {
+          reject(error)
+        })
+
+        req.setTimeout(10000, () => {
+          req.destroy()
+          reject(new Error('Webhook request timeout'))
+        })
+
+        req.write(body)
+        req.end()
+      })
+    } catch (error) {
+      console.error('Failed to send webhook notification:', error)
+      throw error
+    }
+  }
+
+  // Format webhook payload based on webhook type (MS Teams or Slack)
+  private formatWebhookPayload(webhookUrl: string, payload: any): any {
+    // MS Teams webhook
+    if (webhookUrl.includes('office.com') || webhookUrl.includes('webhook.office')) {
+      return {
+        '@type': 'MessageCard',
+        '@context': 'https://schema.org/extensions',
+        summary: payload.title || 'Pull Request Notification',
+        themeColor: '0078D7',
+        title: payload.title || 'Pull Request Created',
+        sections: [
+          {
+            activityTitle: payload.author || 'Unknown Author',
+            activitySubtitle: payload.timestamp || new Date().toISOString(),
+            facts: [
+              {
+                name: 'Repository:',
+                value: payload.repository || 'N/A'
+              },
+              {
+                name: 'Branch:',
+                value: `${payload.sourceBranch} → ${payload.targetBranch}` || 'N/A'
+              },
+              {
+                name: 'Affected Applications:',
+                value: payload.affectedApplications?.join(', ') || 'N/A'
+              }
+            ],
+            text: payload.description || ''
+          }
+        ],
+        potentialAction: payload.prUrl ? [
+          {
+            '@type': 'OpenUri',
+            name: 'View Pull Request',
+            targets: [
+              {
+                os: 'default',
+                uri: payload.prUrl
+              }
+            ]
+          }
+        ] : []
+      }
+    }
+
+    // Slack webhook
+    if (webhookUrl.includes('slack.com')) {
+      return {
+        text: payload.title || 'Pull Request Notification',
+        blocks: [
+          {
+            type: 'header',
+            text: {
+              type: 'plain_text',
+              text: payload.title || 'Pull Request Created'
+            }
+          },
+          {
+            type: 'section',
+            fields: [
+              {
+                type: 'mrkdwn',
+                text: `*Author:*\n${payload.author || 'Unknown'}`
+              },
+              {
+                type: 'mrkdwn',
+                text: `*Repository:*\n${payload.repository || 'N/A'}`
+              },
+              {
+                type: 'mrkdwn',
+                text: `*Branch:*\n${payload.sourceBranch} → ${payload.targetBranch}`
+              },
+              {
+                type: 'mrkdwn',
+                text: `*Affected Apps:*\n${payload.affectedApplications?.join(', ') || 'N/A'}`
+              }
+            ]
+          },
+          {
+            type: 'section',
+            text: {
+              type: 'mrkdwn',
+              text: payload.description || ''
+            }
+          }
+        ],
+        attachments: payload.prUrl ? [
+          {
+            color: '#0078D7',
+            actions: [
+              {
+                type: 'button',
+                text: 'View Pull Request',
+                url: payload.prUrl
+              }
+            ]
+          }
+        ] : []
+      }
+    }
+
+    // Generic webhook - return payload as-is
+    return payload
   }
 }
 
@@ -515,6 +718,151 @@ export function setupGitHandlers(): void {
       return { success: true, data: credentials }
     } catch (error) {
       console.error('Failed to find Git credentials:', error)
+      return { success: false, error: error instanceof Error ? error.message : 'Unknown error' }
+    }
+  })
+
+  // List files in repository
+  ipcMain.handle('git:listFiles', async (_, credentialId: string, path: string, branch: string) => {
+    try {
+      const credential = await secureCredentialManager.getCredential(credentialId) as GitCredential
+      if (!credential) {
+        return { success: false, error: 'Credential not found' }
+      }
+
+      const providerType = gitCredentialManager.detectProviderType(credential.repoUrl)
+      const client = await gitCredentialManager.createProviderClient(providerType, credential)
+      
+      const files = await client.listFiles(path, branch)
+      return { success: true, data: files }
+    } catch (error) {
+      console.error('Failed to list files:', error)
+      return { success: false, error: error instanceof Error ? error.message : 'Unknown error' }
+    }
+  })
+
+  // Get file content from repository
+  ipcMain.handle('git:getFileContent', async (_, credentialId: string, filePath: string, branch: string) => {
+    try {
+      const credential = await secureCredentialManager.getCredential(credentialId) as GitCredential
+      if (!credential) {
+        return { success: false, error: 'Credential not found' }
+      }
+
+      const providerType = gitCredentialManager.detectProviderType(credential.repoUrl)
+      const client = await gitCredentialManager.createProviderClient(providerType, credential)
+      
+      const content = await client.getFileContent(filePath, branch)
+      return { success: true, data: content }
+    } catch (error) {
+      console.error('Failed to get file content:', error)
+      return { success: false, error: error instanceof Error ? error.message : 'Unknown error' }
+    }
+  })
+
+  // Create a new branch
+  ipcMain.handle('git:createBranch', async (_, credentialId: string, baseBranch: string, newBranchName: string) => {
+    try {
+      const credential = await secureCredentialManager.getCredential(credentialId) as GitCredential
+      if (!credential) {
+        return { success: false, error: 'Credential not found' }
+      }
+
+      const providerType = gitCredentialManager.detectProviderType(credential.repoUrl)
+      const client = await gitCredentialManager.createProviderClient(providerType, credential)
+      
+      const branch = await client.createBranch(baseBranch, newBranchName)
+      return { success: true, data: branch }
+    } catch (error) {
+      console.error('Failed to create branch:', error)
+      return { success: false, error: error instanceof Error ? error.message : 'Unknown error' }
+    }
+  })
+
+  // Commit changes to a branch
+  ipcMain.handle('git:commitChanges', async (_, credentialId: string, branch: string, changes: any[], commitMessage: string) => {
+    try {
+      const credential = await secureCredentialManager.getCredential(credentialId) as GitCredential
+      if (!credential) {
+        return { success: false, error: 'Credential not found' }
+      }
+
+      const providerType = gitCredentialManager.detectProviderType(credential.repoUrl)
+      const client = await gitCredentialManager.createProviderClient(providerType, credential)
+      
+      const commit = await client.createCommit(branch, changes, commitMessage)
+      return { success: true, data: commit }
+    } catch (error) {
+      console.error('Failed to commit changes:', error)
+      return { success: false, error: error instanceof Error ? error.message : 'Unknown error' }
+    }
+  })
+
+  // Create a Pull Request
+  ipcMain.handle('git:createPullRequest', async (_, credentialId: string, sourceBranch: string, targetBranch: string, title: string, description: string, reviewers?: string[]) => {
+    try {
+      const credential = await secureCredentialManager.getCredential(credentialId) as GitCredential
+      if (!credential) {
+        return { success: false, error: 'Credential not found' }
+      }
+
+      const providerType = gitCredentialManager.detectProviderType(credential.repoUrl)
+      const client = await gitCredentialManager.createProviderClient(providerType, credential)
+      
+      const pullRequest = await client.createPullRequest(sourceBranch, targetBranch, title, description, reviewers)
+      return { success: true, data: pullRequest }
+    } catch (error) {
+      console.error('Failed to create pull request:', error)
+      return { success: false, error: error instanceof Error ? error.message : 'Unknown error' }
+    }
+  })
+
+  // Get Pull Request details
+  ipcMain.handle('git:getPullRequest', async (_, credentialId: string, prId: number) => {
+    try {
+      const credential = await secureCredentialManager.getCredential(credentialId) as GitCredential
+      if (!credential) {
+        return { success: false, error: 'Credential not found' }
+      }
+
+      const providerType = gitCredentialManager.detectProviderType(credential.repoUrl)
+      const client = await gitCredentialManager.createProviderClient(providerType, credential)
+      
+      const pullRequest = await client.getPullRequest(prId)
+      return { success: true, data: pullRequest }
+    } catch (error) {
+      console.error('Failed to get pull request:', error)
+      return { success: false, error: error instanceof Error ? error.message : 'Unknown error' }
+    }
+  })
+
+  // Merge a Pull Request
+  ipcMain.handle('git:mergePullRequest', async (_, credentialId: string, prId: number, mergeStrategy?: string) => {
+    try {
+      const credential = await secureCredentialManager.getCredential(credentialId) as GitCredential
+      if (!credential) {
+        return { success: false, error: 'Credential not found' }
+      }
+
+      const providerType = gitCredentialManager.detectProviderType(credential.repoUrl)
+      const client = await gitCredentialManager.createProviderClient(providerType, credential)
+      
+      const result = await client.mergePullRequest(prId, mergeStrategy)
+      return { success: true, data: result }
+    } catch (error) {
+      console.error('Failed to merge pull request:', error)
+      return { success: false, error: error instanceof Error ? error.message : 'Unknown error' }
+    }
+  })
+
+  // Send webhook notification
+  ipcMain.handle('git:sendWebhookNotification', async (_, webhookUrl: string, payload: any) => {
+    try {
+      await gitCredentialManager.sendWebhookNotification(webhookUrl, payload)
+      return { success: true }
+    } catch (error) {
+      console.error('Failed to send webhook notification:', error)
+      // Don't fail the entire operation if webhook fails - just log and return success: false
       return { success: false, error: error instanceof Error ? error.message : 'Unknown error' }
     }
   })

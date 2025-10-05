@@ -263,13 +263,15 @@ app.on('browser-window-created', async () => {
       { setupVaultHandlers },
       { setupUserHandlers },
       { setupSimpleGitHandlers },
-      { setupSimpleHelmHandlers }
+      { setupSimpleHelmHandlers },
+      { setupGitHandlers }
     ] = await Promise.all([
       import('./argocd-handler'),
       import('./vault-handler'),
       import('./user-handler'),
       import('./simple-git-handler'),
-      import('./simple-helm-handler')
+      import('./simple-helm-handler'),
+      import('./git-handler')
     ])
     
     setupArgoCDHandlers()
@@ -277,6 +279,7 @@ app.on('browser-window-created', async () => {
     setupUserHandlers()
     setupSimpleGitHandlers()
     setupSimpleHelmHandlers()
+    setupGitHandlers()
     console.log('Handlers loaded')
   } catch (error) {
     console.error('Failed to setup handlers:', error)
