@@ -80,6 +80,8 @@
     "react": "^18.2.0",
     "react-diff-viewer-continued": "^3.4.0",
     "react-dom": "^18.2.0",
+    "react-markdown": "^10.1.0",
+    "remark-gfm": "^4.0.1",
     "simple-git": "^3.28.0",
     "tailwind-merge": "^2.3.0",
     "tailwindcss-animate": "^1.0.7"

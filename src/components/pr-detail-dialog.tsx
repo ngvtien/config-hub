@@ -24,6 +24,8 @@ import {
   AlertCircle,
 } from 'lucide-react'
 import ReactDiffViewer, { DiffMethod } from 'react-diff-viewer-continued'
+import ReactMarkdown from 'react-markdown'
+import remarkGfm from 'remark-gfm'
 import type { PullRequest } from '@/types/git'
 
 interface PRDetailDialogProps {
@@ -48,6 +50,8 @@ export function PRDetailDialog({
   const [loadingDiff, setLoadingDiff] = useState(false)
   const [diffError, setDiffError] = useState<string | null>(null)
   const [showDiff, setShowDiff] = useState(false)
+  const [showDescription, setShowDescription] = useState(false)
+  const [showMergeStatus, setShowMergeStatus] = useState(true)
 
   // Fetch PR diff when dialog opens
   useEffect(() => {
@@ -238,17 +242,44 @@ export function PRDetailDialog({
 
             <Separator />
 
-            {/* Description */}
+            {/* Description - Collapsible */}
             {pullRequest.description && (
               <>
                 <div className="space-y-2">
-                  <h3 className="font-semibold flex items-center gap-2">
-                    <FileText className="h-4 w-4" />
-                    Description
-                  </h3>
-                  <div className="text-sm whitespace-pre-wrap bg-muted/50 p-4 rounded-md">
-                    {pullRequest.description}
-                  </div>
+                  <button
+                    onClick={() => setShowDescription(!showDescription)}
+                    className="w-full flex items-center justify-between p-2 hover:bg-muted/50 rounded-md transition-colors"
+                  >
+                    <h3 className="font-semibold flex items-center gap-2">
+                      <FileText className="h-4 w-4" />
+                      Description
+                    </h3>
+                    <span className="text-xs text-muted-foreground">
+                      {showDescription ? '▼' : '▶'}
+                    </span>
+                  </button>
+                  {showDescription && (
+                    <div className="text-sm bg-muted/50 p-4 rounded-md pr-description">
+                      <ReactMarkdown 
+                        remarkPlugins={[remarkGfm]}
+                        components={{
+                          h1: ({node, ...props}) => <h3 className="text-base font-semibold mt-3 mb-2 first:mt-0" {...props} />,
+                          h2: ({node, ...props}) => <h4 className="text-sm font-semibold mt-3 mb-2 first:mt-0" {...props} />,
+                          h3: ({node, ...props}) => <h5 className="text-sm font-medium mt-2 mb-1 first:mt-0" {...props} />,
+                          p: ({node, ...props}) => <p className="text-sm leading-relaxed mb-2" {...props} />,
+                          ul: ({node, ...props}) => <ul className="text-sm list-disc list-inside mb-2 space-y-1" {...props} />,
+                          ol: ({node, ...props}) => <ol className="text-sm list-decimal list-inside mb-2 space-y-1" {...props} />,
+                          li: ({node, ...props}) => <li className="text-sm" {...props} />,
+                          code: ({node, ...props}) => <code className="text-xs bg-muted px-1 py-0.5 rounded font-mono" {...props} />,
+                          pre: ({node, ...props}) => <pre className="text-xs bg-muted p-2 rounded font-mono my-2 overflow-x-auto" {...props} />,
+                          blockquote: ({node, ...props}) => <blockquote className="border-l-2 border-border pl-3 italic text-muted-foreground my-2" {...props} />,
+                          a: ({node, ...props}) => <a className="text-primary hover:underline" {...props} />,
+                        }}
+                      >
+                        {pullRequest.description}
+                      </ReactMarkdown>
+                    </div>
+                  )}
                 </div>
                 <Separator />
               </>
@@ -421,10 +452,16 @@ export function PRDetailDialog({
                         }
                         
                         return (
-                          <div key={idx} className="border rounded-lg overflow-hidden">
-                            <div className="bg-muted px-3 py-2 font-mono text-sm font-semibold flex items-center gap-2">
-                              <FileText className="h-4 w-4" />
-                              {file.path}
+                          <div key={idx} className="border border-border rounded-md overflow-hidden mb-4">
+                            <div className="bg-muted/30 px-3 py-2 border-b border-border flex items-center justify-between">
+                              <div className="flex items-center gap-2 font-mono text-xs font-medium text-foreground">
+                                <FileText className="h-3.5 w-3.5 text-muted-foreground" />
+                                <span>{file.path}</span>
+                              </div>
+                              <div className="flex items-center gap-3 text-xs font-mono">
+                                <span className="text-green-600 dark:text-green-400 font-semibold">+{newContent.split('\n').length - oldContent.split('\n').length}</span>
+                                <span className="text-red-600 dark:text-red-400 font-semibold">-{oldContent.split('\n').length - newContent.split('\n').length}</span>
+                              </div>
                             </div>
                             <div className="diff-viewer-wrapper">
                               <ReactDiffViewer
@@ -437,6 +474,75 @@ export function PRDetailDialog({
                                 rightTitle="After"
                                 showDiffOnly={false}
                                 hideLineNumbers={false}
+                                styles={{
+                                  variables: {
+                                    dark: {
+                                      diffViewerBackground: '#0d1117',
+                                      diffViewerColor: '#c9d1d9',
+                                      addedBackground: '#0d4429',
+                                      addedColor: '#aff5b4',
+                                      removedBackground: '#6e1a1a',
+                                      removedColor: '#ffdcd7',
+                                      wordAddedBackground: '#1a7f37',
+                                      wordRemovedBackground: '#da3633',
+                                      addedGutterBackground: '#0d1117',
+                                      removedGutterBackground: '#0d1117',
+                                      gutterBackground: '#0d1117',
+                                      gutterBackgroundDark: '#0d1117',
+                                      gutterColor: '#6e7681',
+                                      highlightBackground: '#1f2937',
+                                      highlightGutterBackground: '#1f2937',
+                                      codeFoldGutterBackground: '#0d1117',
+                                      codeFoldBackground: '#0d1117',
+                                      emptyLineBackground: '#0d1117',
+                                    },
+                                    light: {
+                                      diffViewerBackground: '#ffffff',
+                                      diffViewerColor: '#24292f',
+                                      addedBackground: '#e6ffec',
+                                      addedColor: '#24292f',
+                                      removedBackground: '#ffebe9',
+                                      removedColor: '#24292f',
+                                      wordAddedBackground: '#abf2bc',
+                                      wordRemovedBackground: '#ffcecb',
+                                      addedGutterBackground: '#ccffd8',
+                                      removedGutterBackground: '#ffd7d5',
+                                      gutterBackground: '#f6f8fa',
+                                      gutterBackgroundDark: '#f6f8fa',
+                                      gutterColor: '#57606a',
+                                      highlightBackground: '#fff8c5',
+                                      highlightGutterBackground: '#fff8c5',
+                                      codeFoldGutterBackground: '#f6f8fa',
+                                      codeFoldBackground: '#f6f8fa',
+                                      emptyLineBackground: '#fafbfc',
+                                    },
+                                  },
+                                  line: {
+                                    padding: '0 8px',
+                                    fontSize: '11.5px',
+                                    lineHeight: '18px',
+                                    fontFamily: 'JetBrains Mono, SF Mono, Monaco, Cascadia Code, Consolas, monospace',
+                                    fontWeight: '400',
+                                    letterSpacing: '0',
+                                  },
+                                  gutter: {
+                                    padding: '0 8px',
+                                    minWidth: '45px',
+                                    fontSize: '11px',
+                                    lineHeight: '18px',
+                                    fontWeight: '400',
+                                  },
+                                  marker: {
+                                    padding: '0 6px',
+                                    fontSize: '11px',
+                                  },
+                                  contentText: {
+                                    fontSize: '11.5px',
+                                    lineHeight: '18px',
+                                    fontWeight: '400',
+                                    letterSpacing: '0',
+                                  },
+                                }}
                               />
                             </div>
                           </div>
@@ -449,29 +555,39 @@ export function PRDetailDialog({
             </div>
             <Separator />
 
-            {/* Merge Status */}
+            {/* Merge Status - Collapsible */}
             {pullRequest.state === 'open' && conflicts.length === 0 && (
               <div className="space-y-3">
-                <h3 className="font-semibold flex items-center gap-2">
-                  <GitMerge className="h-4 w-4" />
-                  Merge Status
-                </h3>
-                {canMerge ? (
-                  <Alert>
-                    <CheckCircle className="h-4 w-4 text-green-500" />
-                    <AlertTitle>Ready to Merge</AlertTitle>
-                    <AlertDescription>
-                      This pull request has been approved and can be merged.
-                    </AlertDescription>
-                  </Alert>
-                ) : (
-                  <Alert>
-                    <Clock className="h-4 w-4" />
-                    <AlertTitle>Awaiting Approval</AlertTitle>
-                    <AlertDescription>
-                      This pull request requires approval before it can be merged.
-                    </AlertDescription>
-                  </Alert>
+                <button
+                  onClick={() => setShowMergeStatus(!showMergeStatus)}
+                  className="w-full flex items-center justify-between p-2 hover:bg-muted/50 rounded-md transition-colors"
+                >
+                  <h3 className="font-semibold flex items-center gap-2">
+                    <GitMerge className="h-4 w-4" />
+                    Merge Status
+                  </h3>
+                  <span className="text-xs text-muted-foreground">
+                    {showMergeStatus ? '▼' : '▶'}
+                  </span>
+                </button>
+                {showMergeStatus && (
+                  canMerge ? (
+                    <Alert>
+                      <CheckCircle className="h-4 w-4 text-green-500" />
+                      <AlertTitle>Ready to Merge</AlertTitle>
+                      <AlertDescription>
+                        This pull request has been approved and can be merged.
+                      </AlertDescription>
+                    </Alert>
+                  ) : (
+                    <Alert>
+                      <Clock className="h-4 w-4" />
+                      <AlertTitle>Awaiting Approval</AlertTitle>
+                      <AlertDescription>
+                        This pull request requires approval before it can be merged.
+                      </AlertDescription>
+                    </Alert>
+                  )
                 )}
               </div>
             )}

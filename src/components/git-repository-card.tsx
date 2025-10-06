@@ -94,6 +94,56 @@ export function GitRepositoryCard({
     }
   }
 
+  const testCredentials = async () => {
+    // For testing, we need username and token
+    if (!username || !token) {
+      setConnectionStatus('error')
+      setConnectionMessage('Please provide username and token to test')
+      return
+    }
+
+    setTesting(true)
+    setConnectionStatus('idle')
+    setConnectionMessage('')
+
+    try {
+      // Create a temporary credential to test
+      const testConfig = {
+        name: 'temp-test',
+        repoUrl: primaryRepoUrl,
+        authType: 'token' as const,
+        providerType,
+        username,
+        token
+      }
+
+      // Store temporarily
+      const storeResult = await window.electronAPI.git.storeCredential(testConfig)
+      if (!storeResult.success || !storeResult.credentialId) {
+        throw new Error('Failed to create test credential')
+      }
+
+      // Test the credential
+      const testResult = await window.electronAPI.git.testCredential(storeResult.credentialId)
+      
+      // Delete the temporary credential
+      await window.electronAPI.git.deleteCredential(storeResult.credentialId)
+
+      if (testResult.success) {
+        setConnectionStatus('success')
+        setConnectionMessage('✅ Connection successful! You can now save.')
+      } else {
+        setConnectionStatus('error')
+        setConnectionMessage(testResult.error || 'Connection test failed')
+      }
+    } catch (error) {
+      setConnectionStatus('error')
+      setConnectionMessage(error instanceof Error ? error.message : 'Connection test failed')
+    } finally {
+      setTesting(false)
+    }
+  }
+
   const saveConfiguration = async () => {
     // For updates, token is optional (keep existing if not provided)
     if (!username || (!token && !credential)) {
@@ -256,7 +306,7 @@ export function GitRepositoryCard({
             <div className="space-y-4">
               <div>
                 <Label>Repository URL</Label>
-                <Input value={repoUrl} disabled className="font-mono text-sm" />
+                <Input value={primaryRepoUrl} disabled className="font-mono text-sm" />
               </div>
 
               <div>
@@ -312,14 +362,26 @@ export function GitRepositoryCard({
                 <Button
                   variant="outline"
                   onClick={() => setConfiguring(false)}
-                  className="flex-1"
                 >
                   Cancel
                 </Button>
                 <Button
+                  variant="outline"
+                  onClick={testCredentials}
+                  disabled={testing || !username || !token}
+                >
+                  {testing ? (
+                    <>
+                      <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                      Testing...
+                    </>
+                  ) : (
+                    'Test Connection'
+                  )}
+                </Button>
+                <Button
                   onClick={saveConfiguration}
                   disabled={testing || !username || (!token && !credential)}
-                  className="flex-1"
                 >
                   {testing ? (
                     <>
@@ -327,7 +389,7 @@ export function GitRepositoryCard({
                       {credential ? 'Updating...' : 'Saving...'}
                     </>
                   ) : (
-                    credential ? 'Update & Test' : 'Save & Test'
+                    credential ? 'Update' : 'Save'
                   )}
                 </Button>
               </div>
@@ -417,7 +479,7 @@ export function GitRepositoryCard({
           <div className="space-y-4">
             <div>
               <Label>Repository URL</Label>
-              <Input value={repoUrl} disabled className="font-mono text-sm" />
+              <Input value={primaryRepoUrl} disabled className="font-mono text-sm" />
             </div>
 
             <div>
@@ -478,6 +540,21 @@ export function GitRepositoryCard({
                 Cancel
               </Button>
               <Button
+                variant="outline"
+                onClick={testCredentials}
+                disabled={testing || !username || !token}
+                className="flex-1"
+              >
+                {testing ? (
+                  <>
+                    <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                    Testing...
+                  </>
+                ) : (
+                  'Test Connection'
+                )}
+              </Button>
+              <Button
                 onClick={saveConfiguration}
                 disabled={testing || !username || (!token && !credential)}
                 className="flex-1"
@@ -488,7 +565,7 @@ export function GitRepositoryCard({
                     {credential ? 'Updating...' : 'Saving...'}
                   </>
                 ) : (
-                  credential ? 'Update & Test' : 'Save & Test'
+                  credential ? 'Update' : 'Save'
                 )}
               </Button>
             </div>
