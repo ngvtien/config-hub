@@ -7,6 +7,16 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
 import { Button } from '@/components/ui/button'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Loader2, FileText, GitBranch as GitBranchIcon, CheckCircle2, AlertCircle, Info } from 'lucide-react'
@@ -14,6 +24,7 @@ import Editor, { loader } from '@monaco-editor/react'
 import { configureMonacoYaml } from 'monaco-yaml'
 import * as yaml from 'js-yaml'
 import type { editor as MonacoEditor } from 'monaco-editor'
+import { DiffPreviewDialog } from './diff-preview-dialog'
 
 interface FileEditorDialogProps {
   open: boolean
@@ -41,6 +52,8 @@ export function FileEditorDialog({
   const [theme, setTheme] = useState<'vs' | 'vs-dark'>('vs')
   const [validationStatus, setValidationStatus] = useState<'valid' | 'invalid' | 'validating' | 'idle'>('idle')
   const [validationErrors, setValidationErrors] = useState<string[]>([])
+  const [showDiffPreview, setShowDiffPreview] = useState(false)
+  const [showCancelConfirm, setShowCancelConfirm] = useState(false)
   const validationTimeoutRef = useRef<NodeJS.Timeout | null>(null)
   const editorRef = useRef<MonacoEditor.IStandaloneCodeEditor | null>(null)
 
@@ -386,13 +399,19 @@ export function FileEditorDialog({
       }
     }
 
+    // Show diff preview before saving
+    setShowDiffPreview(true)
+  }
+
+  const handleConfirmSave = async () => {
     setIsSaving(true)
     setError(null)
 
     try {
       await onSave(content)
       
-      // Success - close dialog
+      // Success - close both dialogs
+      setShowDiffPreview(false)
       onOpenChange(false)
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to save changes'
@@ -407,18 +426,22 @@ export function FileEditorDialog({
 
   const handleCancel = () => {
     if (hasChanges) {
-      const confirmClose = window.confirm(
-        'You have unsaved changes. Are you sure you want to close?'
-      )
-      if (!confirmClose) return
+      setShowCancelConfirm(true)
+      return
     }
     
+    // Reset all state and close
+    handleConfirmCancel()
+  }
+
+  const handleConfirmCancel = () => {
     // Reset all state
     setContent(initialContent)
     setHasChanges(false)
     setError(null)
     setValidationStatus('idle')
     setValidationErrors([])
+    setShowCancelConfirm(false)
     
     // Clear any pending validation
     if (validationTimeoutRef.current) {
@@ -452,6 +475,7 @@ export function FileEditorDialog({
   }, [open, hasChanges])
 
   return (
+    <>
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[900px] max-h-[90vh] flex flex-col">
         <DialogHeader>
@@ -622,5 +646,36 @@ export function FileEditorDialog({
         </DialogFooter>
       </DialogContent>
     </Dialog>
+
+    {/* Diff Preview Dialog */}
+    <DiffPreviewDialog
+      open={showDiffPreview}
+      onOpenChange={setShowDiffPreview}
+      fileName={fileName}
+      filePath={filePath}
+      branch={branch}
+      originalContent={initialContent}
+      modifiedContent={content}
+      onCreatePullRequest={handleConfirmSave}
+    />
+
+    {/* Cancel Confirmation Dialog */}
+    <AlertDialog open={showCancelConfirm} onOpenChange={setShowCancelConfirm}>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>Discard unsaved changes?</AlertDialogTitle>
+          <AlertDialogDescription>
+            You have unsaved changes. Are you sure you want to close without saving? This action cannot be undone.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel>Continue Editing</AlertDialogCancel>
+          <AlertDialogAction onClick={handleConfirmCancel}>
+            Discard Changes
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+  </>
   )
 }

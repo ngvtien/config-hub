@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Alert, AlertDescription } from '@/components/ui/alert'
@@ -14,21 +14,23 @@ import { PullRequestDialog } from './pull-request-dialog'
 interface ConfigFilesSectionProps {
   application: ArgoCDApplication
   selectedSource?: GitSourceInfo | null
+  onPRCreated?: () => void
 }
 
-export function ConfigFilesSection({ application, selectedSource }: ConfigFilesSectionProps) {
-  const [showAuthDialog, setShowAuthDialog] = useState(false)
-  const [currentPath, setCurrentPath] = useState<string>('')
-  const [editingFile, setEditingFile] = useState<{ path: string; name: string; content: string; originalContent: string } | null>(null)
-  const [showEditorDialog, setShowEditorDialog] = useState(false)
-  const [showPRDialog, setShowPRDialog] = useState(false)
-
+export function ConfigFilesSection({ application, selectedSource, onPRCreated }: ConfigFilesSectionProps) {
   // Use selected source if provided, otherwise fall back to legacy behavior
   const legacySource = getApplicationSource(application)
   const source = selectedSource || legacySource
   const repoUrl = source.repoURL
   const basePath = source.path || ''
   const branch = source.targetRevision || 'main'
+  
+  // State - will be reset when component remounts (via key prop in parent)
+  const [currentPath, setCurrentPath] = useState<string>('')
+  const [showAuthDialog, setShowAuthDialog] = useState(false)
+  const [editingFile, setEditingFile] = useState<{ path: string; name: string; content: string; originalContent: string } | null>(null)
+  const [showEditorDialog, setShowEditorDialog] = useState(false)
+  const [showPRDialog, setShowPRDialog] = useState(false)
   
   // Combine base path with current navigation path
   const path = currentPath ? `${basePath}/${currentPath}` : basePath
@@ -48,6 +50,20 @@ export function ConfigFilesSection({ application, selectedSource }: ConfigFilesS
     storeCredentials,
     refresh: refreshCredentials
   } = useGitCredentials(repoUrl)
+
+  // Log credential changes for debugging
+  useEffect(() => {
+    console.log('ConfigFilesSection - Credentials changed:', {
+      repoUrl,
+      basePath,
+      hasCredentials,
+      credentialId: credentials?.id,
+      credentialRepoUrl: credentials?.repoUrl,
+      username: credentials?.username,
+      loading: credentialsLoading,
+      error: credentialsError
+    })
+  }, [repoUrl, basePath, hasCredentials, credentials, credentialsLoading, credentialsError])
 
   // Memoize the options to prevent unnecessary re-renders
   // Don't filter by extension - we want to show directories too
@@ -161,6 +177,11 @@ export function ConfigFilesSection({ application, selectedSource }: ConfigFilesS
     setShowPRDialog(false)
     setEditingFile(null)
     refreshFiles()
+    
+    // Notify parent to refresh PR list
+    if (onPRCreated) {
+      onPRCreated()
+    }
   }
 
   const handleNavigateToDirectory = (dirPath: string) => {

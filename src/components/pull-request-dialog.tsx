@@ -82,18 +82,7 @@ export function PullRequestDialog({
     setError(null)
 
     try {
-      // Step 1: Create branch
-      const branchResult = await window.electronAPI.git.createBranch(
-        credentialId,
-        branchName,
-        branch
-      )
-
-      if (!branchResult.success) {
-        throw new Error(branchResult.error || 'Failed to create branch')
-      }
-
-      // Step 2: Commit changes
+      // Step 1: Commit changes (this will create the branch if it doesn't exist)
       const commitResult = await window.electronAPI.git.commitChanges(
         credentialId,
         branchName,
@@ -105,13 +94,13 @@ export function PullRequestDialog({
         throw new Error(commitResult.error || 'Failed to commit changes')
       }
 
-      // Step 3: Create Pull Request
+      // Step 2: Create Pull Request
       const prResult = await window.electronAPI.git.createPullRequest(
         credentialId,
+        branchName,  // source branch (the new branch we created)
+        branch,      // target branch (e.g., 'main')
         prTitle,
-        prDescription,
-        branchName,
-        branch
+        prDescription
       )
 
       if (!prResult.success || !prResult.data) {

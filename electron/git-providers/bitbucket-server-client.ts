@@ -4,6 +4,10 @@
 
 import axios, { AxiosInstance } from 'axios'
 import https from 'https'
+import simpleGit, { SimpleGit } from 'simple-git'
+import * as fs from 'fs'
+import * as path from 'path'
+import * as os from 'os'
 import { GitProvider } from './git-provider.interface'
 import {
   GitFile,
@@ -38,17 +42,28 @@ export class BitbucketServerClient implements GitProvider {
   public readonly repositoryInfo: GitRepositoryInfo
   private projectKey: string
   private repositorySlug: string
+  private baseUrl: string
+  private username: string
+  private token: string
 
   constructor(repoUrl: string, credential: GitCredential) {
     // Parse repository URL to extract base URL, project key, and repository slug
     this.repositoryInfo = this.parseRepositoryUrl(repoUrl)
-    
+
     if (!this.repositoryInfo.projectKey || !this.repositoryInfo.repositorySlug) {
       throw new Error('Invalid Bitbucket Server URL: Could not extract project key and repository slug')
     }
 
-    this.projectKey = this.repositoryInfo.projectKey
-    this.repositorySlug = this.repositoryInfo.repositorySlug
+    // Validate credentials
+    if (!credential.username || !credential.token) {
+      throw new Error('Bitbucket Server requires username and token for authentication')
+    }
+
+    this.projectKey = this.repositoryInfo.projectKey!
+    this.repositorySlug = this.repositoryInfo.repositorySlug!
+    this.baseUrl = this.repositoryInfo.baseUrl!
+    this.username = credential.username
+    this.token = credential.token
 
     // Set up axios instance with authentication
     this.axiosInstance = this.createAxiosInstance(credential)
@@ -65,10 +80,10 @@ export class BitbucketServerClient implements GitProvider {
     try {
       const url = new URL(repoUrl)
       const baseUrl = `${url.protocol}//${url.host}`
-      
+
       // Remove .git suffix if present
       let pathname = url.pathname.replace(/\.git$/, '')
-      
+
       let projectKey: string | undefined
       let repositorySlug: string | undefined
 
@@ -158,17 +173,17 @@ export class BitbucketServerClient implements GitProvider {
   async listFiles(path: string, branch: string, recursive?: boolean): Promise<GitFile[]> {
     try {
       const files: GitFile[] = []
-      
+
       // Normalize path (remove leading/trailing slashes)
       const normalizedPath = path.replace(/^\/+|\/+$/g, '')
-      
+
       // Bitbucket Server API endpoint for browsing files
       // If path is empty, don't include it in the URL
       const pathSegment = normalizedPath ? `/${normalizedPath}` : ''
       const endpoint = `/rest/api/1.0/projects/${this.projectKey}/repos/${this.repositorySlug}/browse${pathSegment}`
-      
+
       console.log('Bitbucket listFiles endpoint:', endpoint, 'branch:', branch)
-      
+
       let start = 0
       let isLastPage = false
 
@@ -186,7 +201,7 @@ export class BitbucketServerClient implements GitProvider {
 
         // Bitbucket Server returns files in data.children.values
         const children = data.children
-        
+
         if (!children || !children.values || !Array.isArray(children.values)) {
           console.error('Invalid response structure. Expected data.children.values. Got:', data)
           throw new Error(`Invalid response from Bitbucket Server: children.values not found`)
@@ -234,10 +249,10 @@ export class BitbucketServerClient implements GitProvider {
     try {
       // Normalize path (remove leading slash)
       const normalizedPath = filePath.replace(/^\/+/, '')
-      
+
       // Bitbucket Server API endpoint for raw file content
       const endpoint = `/rest/api/1.0/projects/${this.projectKey}/repos/${this.repositorySlug}/raw/${normalizedPath}`
-      
+
       const response = await this.axiosInstance.get<string>(endpoint, {
         params: {
           at: branch
@@ -277,7 +292,7 @@ export class BitbucketServerClient implements GitProvider {
   async getBranches(): Promise<GitBranch[]> {
     try {
       const endpoint = `/rest/api/1.0/projects/${this.projectKey}/repos/${this.repositorySlug}/branches`
-      
+
       let start = 0
       let isLastPage = false
       const branches: GitBranch[] = []
@@ -320,11 +335,11 @@ export class BitbucketServerClient implements GitProvider {
   async createBranch(branchName: string, fromBranch: string): Promise<GitBranch> {
     try {
       const endpoint = `/rest/api/1.0/projects/${this.projectKey}/repos/${this.repositorySlug}/branches`
-      
+
       // First, get the commit SHA of the source branch
       const branches = await this.getBranches()
       const sourceBranch = branches.find(b => b.name === fromBranch)
-      
+
       if (!sourceBranch) {
         throw new Error(`Source branch '${fromBranch}' not found`)
       }
@@ -358,10 +373,38 @@ export class BitbucketServerClient implements GitProvider {
   }
 
   /**
+   * Delete a branch
+   * Uses Bitbucket Server REST API /branches endpoint
+   */
+  async deleteBranch(branchName: string): Promise<void> {
+    try {
+      // Get the branch to find its latest commit (required for deletion)
+      const branches = await this.getBranches()
+      const branch = branches.find(b => b.name === branchName)
+
+      if (!branch) {
+        throw new Error(`Branch '${branchName}' not found`)
+      }
+
+      // Bitbucket Server requires the branch name to be URL encoded
+      const encodedBranchName = encodeURIComponent(`refs/heads/${branchName}`)
+      const endpoint = `/rest/branch-utils/1.0/projects/${this.projectKey}/repos/${this.repositorySlug}/branches`
+
+      await this.axiosInstance.delete(endpoint, {
+        data: {
+          name: `refs/heads/${branchName}`,
+          dryRun: false
+        }
+      })
+    } catch (error) {
+      this.handleApiError(error, 'deleteBranch')
+    }
+  }
+
+  /**
    * Create a commit with file changes
-   * Uses Bitbucket Server REST API
-   * Note: Bitbucket Server doesn't have a direct "create commit" API endpoint
-   * We need to use the file edit API for each file change
+   * Uses simple-git to perform actual Git operations since Bitbucket Server
+   * doesn't have a REST API for committing files
    */
   async createCommit(
     branch: string,
@@ -369,65 +412,203 @@ export class BitbucketServerClient implements GitProvider {
     message: string,
     author: { name: string; email: string }
   ): Promise<GitCommit> {
+    const tempDir = path.join(os.tmpdir(), `git-${Date.now()}`)
+
+    // Set environment variables to prevent credential prompts
+    const originalEnv = { ...process.env }
+    process.env.GIT_TERMINAL_PROMPT = '0'
+    process.env.GIT_ASKPASS = 'echo'
+    process.env.GIT_SSH_COMMAND = 'ssh -o StrictHostKeyChecking=no'
+
     try {
-      // Bitbucket Server requires editing files one at a time
-      // We'll process all changes and then get the resulting commit
+      // Create temporary directory
+      fs.mkdirSync(tempDir, { recursive: true })
+
+      // Initialize simple-git with custom environment to disable credential helpers
+      const git: SimpleGit = simpleGit(tempDir, {
+        config: [
+          'credential.helper=', // Disable credential helper
+          'core.askPass=', // Disable askPass
+        ]
+      })
+
+      // Build Git URL with credentials embedded
+      const gitUrl = this.baseUrl.replace('http://', `http://${encodeURIComponent(this.username)}:${encodeURIComponent(this.token)}@`)
+        .replace('https://', `https://${encodeURIComponent(this.username)}:${encodeURIComponent(this.token)}@`)
+      const repoUrl = `${gitUrl}/scm/${this.projectKey}/${this.repositorySlug}.git`
+
+      // Check if the branch exists on the remote
+      const branches = await this.getBranches()
+      const branchExists = branches.some(b => b.name === branch)
+
+      console.log(`Branch '${branch}' exists: ${branchExists}`)
+      console.log(`Available branches: ${branches.map(b => `${b.name} (${b.sha})`).join(', ')}`)
+
+      // Clone the repository into a subdirectory
+      const cloneDir = path.join(tempDir, 'repo')
       
-      for (const change of changes) {
-        const normalizedPath = change.path.replace(/^\/+/, '')
+      // Try to clone the repository
+      let isEmptyRepo = false
+      
+      try {
+        if (branchExists) {
+          // Branch exists, clone it directly
+          console.log(`Cloning existing branch: ${branch}`)
+          await git.clone(repoUrl, cloneDir, ['--branch', branch])
+        } else {
+          // Branch doesn't exist, clone the repository without specifying a branch
+          // This will clone the default branch automatically
+          console.log(`Cloning repository (will use default branch) and will create '${branch}' locally`)
+          await git.clone(repoUrl, cloneDir)
+        }
+      } catch (cloneError: any) {
+        console.error('Clone failed:', cloneError)
+        const errorMsg = cloneError.message || cloneError.toString()
         
-        if (change.action === 'add' || change.action === 'modify') {
-          // Bitbucket Server file edit requires using the correct API
-          // The endpoint is /rest/api/1.0/projects/{project}/repos/{repo}/browse/{path}
-          // with specific query parameters
+        // If clone fails with "not our ref", the repository is corrupted or empty
+        if (errorMsg.includes('not our ref') || errorMsg.includes('0000000000000000000000000000000000000000')) {
+          const mainBranch = branches.find(b => b.name === 'main' || b.isDefault)
           
-          const endpoint = `/rest/api/1.0/projects/${this.projectKey}/repos/${this.repositorySlug}/browse/${normalizedPath}`
-          
-          // Build query parameters
-          const params: any = {
-            message: message,
-            branch: branch
-          }
-          
-          // Try to get the source commit ID for the file
-          try {
-            const currentFile = await this.getFileContent(normalizedPath, branch)
-            params.sourceCommitId = currentFile.sha
-          } catch (e) {
-            // File might not exist (new file), don't include sourceCommitId
-            console.log('File does not exist, creating new file')
-          }
-          
-          // Send as plain text with query parameters
-          await this.axiosInstance.put(endpoint, change.content, {
-            params: params,
-            headers: {
-              'Content-Type': 'text/plain; charset=utf-8'
-            }
-          })
-        } else if (change.action === 'delete') {
-          // Delete file
-          const endpoint = `/rest/api/1.0/projects/${this.projectKey}/repos/${this.repositorySlug}/browse/${normalizedPath}`
-          
-          await this.axiosInstance.delete(endpoint, {
-            params: {
-              branch,
-              message
-            }
-          })
+          throw new Error(
+            `Cannot clone repository. The repository appears to be corrupted or inaccessible.\n\n` +
+            `Details:\n` +
+            `- Repository: ${this.baseUrl}/projects/${this.projectKey}/repos/${this.repositorySlug}\n` +
+            `- Branch: ${mainBranch?.name || 'unknown'}\n` +
+            `- SHA from API: ${mainBranch?.sha || 'none'}\n` +
+            `- Error: ${errorMsg}\n\n` +
+            `Possible solutions:\n` +
+            `1. Check if the repository has any commits in the Bitbucket web UI\n` +
+            `2. Try pushing an initial commit to the repository manually\n` +
+            `3. Contact your Bitbucket administrator to check repository integrity\n` +
+            `4. Try running 'git fsck' on the server repository`
+          )
+        } else {
+          throw new Error(`Failed to clone repository: ${errorMsg}`)
         }
       }
 
-      // After all changes are committed, get the latest commit on the branch
-      const commits = await this.getFileCommits('', branch, 1)
-      
-      if (commits.length === 0) {
-        throw new Error('Failed to retrieve commit after changes')
+      // Re-initialize git in the cloned directory with credential config
+      const repoGit: SimpleGit = simpleGit(cloneDir, {
+        config: [
+          'credential.helper=',
+          'core.askPass=',
+        ]
+      })
+
+      // Configure git user and disable credential helpers
+      await repoGit.addConfig('user.name', author.name)
+      await repoGit.addConfig('user.email', author.email)
+      await repoGit.addConfig('credential.helper', '')
+      await repoGit.addConfig('core.askPass', '')
+
+      // If branch doesn't exist locally, create it
+      if (!branchExists) {
+        console.log(`Creating new local branch: ${branch}`)
+        await repoGit.checkoutLocalBranch(branch)
+        console.log(`Successfully created and checked out branch: ${branch}`)
       }
 
-      return commits[0]
+      // Apply file changes
+      for (const change of changes) {
+        const filePath = path.join(cloneDir, change.path)
+
+        if (change.action === 'add' || change.action === 'modify') {
+          // Ensure directory exists
+          const dir = path.dirname(filePath)
+          fs.mkdirSync(dir, { recursive: true })
+
+          // Write file content
+          fs.writeFileSync(filePath, change.content, 'utf-8')
+
+          // Stage the file
+          await repoGit.add(change.path)
+        } else if (change.action === 'delete') {
+          // Delete and stage
+          if (fs.existsSync(filePath)) {
+            fs.unlinkSync(filePath)
+            await repoGit.rm(change.path)
+          }
+        }
+      }
+
+      // Commit changes
+      console.log(`Committing changes with message: ${message}`)
+      await repoGit.commit(message)
+      console.log('Commit successful')
+
+      // Update the remote URL to include credentials for push
+      await repoGit.remote(['set-url', 'origin', repoUrl])
+
+      // Push to remote
+      // For new branches, use --set-upstream. For existing branches, use --force-with-lease
+      try {
+        if (branchExists) {
+          console.log(`Pushing existing branch '${branch}' with --force-with-lease`)
+          await repoGit.push('origin', branch, ['--force-with-lease'])
+        } else {
+          console.log(`Pushing new branch '${branch}' with --set-upstream`)
+          await repoGit.push('origin', branch, ['--set-upstream'])
+        }
+        console.log('Push successful')
+      
+      } catch (pushError: any) {
+        console.error('Push failed:', pushError)
+        // Provide more detailed error message
+        const errorMsg = pushError.message || pushError.toString()
+        if (errorMsg.includes('authentication') || errorMsg.includes('401')) {
+          throw new Error('Push failed: Authentication error. Please check your credentials.')
+        } else if (errorMsg.includes('403') || errorMsg.includes('forbidden')) {
+          throw new Error('Push failed: Access forbidden. You may not have permission to push to this branch.')
+        } else if (errorMsg.includes('protected')) {
+          throw new Error('Push failed: Branch is protected. Please check branch protection rules.')
+        } else if (errorMsg.includes('missing necessary objects')) {
+          throw new Error('Push failed: Repository history is incomplete. This may be due to a previous failed operation. Try deleting the branch on the server and creating a new one.')
+        } else {
+          throw new Error(`Push failed: ${errorMsg}`)
+        }
+      }
+
+      // Get the commit info
+      const log = await repoGit.log(['-1'])
+      const latestCommit = log.latest
+
+      if (!latestCommit) {
+        throw new Error('Failed to retrieve commit information')
+      }
+
+      // Convert to GitCommit format
+      const gitCommit: GitCommit = {
+        sha: latestCommit.hash,
+        message: latestCommit.message,
+        author: {
+          name: latestCommit.author_name,
+          email: latestCommit.author_email,
+          date: latestCommit.date
+        },
+        committer: {
+          name: latestCommit.author_name,
+          email: latestCommit.author_email,
+          date: latestCommit.date
+        },
+        parents: [] // simple-git doesn't provide parent info in log
+      }
+
+      return gitCommit
     } catch (error) {
-      this.handleApiError(error, 'createCommit')
+      console.error('Git operation failed:', error)
+      throw new Error(`Failed to create commit: ${error instanceof Error ? error.message : 'Unknown error'}`)
+    } finally {
+      // Restore environment variables
+      process.env = originalEnv
+
+      // Cleanup: remove temporary directory
+      try {
+        if (fs.existsSync(tempDir)) {
+          fs.rmSync(tempDir, { recursive: true, force: true })
+        }
+      } catch (cleanupError) {
+        console.error('Failed to cleanup temp directory:', cleanupError)
+      }
     }
   }
 
@@ -444,7 +625,7 @@ export class BitbucketServerClient implements GitProvider {
   ): Promise<PullRequest> {
     try {
       const endpoint = `/rest/api/1.0/projects/${this.projectKey}/repos/${this.repositorySlug}/pull-requests`
-      
+
       // Build PR request
       const prRequest: BitbucketCreatePullRequestRequest = {
         title,
@@ -510,23 +691,23 @@ export class BitbucketServerClient implements GitProvider {
   async listPullRequests(state: 'open' | 'merged' | 'declined' | 'all' = 'open', limit: number = 25): Promise<PullRequest[]> {
     try {
       const endpoint = `/rest/api/1.0/projects/${this.projectKey}/repos/${this.repositorySlug}/pull-requests`
-      
+
       // Map state to Bitbucket Server API state parameter
       const params: any = {
         limit,
         start: 0
       }
-      
+
       if (state !== 'all') {
         params.state = state.toUpperCase()
       }
-      
+
       const response = await this.axiosInstance.get<{
         values: BitbucketPullRequest[]
         size: number
         isLastPage: boolean
       }>(endpoint, { params })
-      
+
       return response.data.values.map(pr => this.convertBitbucketPullRequest(pr))
     } catch (error) {
       this.handleApiError(error, 'listPullRequests')
@@ -540,11 +721,34 @@ export class BitbucketServerClient implements GitProvider {
   async getPullRequest(prId: number): Promise<PullRequest> {
     try {
       const endpoint = `/rest/api/1.0/projects/${this.projectKey}/repos/${this.repositorySlug}/pull-requests/${prId}`
-      
+
       const response = await this.axiosInstance.get<BitbucketPullRequest>(endpoint)
       return this.convertBitbucketPullRequest(response.data)
     } catch (error) {
       this.handleApiError(error, 'getPullRequest')
+    }
+  }
+
+  /**
+   * Approve a Pull Request
+   * Uses Bitbucket Server REST API /pull-requests/{id}/approve endpoint
+   */
+  async approvePullRequest(prId: number): Promise<PullRequest> {
+    try {
+      const endpoint = `/rest/api/1.0/projects/${this.projectKey}/repos/${this.repositorySlug}/pull-requests/${prId}/approve`
+
+      // POST to approve endpoint
+      await this.axiosInstance.post(endpoint)
+
+      // Fetch and return the updated PR
+      return await this.getPullRequest(prId)
+    } catch (error) {
+      if (axios.isAxiosError(error)) {
+        const data = error.response?.data as BitbucketErrorResponse | undefined
+        const errorMessage = data?.errors?.[0]?.message || error.message
+        throw new Error(`Failed to approve pull request: ${errorMessage}`)
+      }
+      throw error
     }
   }
 
@@ -556,7 +760,7 @@ export class BitbucketServerClient implements GitProvider {
     try {
       // First, get the PR to get its version (required for merge)
       const pr = await this.getPullRequest(prId)
-      
+
       // Check if PR is in a mergeable state
       if (pr.state !== 'open') {
         return {
@@ -566,12 +770,12 @@ export class BitbucketServerClient implements GitProvider {
       }
 
       const endpoint = `/rest/api/1.0/projects/${this.projectKey}/repos/${this.repositorySlug}/pull-requests/${prId}/merge`
-      
+
       // Get the PR version from the original Bitbucket PR
       const prResponse = await this.axiosInstance.get<BitbucketPullRequest>(
         `/rest/api/1.0/projects/${this.projectKey}/repos/${this.repositorySlug}/pull-requests/${prId}`
       )
-      
+
       const mergeRequest: BitbucketMergePullRequestRequest = {
         version: prResponse.data.version,
         message: message || `Merge pull request #${prId}`,
@@ -580,7 +784,7 @@ export class BitbucketServerClient implements GitProvider {
 
       try {
         const response = await this.axiosInstance.post<BitbucketPullRequest>(endpoint, mergeRequest)
-        
+
         return {
           success: true,
           sha: response.data.toRef.latestCommit,
@@ -591,7 +795,7 @@ export class BitbucketServerClient implements GitProvider {
         if (axios.isAxiosError(error)) {
           const status = error.response?.status
           const data = error.response?.data as BitbucketErrorResponse | undefined
-          
+
           if (status === 409) {
             // Merge conflict
             return {
@@ -677,10 +881,10 @@ export class BitbucketServerClient implements GitProvider {
     try {
       // Normalize path (remove leading slash)
       const normalizedPath = filePath.replace(/^\/+/, '')
-      
+
       // Bitbucket Server API endpoint for commits
       const endpoint = `/rest/api/1.0/projects/${this.projectKey}/repos/${this.repositorySlug}/commits`
-      
+
       const response = await this.axiosInstance.get<BitbucketPagedResponse<BitbucketCommit>>(endpoint, {
         params: {
           until: branch,

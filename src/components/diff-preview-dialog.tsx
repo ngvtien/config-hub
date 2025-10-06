@@ -76,11 +76,15 @@ export function DiffPreviewDialog({
     
     const changes = Math.min(additions, deletions)
     
-    return {
+    const stats = {
       additions: additions - changes,
       deletions: deletions - changes,
       changes,
     }
+    
+    console.log('Diff stats:', stats, 'Original lines:', originalLines.length, 'Modified lines:', modifiedLines.length)
+    
+    return stats
   }, [originalContent, modifiedContent])
 
   // Detect theme for diff viewer
@@ -222,7 +226,7 @@ export function DiffPreviewDialog({
                     onCreatePullRequest()
                     onOpenChange(false)
                   }}
-                  disabled={diffStats.additions === 0 && diffStats.deletions === 0}
+                  disabled={diffStats.additions === 0 && diffStats.deletions === 0 && diffStats.changes === 0}
                 >
                   <GitPullRequest className="mr-2 h-4 w-4" />
                   Create Pull Request

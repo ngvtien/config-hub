@@ -42,6 +42,8 @@ export function PRDetailDialog({
   onMerge,
 }: PRDetailDialogProps) {
   const [conflicts, setConflicts] = useState<string[]>([])
+  const [approving, setApproving] = useState(false)
+  const [approveError, setApproveError] = useState<string | null>(null)
 
   // Check for merge conflicts when PR is loaded
   useEffect(() => {
@@ -103,6 +105,31 @@ export function PRDetailDialog({
   }
 
   const canMerge = pullRequest.state === 'open' && pullRequest.approvals && pullRequest.approvals > 0
+
+  // Check if current user has already approved (simplified - in production you'd check against actual user)
+  const isApprovedByCurrentUser = pullRequest.reviewers?.some(r => r.approved) || false
+
+  const handleApprove = async () => {
+    if (!credentialId || !window.electronAPI) return
+
+    setApproving(true)
+    setApproveError(null)
+
+    try {
+      const result = await window.electronAPI.git.approvePullRequest(credentialId, pullRequest.id)
+      
+      if (result.success) {
+        // Close dialog and let parent refresh the PR list
+        onOpenChange(false)
+      } else {
+        setApproveError(result.error || 'Failed to approve pull request')
+      }
+    } catch (err) {
+      setApproveError(err instanceof Error ? err.message : 'Unknown error')
+    } finally {
+      setApproving(false)
+    }
+  }
 
   const handleMerge = () => {
     if (onMerge && canMerge) {
@@ -350,16 +377,40 @@ export function PRDetailDialog({
 
         {/* Footer Actions */}
         {pullRequest.state === 'open' && (
-          <div className="flex items-center justify-end gap-2 pt-4 border-t">
-            <Button variant="outline" onClick={() => onOpenChange(false)}>
-              Close
-            </Button>
-            {canMerge && conflicts.length === 0 && onMerge && (
-              <Button onClick={handleMerge} className="gap-2">
-                <GitMerge className="h-4 w-4" />
-                Merge Pull Request
-              </Button>
+          <div className="flex flex-col gap-3">
+            {approveError && (
+              <Alert variant="destructive">
+                <AlertCircle className="h-4 w-4" />
+                <AlertDescription>{approveError}</AlertDescription>
+              </Alert>
             )}
+            <div className="flex items-center justify-between pt-4 border-t">
+              <div className="flex items-center gap-2">
+                {/* Check if current user has already approved */}
+                {!isApprovedByCurrentUser && (
+                  <Button 
+                    variant="outline" 
+                    onClick={handleApprove}
+                    disabled={approving}
+                    className="gap-2"
+                  >
+                    <CheckCircle className="h-4 w-4" />
+                    {approving ? 'Approving...' : 'Approve'}
+                  </Button>
+                )}
+              </div>
+              <div className="flex items-center gap-2">
+                <Button variant="outline" onClick={() => onOpenChange(false)}>
+                  Close
+                </Button>
+                {canMerge && conflicts.length === 0 && onMerge && (
+                  <Button onClick={handleMerge} className="gap-2">
+                    <GitMerge className="h-4 w-4" />
+                    Merge Pull Request
+                  </Button>
+                )}
+              </div>
+            </div>
           </div>
         )}
       </DialogContent>

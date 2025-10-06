@@ -22,9 +22,10 @@ import { PRDetailDialog } from './pr-detail-dialog'
 interface PRStatusSectionProps {
   application: ArgoCDApplication
   selectedSource?: GitSourceInfo | null
+  refreshTrigger?: number
 }
 
-export function PRStatusSection({ selectedSource }: PRStatusSectionProps) {
+export function PRStatusSection({ selectedSource, refreshTrigger }: PRStatusSectionProps) {
   const [pullRequests, setPullRequests] = useState<PullRequest[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -35,27 +36,38 @@ export function PRStatusSection({ selectedSource }: PRStatusSectionProps) {
 
   // Use selected source if provided, otherwise fall back to legacy behavior
   const repoUrl = selectedSource?.repoURL || null
-  const repoPath = selectedSource?.path || null
 
-  // Find credentials for this repository
+  // Find credentials for this repository and reset state when source changes
   useEffect(() => {
     const findCredentials = async () => {
-      if (!repoUrl || !window.electronAPI) return
+      if (!repoUrl || !window.electronAPI) {
+        setCredentialId(null)
+        setPullRequests([])
+        return
+      }
+
+      // Reset state when switching sources
+      setCredentialId(null)
+      setPullRequests([])
+      setError(null)
 
       try {
         const result = await window.electronAPI.git.findCredentialsByRepo(repoUrl)
         if (result.success && result.data && result.data.length > 0) {
           setCredentialId(result.data[0].id)
+        } else {
+          setError('No credentials found for this repository')
         }
       } catch (err) {
         console.error('Failed to find credentials:', err)
+        setError('Failed to find credentials')
       }
     }
 
     findCredentials()
   }, [repoUrl])
 
-  // Fetch pull requests
+  // Fetch pull requests for the selected source's repository
   const fetchPullRequests = async () => {
     if (!credentialId || !window.electronAPI) return
 
@@ -66,13 +78,9 @@ export function PRStatusSection({ selectedSource }: PRStatusSectionProps) {
       const result = await window.electronAPI.git.listPullRequests(credentialId, 'open', 10)
       
       if (result.success && result.data) {
-        // Filter PRs that affect this application's path if path is specified
-        let filteredPRs = result.data
-        if (repoPath) {
-          // This is a simple filter - in production you might want to check PR file changes
-          filteredPRs = result.data
-        }
-        setPullRequests(filteredPRs)
+        // PRs are already filtered by repository (via credentialId which is repo-specific)
+        // Optionally filter by path if needed in the future
+        setPullRequests(result.data)
       } else {
         setError(result.error || 'Failed to fetch pull requests')
       }
@@ -83,12 +91,15 @@ export function PRStatusSection({ selectedSource }: PRStatusSectionProps) {
     }
   }
 
-  // Fetch on mount and when credential is available
+  // Fetch on mount and when credential is available or refresh triggered
   useEffect(() => {
     if (credentialId) {
+      console.log('Fetching PRs for credentialId:', credentialId, 'repoUrl:', repoUrl)
       fetchPullRequests()
+    } else {
+      console.log('No credentialId available for repoUrl:', repoUrl)
     }
-  }, [credentialId])
+  }, [credentialId, refreshTrigger])
 
   // Don't show section if no repo URL
   if (!repoUrl) {
@@ -99,6 +110,9 @@ export function PRStatusSection({ selectedSource }: PRStatusSectionProps) {
   if (!credentialId) {
     return null
   }
+
+  // If no PRs and not loading, show compact version
+  const showCompact = !loading && pullRequests.length === 0 && !error
 
   const getStateIcon = (state: string) => {
     switch (state) {
@@ -156,14 +170,19 @@ export function PRStatusSection({ selectedSource }: PRStatusSectionProps) {
 
   return (
     <>
-      <Card>
-      <CardHeader>
+      <Card className={showCompact ? 'border-dashed' : ''}>
+      <CardHeader className={showCompact ? 'pb-3' : ''}>
         <CardTitle className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <GitPullRequest className="h-5 w-5" />
             Pull Requests
             {pullRequests.length > 0 && (
               <Badge variant="secondary">{pullRequests.length}</Badge>
+            )}
+            {selectedSource && (
+              <Badge variant="outline" className="text-xs font-normal">
+                Source {selectedSource.index + 1}
+              </Badge>
             )}
           </div>
           <Button
@@ -176,7 +195,7 @@ export function PRStatusSection({ selectedSource }: PRStatusSectionProps) {
           </Button>
         </CardTitle>
       </CardHeader>
-      <CardContent>
+      {!showCompact && <CardContent>
         {error && (
           <Alert variant="destructive" className="mb-4">
             <AlertCircle className="h-4 w-4" />
@@ -192,9 +211,8 @@ export function PRStatusSection({ selectedSource }: PRStatusSectionProps) {
         )}
 
         {!loading && pullRequests.length === 0 && !error && (
-          <div className="text-center py-8 text-muted-foreground">
-            <GitPullRequest className="h-8 w-8 mx-auto mb-2 opacity-50" />
-            <p>No open pull requests</p>
+          <div className="text-center py-4 text-sm text-muted-foreground">
+            No open pull requests
           </div>
         )}
 
@@ -306,7 +324,12 @@ export function PRStatusSection({ selectedSource }: PRStatusSectionProps) {
             ))}
           </div>
         )}
-      </CardContent>
+      </CardContent>}
+      {showCompact && (
+        <CardContent className="pt-0 pb-3">
+          <p className="text-sm text-muted-foreground text-center">No open pull requests</p>
+        </CardContent>
+      )}
     </Card>
 
       <PRDetailDialog

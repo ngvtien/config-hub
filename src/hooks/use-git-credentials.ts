@@ -61,22 +61,41 @@ export function useGitCredentials(repoUrl: string): UseGitCredentialsResult {
 
       // Get server base URL (e.g., http://172.27.161.37:7990)
       const serverBaseUrl = getServerBaseUrl(repoUrl)
+      console.log('useGitCredentials - Looking for credentials:', {
+        repoUrl,
+        serverBaseUrl
+      })
 
       // First try exact repo match
       let result = await window.electronAPI.git.findCredentialsByRepo(repoUrl)
+      console.log('useGitCredentials - Exact match result:', {
+        success: result.success,
+        found: result.data?.length || 0
+      })
 
       // If no exact match, try to find any credential for the same server
       if (!result.success || !result.data || result.data.length === 0) {
+        console.log('useGitCredentials - No exact match, trying server match')
         // List all credentials and find one matching the server
         const allCredsResult = await window.electronAPI.git.listCredentials()
         if (allCredsResult.success && allCredsResult.data) {
+          console.log('useGitCredentials - All credentials:', allCredsResult.data.map((c: any) => ({
+            id: c.id,
+            name: c.name,
+            repoUrl: c.repoUrl,
+            serverUrl: getServerBaseUrl(c.repoUrl)
+          })))
+          
           const matchingCred = allCredsResult.data.find((cred: any) => {
             const credServerUrl = getServerBaseUrl(cred.repoUrl)
             return credServerUrl === serverBaseUrl
           })
           
           if (matchingCred) {
+            console.log('useGitCredentials - Found server match:', matchingCred.id)
             result = { success: true, data: [matchingCred] }
+          } else {
+            console.log('useGitCredentials - No server match found')
           }
         }
       }

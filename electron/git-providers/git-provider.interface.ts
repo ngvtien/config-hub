@@ -54,6 +54,12 @@ export interface GitProvider {
   createBranch(branchName: string, fromBranch: string): Promise<GitBranch>
 
   /**
+   * Delete a branch
+   * @param branchName - Name of the branch to delete
+   */
+  deleteBranch(branchName: string): Promise<void>
+
+  /**
    * Create a commit with file changes
    * @param branch - Branch to commit to
    * @param changes - Array of file changes
@@ -99,6 +105,13 @@ export interface GitProvider {
    * @returns Pull Request information
    */
   getPullRequest(prId: number): Promise<PullRequest>
+
+  /**
+   * Approve a Pull Request
+   * @param prId - Pull Request ID
+   * @returns Updated Pull Request information
+   */
+  approvePullRequest(prId: number): Promise<PullRequest>
 
   /**
    * Merge a Pull Request

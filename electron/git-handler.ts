@@ -848,6 +848,25 @@ export function setupGitHandlers(): void {
     }
   })
 
+  // Delete a branch
+  ipcMain.handle('git:deleteBranch', async (_, credentialId: string, branchName: string) => {
+    try {
+      const credential = await secureCredentialManager.getCredential(credentialId) as GitCredential
+      if (!credential) {
+        return { success: false, error: 'Credential not found' }
+      }
+
+      const providerType = gitCredentialManager.detectProviderType(credential.repoUrl)
+      const client = await gitCredentialManager.createProviderClient(providerType, credential)
+      
+      await client.deleteBranch(branchName)
+      return { success: true }
+    } catch (error) {
+      console.error('Failed to delete branch:', error)
+      return { success: false, error: error instanceof Error ? error.message : 'Unknown error' }
+    }
+  })
+
   // Commit changes to a branch
   ipcMain.handle('git:commitChanges', async (_, credentialId: string, branch: string, changes: any[], commitMessage: string) => {
     try {
@@ -926,6 +945,25 @@ export function setupGitHandlers(): void {
       return { success: true, data: pullRequest }
     } catch (error) {
       console.error('Failed to get pull request:', error)
+      return { success: false, error: error instanceof Error ? error.message : 'Unknown error' }
+    }
+  })
+
+  // Approve a Pull Request
+  ipcMain.handle('git:approvePullRequest', async (_, credentialId: string, prId: number) => {
+    try {
+      const credential = await secureCredentialManager.getCredential(credentialId) as GitCredential
+      if (!credential) {
+        return { success: false, error: 'Credential not found' }
+      }
+
+      const providerType = gitCredentialManager.detectProviderType(credential.repoUrl)
+      const client = await gitCredentialManager.createProviderClient(providerType, credential)
+      
+      const result = await client.approvePullRequest(prId)
+      return { success: true, data: result }
+    } catch (error) {
+      console.error('Failed to approve pull request:', error)
       return { success: false, error: error instanceof Error ? error.message : 'Unknown error' }
     }
   })

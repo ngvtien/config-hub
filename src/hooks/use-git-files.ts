@@ -95,6 +95,10 @@ export function useGitFiles(
 
   // Auto-fetch on mount and when dependencies change
   useEffect(() => {
+    // Clear previous state when dependencies change
+    setFiles([])
+    setError(null)
+    
     if (options.autoFetch !== false && credentialId) {
       fetchFiles()
     }

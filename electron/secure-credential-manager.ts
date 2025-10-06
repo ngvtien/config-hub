@@ -85,46 +85,45 @@ export class SecureCredentialManager {
   }
 
   // Get or create master encryption key
+  // Note: Keytar v8+ only supports async methods, so we use file fallback for sync initialization
   private getOrCreateEncryptionKey(): string {
     const keyName = `${this.serviceName}-master-key`
+    const keyFile = path.join(app.getPath('userData'), '.master-key')
     
-    if (keytar) {
-      try {
-        // Try to get existing key from keytar
-        const existingKey = keytar.getPasswordSync(this.serviceName, keyName)
-        if (existingKey) {
-          return existingKey
+    // Try file storage first (works synchronously)
+    try {
+      if (fs.existsSync(keyFile)) {
+        const existingKey = fs.readFileSync(keyFile, 'utf8')
+        // Optionally sync to keytar in background
+        if (keytar) {
+          keytar.setPassword(this.serviceName, keyName, existingKey)
+            .catch(err => console.debug('Could not sync to keytar:', err))
         }
-      } catch (error) {
-        console.debug('No existing master key found in keytar, creating new one')
+        return existingKey
       }
+    } catch (error) {
+      console.debug('Could not read key from file')
     }
 
     // Generate new master key
     const masterKey = forge.random.getBytesSync(32)
     const base64Key = forge.util.encode64(masterKey)
     
-    if (keytar) {
-      try {
-        keytar.setPasswordSync(this.serviceName, keyName, base64Key)
-        return base64Key
-      } catch (error) {
-        console.warn('Failed to store master key in keytar, using file fallback:', error)
-      }
-    }
-
-    // Fallback to file storage (less secure but functional)
-    const keyFile = path.join(app.getPath('userData'), '.master-key')
+    // Store in file (synchronous)
     try {
-      if (fs.existsSync(keyFile)) {
-        return fs.readFileSync(keyFile, 'utf8')
-      }
       fs.writeFileSync(keyFile, base64Key, { mode: 0o600 })
-      return base64Key
     } catch (error) {
       console.error('Failed to store master key:', error)
       throw new Error('Failed to initialize secure credential storage')
     }
+
+    // Try to store in keytar asynchronously (fire and forget)
+    if (keytar) {
+      keytar.setPassword(this.serviceName, keyName, base64Key)
+        .catch(err => console.debug('Could not store in keytar:', err))
+    }
+
+    return base64Key
   }
 
   // Encrypt sensitive data using Electron's safeStorage or fallback
@@ -366,15 +365,34 @@ export class SecureCredentialManager {
     try {
       const allCredentials = await this.listCredentials(criteria.type, criteria.environment)
       
+      // Normalize URLs for comparison
+      const normalizeUrl = (url: string | undefined): string => {
+        if (!url) return ''
+        return url.trim().toLowerCase().replace(/\.git$/, '').replace(/\/$/, '')
+      }
+      
+      const normalizedCriteriaRepoUrl = normalizeUrl(criteria.repoUrl)
+      const normalizedCriteriaRegistryUrl = normalizeUrl(criteria.registryUrl)
+      const normalizedCriteriaServerUrl = normalizeUrl(criteria.serverUrl)
+      
       return allCredentials.filter(cred => {
-        if (criteria.repoUrl && 'repoUrl' in cred && cred.repoUrl !== criteria.repoUrl) {
-          return false
+        if (criteria.repoUrl && 'repoUrl' in cred) {
+          const normalizedCredRepoUrl = normalizeUrl(cred.repoUrl as string | undefined)
+          if (normalizedCredRepoUrl !== normalizedCriteriaRepoUrl) {
+            return false
+          }
         }
-        if (criteria.registryUrl && 'registryUrl' in cred && cred.registryUrl !== criteria.registryUrl) {
-          return false
+        if (criteria.registryUrl && 'registryUrl' in cred) {
+          const normalizedCredRegistryUrl = normalizeUrl(cred.registryUrl as string | undefined)
+          if (normalizedCredRegistryUrl !== normalizedCriteriaRegistryUrl) {
+            return false
+          }
         }
-        if (criteria.serverUrl && 'serverUrl' in cred && cred.serverUrl !== criteria.serverUrl) {
-          return false
+        if (criteria.serverUrl && 'serverUrl' in cred) {
+          const normalizedCredServerUrl = normalizeUrl(cred.serverUrl as string | undefined)
+          if (normalizedCredServerUrl !== normalizedCriteriaServerUrl) {
+            return false
+          }
         }
         if (criteria.tags && criteria.tags.length > 0) {
           const credTags = cred.tags || []

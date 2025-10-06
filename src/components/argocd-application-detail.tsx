@@ -68,6 +68,7 @@ export function ArgoCDApplicationDetail({
   const [activeTab, setActiveTab] = useState('overview')
   const [selectedSourceIndex, setSelectedSourceIndex] = useState(0)
   const [gitSources, setGitSources] = useState<GitSourceInfo[]>([])
+  const [prRefreshTrigger, setPrRefreshTrigger] = useState(0)
 
   // Extract Git sources when application loads
   useEffect(() => {
@@ -78,6 +79,11 @@ export function ArgoCDApplicationDetail({
       setSelectedSourceIndex(sources.length > 0 ? sources[0].index : 0)
     }
   }, [application])
+
+  const handlePRCreated = () => {
+    // Trigger PR list refresh by incrementing the trigger
+    setPrRefreshTrigger(prev => prev + 1)
+  }
 
   if (!application && !loading) {
     return (
@@ -522,12 +528,15 @@ export function ArgoCDApplicationDetail({
           <PRStatusSection 
             application={application}
             selectedSource={gitSources.find(s => s.index === selectedSourceIndex)}
+            refreshTrigger={prRefreshTrigger}
           />
           
           {/* Configuration Files */}
           <ConfigFilesSection 
+            key={`config-files-${selectedSourceIndex}`}
             application={application}
             selectedSource={gitSources.find(s => s.index === selectedSourceIndex)}
+            onPRCreated={handlePRCreated}
           />
         </TabsContent>
 
