@@ -115,6 +115,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
       ipcRenderer.invoke('git:createPullRequest', credentialId, sourceBranch, targetBranch, title, description, reviewers),
     getPullRequest: (credentialId: string, prId: number) => 
       ipcRenderer.invoke('git:getPullRequest', credentialId, prId),
+    getPullRequestDiff: (credentialId: string, prId: number) => 
+      ipcRenderer.invoke('git:getPullRequestDiff', credentialId, prId),
     approvePullRequest: (credentialId: string, prId: number) => 
       ipcRenderer.invoke('git:approvePullRequest', credentialId, prId),
     mergePullRequest: (credentialId: string, prId: number, mergeStrategy?: string) => 

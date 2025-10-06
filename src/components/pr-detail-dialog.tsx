@@ -2,7 +2,6 @@ import { useState, useEffect } from 'react'
 import {
   Dialog,
   DialogContent,
-  DialogDescription,
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
@@ -24,6 +23,7 @@ import {
   FileText,
   AlertCircle,
 } from 'lucide-react'
+import ReactDiffViewer, { DiffMethod } from 'react-diff-viewer-continued'
 import type { PullRequest } from '@/types/git'
 
 interface PRDetailDialogProps {
@@ -44,29 +44,51 @@ export function PRDetailDialog({
   const [conflicts, setConflicts] = useState<string[]>([])
   const [approving, setApproving] = useState(false)
   const [approveError, setApproveError] = useState<string | null>(null)
+  const [fileDiffs, setFileDiffs] = useState<{ path: string; diff: string }[]>([])
+  const [loadingDiff, setLoadingDiff] = useState(false)
+  const [diffError, setDiffError] = useState<string | null>(null)
+  const [showDiff, setShowDiff] = useState(false)
 
-  // Check for merge conflicts when PR is loaded
+  // Fetch PR diff when dialog opens
   useEffect(() => {
-    const checkConflicts = async () => {
-      if (!pullRequest || !credentialId || !window.electronAPI) return
+    const fetchDiff = async () => {
+      if (!pullRequest || !credentialId || !window.electronAPI) {
+        console.log('PRDetailDialog - Cannot fetch diff:', { 
+          hasPR: !!pullRequest, 
+          hasCredentialId: !!credentialId, 
+          hasAPI: !!window.electronAPI 
+        })
+        return
+      }
+
+      console.log('PRDetailDialog - Fetching diff for PR:', pullRequest.id, 'with credential:', credentialId)
+      setLoadingDiff(true)
+      setDiffError(null)
 
       try {
-        // Try to get PR details which may include conflict information
-        const result = await window.electronAPI.git.getPullRequest(credentialId, pullRequest.id)
+        const result = await window.electronAPI.git.getPullRequestDiff(credentialId, pullRequest.id)
+        console.log('PRDetailDialog - Diff result:', { 
+          success: result.success, 
+          fileCount: result.data?.length || 0,
+          error: result.error 
+        })
 
         if (result.success && result.data) {
-          // Check if there's conflict information in the response
-          // This would need to be added to the Bitbucket client
-          // For now, we'll assume no conflicts unless explicitly stated
-          setConflicts([])
+          setFileDiffs(result.data)
+        } else {
+          setDiffError(result.error || 'Failed to load diff')
         }
       } catch (err) {
-        console.error('Failed to check conflicts:', err)
+        console.error('PRDetailDialog - Diff fetch error:', err)
+        setDiffError(err instanceof Error ? err.message : 'Unknown error')
+      } finally {
+        setLoadingDiff(false)
       }
     }
 
     if (open && pullRequest) {
-      checkConflicts()
+      fetchDiff()
+      setConflicts([]) // Reset conflicts
     }
   }, [open, pullRequest, credentialId])
 
@@ -149,9 +171,9 @@ export function PRDetailDialog({
                   #{pullRequest.id}: {pullRequest.title}
                 </DialogTitle>
               </div>
-              <DialogDescription className="flex items-center gap-2">
+              <div className="flex items-center gap-2">
                 {getStateBadge(pullRequest.state)}
-              </DialogDescription>
+              </div>
             </div>
             <Button
               variant="ghost"
@@ -320,6 +342,112 @@ export function PRDetailDialog({
                 <Separator />
               </>
             )}
+
+            {/* Files Changed */}
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <h3 className="font-semibold flex items-center gap-2">
+                  <FileText className="h-4 w-4" />
+                  Files Changed
+                  {fileDiffs.length > 0 && (
+                    <Badge variant="outline">{fileDiffs.length}</Badge>
+                  )}
+                </h3>
+                {fileDiffs.length > 0 && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setShowDiff(!showDiff)}
+                  >
+                    {showDiff ? 'Hide' : 'Show'} Diff
+                  </Button>
+                )}
+              </div>
+
+              {loadingDiff && (
+                <div className="text-sm text-muted-foreground">Loading changes...</div>
+              )}
+
+              {diffError && (
+                <Alert variant="destructive">
+                  <AlertCircle className="h-4 w-4" />
+                  <AlertDescription>{diffError}</AlertDescription>
+                </Alert>
+              )}
+
+              {!loadingDiff && !diffError && fileDiffs.length === 0 && (
+                <div className="text-sm text-muted-foreground">No file changes found</div>
+              )}
+
+              {!loadingDiff && fileDiffs.length > 0 && (
+                <div className="space-y-2">
+                  {/* File list */}
+                  <div className="space-y-1">
+                    {fileDiffs.map((file, idx) => (
+                      <div
+                        key={idx}
+                        className="flex items-center gap-2 p-2 border rounded text-sm font-mono hover:bg-muted/50"
+                      >
+                        <FileText className="h-3 w-3" />
+                        {file.path}
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Diff view */}
+                  {showDiff && (
+                    <div className="space-y-4 mt-4">
+                      {fileDiffs.map((file, idx) => {
+                        // Parse the diff to extract old and new content
+                        const lines = file.diff.split('\n')
+                        let oldContent = ''
+                        let newContent = ''
+                        
+                        for (const line of lines) {
+                          if (line.startsWith('---') || line.startsWith('+++') || 
+                              line.startsWith('@@') || line.startsWith('diff')) {
+                            continue // Skip diff headers
+                          }
+                          
+                          if (line.startsWith('-')) {
+                            oldContent += line.substring(1) + '\n'
+                          } else if (line.startsWith('+')) {
+                            newContent += line.substring(1) + '\n'
+                          } else {
+                            // Context line (no prefix)
+                            oldContent += line + '\n'
+                            newContent += line + '\n'
+                          }
+                        }
+                        
+                        return (
+                          <div key={idx} className="border rounded-lg overflow-hidden">
+                            <div className="bg-muted px-3 py-2 font-mono text-sm font-semibold flex items-center gap-2">
+                              <FileText className="h-4 w-4" />
+                              {file.path}
+                            </div>
+                            <div className="diff-viewer-wrapper">
+                              <ReactDiffViewer
+                                oldValue={oldContent}
+                                newValue={newContent}
+                                splitView={true}
+                                compareMethod={DiffMethod.WORDS}
+                                useDarkTheme={document.documentElement.classList.contains('dark')}
+                                leftTitle="Before"
+                                rightTitle="After"
+                                showDiffOnly={false}
+                                hideLineNumbers={false}
+                              />
+                            </div>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+            <Separator />
 
             {/* Merge Status */}
             {pullRequest.state === 'open' && conflicts.length === 0 && (

@@ -949,6 +949,25 @@ export function setupGitHandlers(): void {
     }
   })
 
+  // Get Pull Request Diff
+  ipcMain.handle('git:getPullRequestDiff', async (_, credentialId: string, prId: number) => {
+    try {
+      const credential = await secureCredentialManager.getCredential(credentialId) as GitCredential
+      if (!credential) {
+        return { success: false, error: 'Credential not found' }
+      }
+
+      const providerType = gitCredentialManager.detectProviderType(credential.repoUrl)
+      const client = await gitCredentialManager.createProviderClient(providerType, credential)
+      
+      const result = await client.getPullRequestDiff(prId)
+      return { success: true, data: result }
+    } catch (error) {
+      console.error('Failed to get pull request diff:', error)
+      return { success: false, error: error instanceof Error ? error.message : 'Unknown error' }
+    }
+  })
+
   // Approve a Pull Request
   ipcMain.handle('git:approvePullRequest', async (_, credentialId: string, prId: number) => {
     try {

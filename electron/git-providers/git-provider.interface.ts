@@ -107,6 +107,13 @@ export interface GitProvider {
   getPullRequest(prId: number): Promise<PullRequest>
 
   /**
+   * Get Pull Request Diff/Changes
+   * @param prId - Pull Request ID
+   * @returns Array of file diffs
+   */
+  getPullRequestDiff(prId: number): Promise<{ path: string; diff: string }[]>
+
+  /**
    * Approve a Pull Request
    * @param prId - Pull Request ID
    * @returns Updated Pull Request information

@@ -730,6 +730,204 @@ export class BitbucketServerClient implements GitProvider {
   }
 
   /**
+   * Get Pull Request Diff/Changes
+   * Uses Bitbucket Server REST API
+   * First tries /diff endpoint, falls back to /changes if that fails
+   */
+  async getPullRequestDiff(prId: number): Promise<{ path: string; diff: string }[]> {
+    try {
+      // Try the /diff endpoint first (returns unified diff)
+      const diffEndpoint = `/rest/api/1.0/projects/${this.projectKey}/repos/${this.repositorySlug}/pull-requests/${prId}/diff`
+      console.log('Bitbucket getPullRequestDiff - trying /diff endpoint:', diffEndpoint)
+
+      try {
+        const diffResponse = await this.axiosInstance.get(diffEndpoint, {
+          params: {
+            contextLines: 3,
+            whitespace: 'show'
+          }
+        })
+
+        console.log('Bitbucket /diff response:', {
+          status: diffResponse.status,
+          dataType: typeof diffResponse.data,
+          dataLength: diffResponse.data?.length || 0,
+          firstChars: typeof diffResponse.data === 'string' ? diffResponse.data.substring(0, 100) : 'not string'
+        })
+
+        // Parse the unified diff
+        const diffText = typeof diffResponse.data === 'string' 
+          ? diffResponse.data 
+          : JSON.stringify(diffResponse.data)
+        
+        const fileDiffs = this.parseDiff(diffText)
+        
+        if (fileDiffs.length > 0) {
+          console.log('Successfully parsed', fileDiffs.length, 'files from /diff')
+          return fileDiffs
+        }
+        
+        console.log('/diff returned no files, trying /changes endpoint')
+      } catch (diffError) {
+        console.log('/diff endpoint failed, trying /changes:', diffError)
+      }
+
+      // Fallback to /changes endpoint to get list of files
+      const changesEndpoint = `/rest/api/1.0/projects/${this.projectKey}/repos/${this.repositorySlug}/pull-requests/${prId}/changes`
+      console.log('Bitbucket getPullRequestDiff - using /changes endpoint:', changesEndpoint)
+
+      const changesResponse = await this.axiosInstance.get(changesEndpoint, {
+        params: {
+          limit: 1000,
+          withComments: false
+        }
+      })
+
+      console.log('Bitbucket /changes response:', {
+        status: changesResponse.status,
+        valuesCount: changesResponse.data?.values?.length || 0,
+        sampleChange: changesResponse.data?.values?.[0] // Log first change to see structure
+      })
+
+      const changes = changesResponse.data?.values || []
+      
+      // For each file, get its diff using the /diff endpoint with path parameter
+      const fileDiffs = await Promise.all(
+        changes.map(async (change: any) => {
+          const filePath = change.path?.toString || change.path?.name || 'unknown'
+          
+          try {
+            // Get diff for specific file using path parameter
+            const fileDiffResponse = await this.axiosInstance.get(diffEndpoint, {
+              params: {
+                contextLines: 3,
+                whitespace: 'show',
+                path: filePath // Filter diff to specific file
+              }
+            })
+            
+            // Bitbucket Server returns JSON with hunks structure
+            const diffData = fileDiffResponse.data
+            
+            // Convert Bitbucket's JSON format to unified diff format
+            let diffText = `diff --git a/${filePath} b/${filePath}\n`
+            diffText += `--- a/${filePath}\n`
+            diffText += `+++ b/${filePath}\n`
+            
+            // Process diffs array
+            if (diffData.diffs && Array.isArray(diffData.diffs)) {
+              for (const diff of diffData.diffs) {
+                // Process hunks
+                if (diff.hunks && Array.isArray(diff.hunks)) {
+                  for (const hunk of diff.hunks) {
+                    // Add hunk header
+                    diffText += `@@ -${hunk.sourceLine},${hunk.sourceSpan} +${hunk.destinationLine},${hunk.destinationSpan} @@`
+                    if (hunk.context) {
+                      diffText += ` ${hunk.context}`
+                    }
+                    diffText += `\n`
+                    
+                    // Process segments
+                    if (hunk.segments && Array.isArray(hunk.segments)) {
+                      for (const segment of hunk.segments) {
+                        if (segment.lines && Array.isArray(segment.lines)) {
+                          for (const line of segment.lines) {
+                            // Add line with appropriate prefix
+                            let prefix = ' '
+                            if (segment.type === 'ADDED') prefix = '+'
+                            else if (segment.type === 'REMOVED') prefix = '-'
+                            
+                            diffText += `${prefix}${line.line}\n`
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+            
+            return {
+              path: filePath,
+              diff: diffText
+            }
+          } catch (err) {
+            console.error(`Failed to get diff for ${filePath}:`, err)
+            // Fallback: show basic file info
+            return {
+              path: filePath,
+              diff: `diff --git a/${filePath} b/${filePath}\n--- a/${filePath}\n+++ b/${filePath}\n\nFile ${change.type}: ${filePath}\n(Unable to fetch detailed diff)\n`
+            }
+          }
+        })
+      )
+      
+      console.log('Fetched and converted diffs for', fileDiffs.length, 'files')
+      return fileDiffs
+
+    } catch (error) {
+      console.error('Bitbucket getPullRequestDiff error:', error)
+      if (axios.isAxiosError(error)) {
+        console.error('Response status:', error.response?.status)
+        console.error('Response data:', error.response?.data)
+        const data = error.response?.data as BitbucketErrorResponse | undefined
+        const errorMessage = data?.errors?.[0]?.message || error.message
+        throw new Error(`Failed to get pull request diff: ${errorMessage}`)
+      }
+      throw error
+    }
+  }
+
+  /**
+   * Parse unified diff format into file-based diffs
+   */
+  private parseDiff(diffText: string): { path: string; diff: string }[] {
+    if (!diffText || diffText.trim().length === 0) {
+      console.log('parseDiff: Empty diff text')
+      return []
+    }
+
+    const files: { path: string; diff: string }[] = []
+    const lines = diffText.split('\n')
+    
+    let currentFile: { path: string; diff: string } | null = null
+    let currentDiff: string[] = []
+    
+    console.log('parseDiff: Processing', lines.length, 'lines')
+    
+    for (const line of lines) {
+      // New file starts with "diff --git"
+      if (line.startsWith('diff --git')) {
+        // Save previous file if exists
+        if (currentFile && currentDiff.length > 0) {
+          currentFile.diff = currentDiff.join('\n')
+          files.push(currentFile)
+          console.log('parseDiff: Added file', currentFile.path, 'with', currentDiff.length, 'lines')
+        }
+        
+        // Extract file path (format: diff --git a/path b/path)
+        const match = line.match(/diff --git a\/(.*) b\/(.*)/)
+        if (match) {
+          currentFile = { path: match[2], diff: '' }
+          currentDiff = [line]
+        }
+      } else if (currentFile) {
+        currentDiff.push(line)
+      }
+    }
+    
+    // Save last file
+    if (currentFile && currentDiff.length > 0) {
+      currentFile.diff = currentDiff.join('\n')
+      files.push(currentFile)
+      console.log('parseDiff: Added last file', currentFile.path, 'with', currentDiff.length, 'lines')
+    }
+    
+    console.log('parseDiff: Total files parsed:', files.length)
+    return files
+  }
+
+  /**
    * Approve a Pull Request
    * Uses Bitbucket Server REST API /pull-requests/{id}/approve endpoint
    */

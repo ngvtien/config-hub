@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from 'react'
+import { useState, useMemo } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Alert, AlertDescription } from '@/components/ui/alert'
@@ -51,19 +51,7 @@ export function ConfigFilesSection({ application, selectedSource, onPRCreated }:
     refresh: refreshCredentials
   } = useGitCredentials(repoUrl)
 
-  // Log credential changes for debugging
-  useEffect(() => {
-    console.log('ConfigFilesSection - Credentials changed:', {
-      repoUrl,
-      basePath,
-      hasCredentials,
-      credentialId: credentials?.id,
-      credentialRepoUrl: credentials?.repoUrl,
-      username: credentials?.username,
-      loading: credentialsLoading,
-      error: credentialsError
-    })
-  }, [repoUrl, basePath, hasCredentials, credentials, credentialsLoading, credentialsError])
+
 
   // Memoize the options to prevent unnecessary re-renders
   // Don't filter by extension - we want to show directories too

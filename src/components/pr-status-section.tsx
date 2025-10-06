@@ -94,10 +94,7 @@ export function PRStatusSection({ selectedSource, refreshTrigger }: PRStatusSect
   // Fetch on mount and when credential is available or refresh triggered
   useEffect(() => {
     if (credentialId) {
-      console.log('Fetching PRs for credentialId:', credentialId, 'repoUrl:', repoUrl)
       fetchPullRequests()
-    } else {
-      console.log('No credentialId available for repoUrl:', repoUrl)
     }
   }, [credentialId, refreshTrigger])
 
