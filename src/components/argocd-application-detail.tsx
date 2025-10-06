@@ -8,6 +8,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { ConfigFilesSection } from '@/components/config-files-section'
 import { PRStatusSection } from '@/components/pr-status-section'
 import { GitSourceSelector } from '@/components/git-source-selector'
+import { GitRepositoryCard } from '@/components/git-repository-card'
 import { getGitSources } from '@/lib/git-source-utils'
 import type { GitSourceInfo } from '@/lib/git-source-utils'
 
@@ -393,99 +394,124 @@ export function ArgoCDApplicationDetail({
           {/* Display all sources */}
           <div className="space-y-3">
             {/* Single source (legacy format) */}
-            {application.spec.source && !application.spec.sources && (
-              <div className="space-y-3 p-3 border rounded-lg">
-                <div className="flex items-center gap-2">
-                  <Badge variant="outline">Source 1</Badge>
-                  {application.spec.source.ref && (
-                    <Badge variant="secondary" className="text-xs">ref: {application.spec.source.ref}</Badge>
-                  )}
-                </div>
-                <div>
-                  <p className="text-sm font-medium text-muted-foreground mb-1">Repository</p>
-                  <a
-                    href={application.spec.source.repoURL}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="font-mono text-sm text-primary hover:underline break-all inline-flex items-center gap-1"
-                  >
-                    {application.spec.source.repoURL}
-                    <Eye className="h-3 w-3" />
-                  </a>
-                </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <p className="text-sm font-medium text-muted-foreground mb-1">Branch/Tag</p>
-                    <Badge variant="outline" className="font-mono text-xs">
-                      {application.spec.source.targetRevision}
-                    </Badge>
+            {application.spec.source && !application.spec.sources && (() => {
+              const isGitSource = application.spec.source.repoURL && !application.spec.source.chart && !application.spec.source.repoURL.startsWith('oci://')
+              
+              return (
+                <div className="space-y-3 p-3 border rounded-lg">
+                  <div className="flex items-center gap-2">
+                    <Badge variant="outline">Source 1</Badge>
+                    {application.spec.source.ref && (
+                      <Badge variant="secondary" className="text-xs">ref: {application.spec.source.ref}</Badge>
+                    )}
                   </div>
-                  {application.spec.source.path && (
+                  <div>
+                    <p className="text-sm font-medium text-muted-foreground mb-1">Repository</p>
+                    <a
+                      href={application.spec.source.repoURL}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="font-mono text-sm text-primary hover:underline break-all inline-flex items-center gap-1"
+                    >
+                      {application.spec.source.repoURL}
+                      <Eye className="h-3 w-3" />
+                    </a>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
                     <div>
-                      <p className="text-sm font-medium text-muted-foreground mb-1">Path</p>
-                      <p className="font-mono text-xs">{application.spec.source.path}</p>
+                      <p className="text-sm font-medium text-muted-foreground mb-1">Branch/Tag</p>
+                      <Badge variant="outline" className="font-mono text-xs">
+                        {application.spec.source.targetRevision}
+                      </Badge>
                     </div>
-                  )}
-                  {application.spec.source.chart && (
-                    <div>
-                      <p className="text-sm font-medium text-muted-foreground mb-1">Chart</p>
-                      <p className="font-mono text-xs">{application.spec.source.chart}</p>
-                    </div>
+                    {application.spec.source.path && (
+                      <div>
+                        <p className="text-sm font-medium text-muted-foreground mb-1">Path</p>
+                        <p className="font-mono text-xs">{application.spec.source.path}</p>
+                      </div>
+                    )}
+                    {application.spec.source.chart && (
+                      <div>
+                        <p className="text-sm font-medium text-muted-foreground mb-1">Chart</p>
+                        <p className="font-mono text-xs">{application.spec.source.chart}</p>
+                      </div>
+                    )}
+                  </div>
+                  
+                  {/* Git Credential Status - Only for Git sources */}
+                  {isGitSource && (
+                    <GitRepositoryCard
+                      repoUrl={application.spec.source.repoURL}
+                      branch={application.spec.source.targetRevision || 'main'}
+                    />
                   )}
                 </div>
-              </div>
-            )}
+              )
+            })()}
 
             {/* Multiple sources (new format) */}
             {application.spec.sources && application.spec.sources.length > 0 && (
               <div className="space-y-3">
-                {application.spec.sources.map((source, index) => (
-                  <div key={index} className="p-3 border rounded-lg space-y-3">
-                    <div className="flex items-center gap-2">
-                      <Badge variant="outline">Source {index + 1}</Badge>
-                      {source.ref && (
-                        <Badge variant="secondary" className="text-xs">ref: {source.ref}</Badge>
-                      )}
-                      {source.chart && (
-                        <Badge variant="secondary" className="text-xs">Helm Chart</Badge>
+                {application.spec.sources.map((source, index) => {
+                  // Only show Git sources (filter out Helm/OCI)
+                  const isGitSource = source.repoURL && !source.chart && !source.repoURL.startsWith('oci://')
+                  
+                  return (
+                    <div key={index} className="p-3 border rounded-lg space-y-3">
+                      <div className="flex items-center gap-2">
+                        <Badge variant="outline">Source {index + 1}</Badge>
+                        {source.ref && (
+                          <Badge variant="secondary" className="text-xs">ref: {source.ref}</Badge>
+                        )}
+                        {source.chart && (
+                          <Badge variant="secondary" className="text-xs">Helm Chart</Badge>
+                        )}
+                      </div>
+                      <div>
+                        <p className="text-sm font-medium text-muted-foreground mb-1">Repository</p>
+                        <a
+                          href={source.repoURL}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="font-mono text-sm text-primary hover:underline break-all inline-flex items-center gap-1"
+                        >
+                          {source.repoURL}
+                          <Eye className="h-3 w-3" />
+                        </a>
+                      </div>
+                      <div className="grid grid-cols-2 gap-4">
+                        {source.targetRevision && (
+                          <div>
+                            <p className="text-sm font-medium text-muted-foreground mb-1">Branch/Tag</p>
+                            <Badge variant="outline" className="font-mono text-xs">
+                              {source.targetRevision}
+                            </Badge>
+                          </div>
+                        )}
+                        {source.path && (
+                          <div>
+                            <p className="text-sm font-medium text-muted-foreground mb-1">Path</p>
+                            <p className="font-mono text-xs">{source.path}</p>
+                          </div>
+                        )}
+                        {source.chart && (
+                          <div>
+                            <p className="text-sm font-medium text-muted-foreground mb-1">Chart</p>
+                            <p className="font-mono text-xs">{source.chart}</p>
+                          </div>
+                        )}
+                      </div>
+                      
+                      {/* Git Credential Status - Only for Git sources */}
+                      {isGitSource && (
+                        <GitRepositoryCard
+                          repoUrl={source.repoURL}
+                          branch={source.targetRevision || 'main'}
+                        />
                       )}
                     </div>
-                    <div>
-                      <p className="text-sm font-medium text-muted-foreground mb-1">Repository</p>
-                      <a
-                        href={source.repoURL}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="font-mono text-sm text-primary hover:underline break-all inline-flex items-center gap-1"
-                      >
-                        {source.repoURL}
-                        <Eye className="h-3 w-3" />
-                      </a>
-                    </div>
-                    <div className="grid grid-cols-2 gap-4">
-                      {source.targetRevision && (
-                        <div>
-                          <p className="text-sm font-medium text-muted-foreground mb-1">Branch/Tag</p>
-                          <Badge variant="outline" className="font-mono text-xs">
-                            {source.targetRevision}
-                          </Badge>
-                        </div>
-                      )}
-                      {source.path && (
-                        <div>
-                          <p className="text-sm font-medium text-muted-foreground mb-1">Path</p>
-                          <p className="font-mono text-xs">{source.path}</p>
-                        </div>
-                      )}
-                      {source.chart && (
-                        <div>
-                          <p className="text-sm font-medium text-muted-foreground mb-1">Chart</p>
-                          <p className="font-mono text-xs">{source.chart}</p>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                ))}
+                  )
+                })}
               </div>
             )}
 
