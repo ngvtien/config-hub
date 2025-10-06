@@ -425,9 +425,9 @@ export function HelpDialog({ open, onOpenChange, initialSection = 'overview' }: 
               </p>
 
               <div className="bg-muted p-3 rounded-md font-mono text-xs">
-                <div>Windows: %APPDATA%/electron-react-app/</div>
-                <div>macOS: ~/Library/Application Support/electron-react-app/</div>
-                <div>Linux: ~/.config/electron-react-app/</div>
+                <div>Windows: %APPDATA%/config-hub/</div>
+                <div>macOS: ~/Library/Application Support/config-hub/</div>
+                <div>Linux: ~/.config/config-hub/</div>
               </div>
 
               <div className="space-y-2">

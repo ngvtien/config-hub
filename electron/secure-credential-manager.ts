@@ -75,7 +75,7 @@ export type Credential = GitCredential | HelmCredential | ArgoCDCredential | Vau
 
 // Secure credential storage manager
 export class SecureCredentialManager {
-  private readonly serviceName = 'electron-devops-app'
+  private readonly serviceName = 'config-hub'
   private readonly metadataFile: string
   private readonly encryptionKey: string
 
@@ -310,7 +310,10 @@ export class SecureCredentialManager {
       }
 
       if (environment) {
-        credentials = credentials.filter(cred => cred.environment === environment)
+        // Include credentials that match the environment OR have no environment set
+        credentials = credentials.filter(cred => 
+          cred.environment === environment || !cred.environment
+        )
       }
 
       return credentials.sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())

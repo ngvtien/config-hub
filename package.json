@@ -1,5 +1,5 @@
 {
-  "name": "electron-react-app",
+  "name": "config-hub",
   "version": "1.0.0",
   "description": "Electron app with React, TypeScript, Vite, Tailwind CSS, and shadcn/ui",
   "main": "dist-electron/main.js",

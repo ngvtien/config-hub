@@ -77,15 +77,15 @@ export function ArgoCDParameterEditor({
   const handleCreatePR = (diff: any) => {
     // This would integrate with your Git provider API
     console.log('Creating PR with changes:', diff)
+    console.log('TODO: PR creation would be implemented here with your Git provider API')
     // Example: Create PR in GitLab/GitHub with parameter changes
-    alert('PR creation would be implemented here with your Git provider API')
   }
 
   const handleApplyChanges = (diff: any) => {
     // This would update the ArgoCD application spec
     console.log('Applying changes:', diff)
+    console.log('TODO: Direct application would update ArgoCD application spec')
     // Example: Update ArgoCD application with new parameters
-    alert('Direct application would update ArgoCD application spec')
   }
 
   const diff = compareParameters(editedParameters)

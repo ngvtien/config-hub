@@ -12,6 +12,16 @@ import { useEnvironmentSettings } from '@/hooks/use-environment-settings'
 import { useVaultCredentials } from '@/hooks/use-vault-credentials'
 import { useAssetPath } from '@/hooks/use-asset-path'
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
+import {
   Settings,
   GitBranch,
   Container,
@@ -138,6 +148,8 @@ export function SettingsPage({ onBack }: SettingsPageProps) {
     const [savedConfigurations, setSavedConfigurations] = useState<any[]>([])
     const [showConfigList, setShowConfigList] = useState(true)
     const [configStatus, setConfigStatus] = useState<Record<string, { status: 'idle' | 'testing' | 'success' | 'error', message?: string }>>({})
+    const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false)
+    const [configToDelete, setConfigToDelete] = useState<string | null>(null)
 
     // Load existing credential if available
     useEffect(() => {
@@ -293,7 +305,7 @@ export function SettingsPage({ onBack }: SettingsPageProps) {
           name: `${credentialName} (Test)`,
           repoUrl,
           authType,
-          username: authType === 'userpass' ? username : undefined,
+          username: (authType === 'userpass' || authType === 'token') ? username : undefined,
           password: authType === 'userpass' ? password : undefined,
           token: authType === 'token' ? token : undefined,
           privateKey: authType === 'ssh' ? generatedPrivateKey : undefined,
@@ -462,7 +474,8 @@ export function SettingsPage({ onBack }: SettingsPageProps) {
           name: credentialName,
           repoUrl,
           authType,
-          username: authType === 'userpass' ? username : undefined,
+          providerType,
+          username: (authType === 'userpass' || authType === 'token') ? username : undefined,
           password: authType === 'userpass' ? password : undefined,
           token: authType === 'token' ? token : undefined,
           privateKey: authType === 'ssh' ? generatedPrivateKey : undefined,
@@ -477,6 +490,12 @@ export function SettingsPage({ onBack }: SettingsPageProps) {
           setConnectionStatus('success')
           setConnectionMessage('Configuration saved successfully! Credentials are now stored securely.')
           updateSection('git', { credentialId: result.credentialId })
+          
+          // Refresh the configurations list
+          const listResult = await window.electronAPI.git.listCredentials(environment)
+          if (listResult.success && listResult.data) {
+            setSavedConfigurations(listResult.data)
+          }
         } else {
           throw new Error(result.error || 'Failed to save configuration')
         }
@@ -515,19 +534,43 @@ export function SettingsPage({ onBack }: SettingsPageProps) {
             <div className="space-y-3">
               {savedConfigurations.map((config) => {
                 const status = configStatus[config.id]
+                // Use stored providerType if available, otherwise detect from URL
+                const provider = config.providerType || detectProviderType(config.repoUrl || '')
+                const providerIcon = provider === 'bitbucket-server' || provider === 'bitbucket-cloud' ? '🟦' :
+                                    provider === 'github' ? '🐙' :
+                                    provider === 'gitlab' ? '🦊' :
+                                    provider === 'gitea' ? '📦' : '⚙️'
+                const providerLabel = provider === 'bitbucket-server' ? 'Bitbucket Server' :
+                                     provider === 'bitbucket-cloud' ? 'Bitbucket Cloud' :
+                                     provider === 'github' ? 'GitHub' :
+                                     provider === 'gitlab' ? 'GitLab' :
+                                     provider === 'gitea' ? 'Gitea' : 'Generic'
                 return (
                   <Card key={config.id}>
                     <CardContent className="p-4">
                       <div className="flex items-start justify-between gap-4">
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2 mb-1 flex-wrap">
-                            <span className="text-lg">{getProviderIcon()}</span>
+                            <span className="text-lg">{providerIcon}</span>
                             <h4 className="font-medium">{config.name}</h4>
+                            <Badge variant="secondary" className="text-xs">
+                              {providerLabel}
+                            </Badge>
                             <Badge variant="outline" className="text-xs">
                               {config.authType === 'ssh' ? 'SSH Key' : 
                                config.authType === 'token' ? 'Token' : 
                                'Username/Password'}
                             </Badge>
+                            {config.environment && (
+                              <Badge variant="default" className="text-xs">
+                                {config.environment.toUpperCase()}
+                              </Badge>
+                            )}
+                            {!config.environment && (
+                              <Badge variant="outline" className="text-xs text-muted-foreground">
+                                All Environments
+                              </Badge>
+                            )}
                             {/* Inline Status Badge */}
                             {status && status.status !== 'idle' && (
                               <Badge 
@@ -587,16 +630,9 @@ export function SettingsPage({ onBack }: SettingsPageProps) {
                           <Button 
                             variant="ghost" 
                             size="sm"
-                            onClick={async () => {
-                              if (confirm('Delete this configuration?')) {
-                                await window.electronAPI.git.deleteCredential(config.id)
-                                setSavedConfigurations(prev => prev.filter(c => c.id !== config.id))
-                                setConfigStatus(prev => {
-                                  const newStatus = { ...prev }
-                                  delete newStatus[config.id]
-                                  return newStatus
-                                })
-                              }
+                            onClick={() => {
+                              setConfigToDelete(config.id)
+                              setDeleteConfirmOpen(true)
                             }}
                           >
                             Delete
@@ -730,8 +766,22 @@ export function SettingsPage({ onBack }: SettingsPageProps) {
 
             {/* Token Authentication */}
             {authType === 'token' && (
-              <div className="p-4 bg-muted/50 rounded-md border">
+              <div className="p-4 bg-muted/50 rounded-md border space-y-4">
                 <p className="text-sm font-medium mb-3">Access Token Authentication</p>
+                
+                <div>
+                  <Label htmlFor="gitTokenUsername">Username (optional)</Label>
+                  <Input
+                    id="gitTokenUsername"
+                    placeholder="username or workspace"
+                    value={username}
+                    onChange={(e) => setUsername(e.target.value)}
+                  />
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Optional: Bitbucket Cloud workspace name or username
+                  </p>
+                </div>
+
                 <div>
                   <Label htmlFor="gitToken">Access Token *</Label>
                   <div className="relative">
@@ -754,7 +804,7 @@ export function SettingsPage({ onBack }: SettingsPageProps) {
                     )}
                   </div>
                   <div className="text-xs text-muted-foreground mt-2 space-y-1">
-                    <p><strong>Bitbucket Cloud:</strong> Use App Password (Settings → App passwords)</p>
+                    <p><strong>Bitbucket Cloud:</strong> Use Access Token or App Password</p>
                     <p><strong>GitHub:</strong> Use Personal Access Token (Settings → Developer settings)</p>
                     <p><strong>GitLab:</strong> Use Personal Access Token (User Settings → Access Tokens)</p>
                   </div>
@@ -986,6 +1036,37 @@ export function SettingsPage({ onBack }: SettingsPageProps) {
           <p>• Save configuration stores credentials for use across the application</p>
           <p>• Supports Bitbucket, GitHub, GitLab, and other Git providers</p>
         </div>
+
+        {/* Delete Confirmation Dialog */}
+        <AlertDialog open={deleteConfirmOpen} onOpenChange={setDeleteConfirmOpen}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Delete Configuration?</AlertDialogTitle>
+              <AlertDialogDescription>
+                Are you sure you want to delete this Git configuration? This action cannot be undone.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancel</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={async () => {
+                  if (configToDelete) {
+                    await window.electronAPI.git.deleteCredential(configToDelete)
+                    setSavedConfigurations(prev => prev.filter(c => c.id !== configToDelete))
+                    setConfigStatus(prev => {
+                      const newStatus = { ...prev }
+                      delete newStatus[configToDelete]
+                      return newStatus
+                    })
+                    setConfigToDelete(null)
+                  }
+                }}
+              >
+                Delete
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </div>
     )
   }
@@ -1443,6 +1524,8 @@ const renderVaultSettings = () => {
     const [savedConfigurations, setSavedConfigurations] = useState<any[]>([])
     const [showConfigList, setShowConfigList] = useState(true)
     const [configStatus, setConfigStatus] = useState<Record<string, { status: 'idle' | 'testing' | 'success' | 'error', message?: string }>>({})
+    const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false)
+    const [configToDelete, setConfigToDelete] = useState<string | null>(null)
 
     // Load existing credential if available
     useEffect(() => {
@@ -1798,16 +1881,9 @@ const renderVaultSettings = () => {
                           <Button 
                             variant="ghost" 
                             size="sm"
-                            onClick={async () => {
-                              if (confirm('Delete this configuration?')) {
-                                await window.electronAPI.vault.deleteCredential(config.id)
-                                setSavedConfigurations(prev => prev.filter(c => c.id !== config.id))
-                                setConfigStatus(prev => {
-                                  const newStatus = { ...prev }
-                                  delete newStatus[config.id]
-                                  return newStatus
-                                })
-                              }
+                            onClick={() => {
+                              setConfigToDelete(config.id)
+                              setDeleteConfirmOpen(true)
                             }}
                           >
                             Delete
@@ -2154,6 +2230,37 @@ const renderVaultSettings = () => {
             </div>
           </div>
         </div>
+
+        {/* Delete Confirmation Dialog */}
+        <AlertDialog open={deleteConfirmOpen} onOpenChange={setDeleteConfirmOpen}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Delete Configuration?</AlertDialogTitle>
+              <AlertDialogDescription>
+                Are you sure you want to delete this Vault configuration? This action cannot be undone.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancel</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={async () => {
+                  if (configToDelete) {
+                    await window.electronAPI.vault.deleteCredential(configToDelete)
+                    setSavedConfigurations(prev => prev.filter(c => c.id !== configToDelete))
+                    setConfigStatus(prev => {
+                      const newStatus = { ...prev }
+                      delete newStatus[configToDelete]
+                      return newStatus
+                    })
+                    setConfigToDelete(null)
+                  }
+                }}
+              >
+                Delete
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </div>
     )
   }

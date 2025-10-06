@@ -89,6 +89,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
       ipcRenderer.invoke('git:get-credential', credentialId),
     deleteCredential: (credentialId: string) => 
       ipcRenderer.invoke('git:delete-credential', credentialId),
+    migrateCredentials: () => 
+      ipcRenderer.invoke('git:migrate-credentials'),
     generateSSHKey: (keyName: string, passphrase?: string) => 
       ipcRenderer.invoke('git:generate-ssh-key', keyName, passphrase),
     cloneRepository: (credentialId: string, localPath: string, branch?: string) => 

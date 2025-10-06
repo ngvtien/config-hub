@@ -281,6 +281,21 @@ app.on('browser-window-created', async () => {
     setupSimpleHelmHandlers()
     setupGitHandlers()
     console.log('Handlers loaded')
+    
+    // Run credential migration if needed
+    const { migrateCredentialsFromOldServiceName, needsMigration } = await import('./migrate-credentials')
+    if (await needsMigration()) {
+      console.log('Credential migration needed, starting migration...')
+      const result = await migrateCredentialsFromOldServiceName()
+      if (result.success) {
+        console.log(`Credential migration complete: ${result.migrated} credentials migrated`)
+        if (result.errors.length > 0) {
+          console.warn('Migration errors:', result.errors)
+        }
+      } else {
+        console.error('Credential migration failed:', result.errors)
+      }
+    }
   } catch (error) {
     console.error('Failed to setup handlers:', error)
   }

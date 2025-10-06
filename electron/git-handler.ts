@@ -15,6 +15,7 @@ export interface GitConfig {
   name: string
   repoUrl: string
   authType: 'token' | 'ssh' | 'userpass'
+  providerType?: 'bitbucket-server' | 'bitbucket-cloud' | 'github' | 'gitlab' | 'gitea' | 'generic'
   username?: string
   token?: string
   privateKey?: string
@@ -63,11 +64,11 @@ class GitCredentialManager {
   async generateSSHKeyPair(keyName: string, passphrase?: string): Promise<{ privateKey: string; publicKey: string }> {
     try {
       const keyPair = forge.pki.rsa.generateKeyPair({ bits: 4096 })
-      
+
       // Convert to OpenSSH format
       const privateKeyPem = forge.pki.privateKeyToPem(keyPair.privateKey)
       const publicKeyPem = forge.pki.publicKeyToPem(keyPair.publicKey)
-      
+
       // Convert public key to OpenSSH format
       const publicKeyDer = forge.asn1.toDer(forge.pki.publicKeyToAsn1(keyPair.publicKey)).getBytes()
       const publicKeyBase64 = forge.util.encode64(publicKeyDer)
@@ -97,7 +98,7 @@ class GitCredentialManager {
   async storeGitCredential(config: GitConfig): Promise<string> {
     try {
       const credentialId = config.id || secureCredentialManager.generateCredentialId('git', config.repoUrl)
-      
+
       const credential: GitCredential = {
         id: credentialId,
         name: config.name,
@@ -158,7 +159,7 @@ class GitCredentialManager {
     try {
       const sshConfigPath = path.join(this.sshDir, 'config')
       const hostAlias = `git-${credentialId}`
-      
+
       const configEntry = `
 # Git credential ${credentialId}
 Host ${hostAlias}
@@ -257,7 +258,7 @@ Host ${hostAlias}
         // Format: http://server:port/rest/api/1.0/users/{username}
         const baseUrl = `${repoUrl.protocol}//${repoUrl.host}`
         apiUrl = `${baseUrl}/rest/api/1.0/application-properties`
-        
+
         // Bitbucket Server uses Basic Auth with username:token
         if (credential.username) {
           const auth = Buffer.from(`${credential.username}:${credential.token}`).toString('base64')
@@ -266,15 +267,29 @@ Host ${hostAlias}
           return { success: false, error: 'Username required for Bitbucket Server authentication' }
         }
       } else if (providerType === 'bitbucket-cloud') {
-        // Bitbucket Cloud: Test with user API endpoint
-        apiUrl = 'https://api.bitbucket.org/2.0/user'
-        
-        // Bitbucket Cloud uses Basic Auth with username:app_password
-        if (credential.username) {
+        // Bitbucket Cloud: Test with repository API endpoint
+        // Parse workspace and repo from URL: https://bitbucket.org/workspace/repo.git
+        const pathParts = repoUrl.pathname.split('/').filter(p => p)
+        const workspace = pathParts[0]
+        const repo = pathParts[1]?.replace('.git', '')
+
+        if (!workspace || !repo) {
+          return { success: false, error: 'Invalid Bitbucket Cloud URL format. Expected: https://bitbucket.org/workspace/repo.git' }
+        }
+
+        apiUrl = `https://api.bitbucket.org/2.0/repositories/${workspace}/${repo}`
+
+        // Bitbucket Cloud supports both Bearer tokens (Access Tokens) and Basic Auth (App Passwords)
+        if (credential.token?.startsWith('ATCTT') || credential.token?.startsWith('ATB')) {
+          // Access Token - use Bearer auth
+          headers = { 'Authorization': `Bearer ${credential.token}` }
+        } else if (credential.username) {
+          // App Password - use Basic auth
           const auth = Buffer.from(`${credential.username}:${credential.token}`).toString('base64')
           headers = { 'Authorization': `Basic ${auth}` }
         } else {
-          return { success: false, error: 'Username required for Bitbucket Cloud authentication' }
+          // Try Bearer auth as fallback
+          headers = { 'Authorization': `Bearer ${credential.token}` }
         }
       } else {
         return { success: false, error: 'Unsupported Git provider for token testing' }
@@ -282,7 +297,7 @@ Host ${hostAlias}
 
       const { stdout } = await execAsync(`curl -s -H "Authorization: ${headers.Authorization}" "${apiUrl}"`)
       const response = JSON.parse(stdout)
-      
+
       // Check for successful response
       if (response.id || response.name || response.version || response.username || response.display_name) {
         return { success: true }
@@ -300,10 +315,10 @@ Host ${hostAlias}
     try {
       const hostAlias = `git-${credential.id}`
       const testCommand = `ssh -T ${hostAlias} 2>&1`
-      
+
       const { stdout, stderr } = await execAsync(testCommand)
       const output = stdout + stderr
-      
+
       // SSH test is successful if we get authentication success message
       if (output.includes('successfully authenticated') || output.includes('Hi ')) {
         return { success: true }
@@ -328,21 +343,21 @@ Host ${hostAlias}
       if (providerType === 'bitbucket-server' || providerType === 'bitbucket-cloud') {
         const repoUrl = new URL(credential.repoUrl)
         let apiUrl = ''
-        
+
         if (providerType === 'bitbucket-server') {
           const baseUrl = `${repoUrl.protocol}//${repoUrl.host}`
           apiUrl = `${baseUrl}/rest/api/1.0/application-properties`
         } else {
           apiUrl = 'https://api.bitbucket.org/2.0/user'
         }
-        
+
         // Use Basic Auth with username:password
         const auth = Buffer.from(`${credential.username}:${credential.password}`).toString('base64')
         const headers = { 'Authorization': `Basic ${auth}` }
 
         const { stdout } = await execAsync(`curl -s -H "Authorization: ${headers.Authorization}" "${apiUrl}"`)
         const response = JSON.parse(stdout)
-        
+
         // Check for successful response
         if (response.id || response.name || response.version || response.username || response.display_name) {
           return { success: true }
@@ -368,10 +383,10 @@ Host ${hostAlias}
         // Test by attempting to clone (shallow) with credentials
         const repoUrlWithAuth = credential.repoUrl.replace('https://', `https://${credential.username}:${credential.password}@`)
         const { stdout, stderr } = await execAsync(`git clone --depth 1 "${repoUrlWithAuth}" "${tempDir}/test-repo"`)
-        
+
         // Clean up
         fs.rmSync(tempDir, { recursive: true, force: true })
-        
+
         return { success: true }
       } catch (error) {
         // Clean up on error
@@ -523,8 +538,8 @@ Host ${hostAlias}
         return new BitbucketServerClient(credential.repoUrl, credential)
       }
       case 'bitbucket-cloud': {
-        // TODO: Implement BitbucketCloudClient in Phase 11
-        throw new Error('Bitbucket Cloud support not yet implemented')
+        const { BitbucketCloudClient } = await import('./git-providers/bitbucket-cloud-client')
+        return new BitbucketCloudClient(credential.repoUrl, credential)
       }
       default:
         throw new Error(`Unsupported provider type: ${providerType}`)
@@ -770,6 +785,18 @@ export function setupGitHandlers(): void {
     }
   })
 
+  // Migrate credentials from old service name
+  ipcMain.handle('git:migrate-credentials', async () => {
+    try {
+      const { migrateCredentialsFromOldServiceName } = await import('./migrate-credentials')
+      const result = await migrateCredentialsFromOldServiceName()
+      return result
+    } catch (error) {
+      console.error('Failed to migrate credentials:', error)
+      return { success: false, migrated: 0, errors: [error instanceof Error ? error.message : 'Unknown error'] }
+    }
+  })
+
   // Clone repository
   ipcMain.handle('git:clone-repository', async (_, credentialId: string, localPath: string, branch?: string) => {
     try {
@@ -801,7 +828,7 @@ export function setupGitHandlers(): void {
 
       const providerType = gitCredentialManager.detectProviderType(credential.repoUrl)
       const client = await gitCredentialManager.createProviderClient(providerType, credential)
-      
+
       const files = await client.listFiles(path, branch)
       return { success: true, data: files }
     } catch (error) {
@@ -820,7 +847,7 @@ export function setupGitHandlers(): void {
 
       const providerType = gitCredentialManager.detectProviderType(credential.repoUrl)
       const client = await gitCredentialManager.createProviderClient(providerType, credential)
-      
+
       const content = await client.getFileContent(filePath, branch)
       return { success: true, data: content }
     } catch (error) {
@@ -839,7 +866,7 @@ export function setupGitHandlers(): void {
 
       const providerType = gitCredentialManager.detectProviderType(credential.repoUrl)
       const client = await gitCredentialManager.createProviderClient(providerType, credential)
-      
+
       const branch = await client.createBranch(baseBranch, newBranchName)
       return { success: true, data: branch }
     } catch (error) {
@@ -858,7 +885,7 @@ export function setupGitHandlers(): void {
 
       const providerType = gitCredentialManager.detectProviderType(credential.repoUrl)
       const client = await gitCredentialManager.createProviderClient(providerType, credential)
-      
+
       await client.deleteBranch(branchName)
       return { success: true }
     } catch (error) {
@@ -877,13 +904,13 @@ export function setupGitHandlers(): void {
 
       const providerType = gitCredentialManager.detectProviderType(credential.repoUrl)
       const client = await gitCredentialManager.createProviderClient(providerType, credential)
-      
+
       // Use credential username and a default email for author
       const author = {
         name: credential.username,
         email: `${credential.username}@config-hub.local`
       }
-      
+
       const commit = await client.createCommit(branch, changes, commitMessage, author)
       return { success: true, data: commit }
     } catch (error) {
@@ -902,7 +929,7 @@ export function setupGitHandlers(): void {
 
       const providerType = gitCredentialManager.detectProviderType(credential.repoUrl)
       const client = await gitCredentialManager.createProviderClient(providerType, credential)
-      
+
       const pullRequest = await client.createPullRequest(sourceBranch, targetBranch, title, description, reviewers)
       return { success: true, data: pullRequest }
     } catch (error) {
@@ -921,7 +948,7 @@ export function setupGitHandlers(): void {
 
       const providerType = gitCredentialManager.detectProviderType(credential.repoUrl)
       const client = await gitCredentialManager.createProviderClient(providerType, credential)
-      
+
       const pullRequests = await client.listPullRequests(state, limit)
       return { success: true, data: pullRequests }
     } catch (error) {
@@ -940,7 +967,7 @@ export function setupGitHandlers(): void {
 
       const providerType = gitCredentialManager.detectProviderType(credential.repoUrl)
       const client = await gitCredentialManager.createProviderClient(providerType, credential)
-      
+
       const pullRequest = await client.getPullRequest(prId)
       return { success: true, data: pullRequest }
     } catch (error) {
@@ -959,7 +986,7 @@ export function setupGitHandlers(): void {
 
       const providerType = gitCredentialManager.detectProviderType(credential.repoUrl)
       const client = await gitCredentialManager.createProviderClient(providerType, credential)
-      
+
       const result = await client.getPullRequestDiff(prId)
       return { success: true, data: result }
     } catch (error) {
@@ -978,7 +1005,7 @@ export function setupGitHandlers(): void {
 
       const providerType = gitCredentialManager.detectProviderType(credential.repoUrl)
       const client = await gitCredentialManager.createProviderClient(providerType, credential)
-      
+
       const result = await client.approvePullRequest(prId)
       return { success: true, data: result }
     } catch (error) {
@@ -997,7 +1024,7 @@ export function setupGitHandlers(): void {
 
       const providerType = gitCredentialManager.detectProviderType(credential.repoUrl)
       const client = await gitCredentialManager.createProviderClient(providerType, credential)
-      
+
       const result = await client.mergePullRequest(prId, mergeStrategy)
       return { success: true, data: result }
     } catch (error) {
