@@ -13,6 +13,7 @@ const DocumentsPage = lazy(() => import('@/components/documents-page').then(m =>
 const AnalyticsPage = lazy(() => import('@/components/analytics-page').then(m => ({ default: m.AnalyticsPage })))
 const ArgoCDPage = lazy(() => import('@/components/argocd-page').then(m => ({ default: m.ArgoCDPage })))
 const TestFileEditor = lazy(() => import('@/pages/test-file-editor').then(m => ({ default: m.TestFileEditor })))
+const TestFormGeneration = lazy(() => import('@/pages/test-form-generation').then(m => ({ default: m.TestFormGeneration })))
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -48,6 +49,8 @@ function App() {
         return <LazyWrapper><ArgoCDPage /></LazyWrapper>
       case 'test-editor':
         return <LazyWrapper><TestFileEditor /></LazyWrapper>
+      case 'test-form':
+        return <LazyWrapper><TestFormGeneration /></LazyWrapper>
       case 'settings':
         return <LazyWrapper><SettingsPage onBack={() => setCurrentPage('dashboard')} /></LazyWrapper>
       case 'users':
@@ -171,14 +174,24 @@ function App() {
 
                 <div className="space-y-2">
                   <h3 className="text-sm font-semibold">🧪 Test Pages</h3>
-                  <Button
-                    variant="secondary"
-                    className="w-full"
-                    onClick={() => setCurrentPage('test-editor')}
-                  >
-                    <Code className="w-4 h-4 mr-2" />
-                    Test File Editor
-                  </Button>
+                  <div className="flex gap-2">
+                    <Button
+                      variant="secondary"
+                      className="flex-1"
+                      onClick={() => setCurrentPage('test-editor')}
+                    >
+                      <Code className="w-4 h-4 mr-2" />
+                      File Editor
+                    </Button>
+                    <Button
+                      variant="secondary"
+                      className="flex-1"
+                      onClick={() => setCurrentPage('test-form')}
+                    >
+                      <Type className="w-4 h-4 mr-2" />
+                      Form Generation
+                    </Button>
+                  </div>
                 </div>
               </CardContent>
             </Card>
@@ -222,6 +235,8 @@ const config: TypographyConfig = {
         return 'ArgoCD Applications'
       case 'test-editor':
         return 'File Editor Test'
+      case 'test-form':
+        return 'Form Generation Test'
       case 'settings':
         return 'Settings'
       case 'users':

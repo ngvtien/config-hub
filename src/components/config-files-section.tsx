@@ -531,6 +531,7 @@ export function ConfigFilesSection({ application, selectedSource, onPRCreated }:
           branch={branch}
           initialContent={editingFile.originalContent}
           onSave={handleSaveFile}
+          credentialId={credentials?.id}
         />
       )}
 

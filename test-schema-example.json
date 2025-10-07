@@ -1,0 +1,144 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Application Configuration",
+  "description": "Configuration schema for application deployment",
+  "type": "object",
+  "required": ["replicaCount", "image"],
+  "properties": {
+    "replicaCount": {
+      "type": "integer",
+      "title": "Replica Count",
+      "description": "Number of pod replicas to run",
+      "default": 1,
+      "minimum": 1,
+      "maximum": 10
+    },
+    "image": {
+      "type": "object",
+      "title": "Container Image",
+      "description": "Docker image configuration",
+      "required": ["repository", "tag"],
+      "properties": {
+        "repository": {
+          "type": "string",
+          "title": "Repository",
+          "description": "Docker image repository name",
+          "examples": ["nginx", "myapp"]
+        },
+        "tag": {
+          "type": "string",
+          "title": "Tag",
+          "description": "Docker image tag",
+          "default": "latest",
+          "pattern": "^[a-zA-Z0-9._-]+$"
+        },
+        "pullPolicy": {
+          "type": "string",
+          "title": "Pull Policy",
+          "description": "Image pull policy",
+          "enum": ["Always", "IfNotPresent", "Never"],
+          "default": "IfNotPresent"
+        }
+      }
+    },
+    "resources": {
+      "type": "object",
+      "title": "Resource Limits",
+      "description": "CPU and memory resource limits",
+      "properties": {
+        "limits": {
+          "type": "object",
+          "title": "Limits",
+          "properties": {
+            "cpu": {
+              "type": "string",
+              "title": "CPU Limit",
+              "description": "Maximum CPU allocation (e.g., 500m, 1)",
+              "examples": ["500m", "1"]
+            },
+            "memory": {
+              "type": "string",
+              "title": "Memory Limit",
+              "description": "Maximum memory allocation (e.g., 512Mi, 1Gi)",
+              "examples": ["512Mi", "1Gi"]
+            }
+          }
+        },
+        "requests": {
+          "type": "object",
+          "title": "Requests",
+          "properties": {
+            "cpu": {
+              "type": "string",
+              "title": "CPU Request",
+              "description": "Minimum CPU allocation",
+              "examples": ["250m"]
+            },
+            "memory": {
+              "type": "string",
+              "title": "Memory Request",
+              "description": "Minimum memory allocation",
+              "examples": ["256Mi"]
+            }
+          }
+        }
+      }
+    },
+    "ingress": {
+      "type": "object",
+      "title": "Ingress Configuration",
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "title": "Enable Ingress",
+          "description": "Enable ingress for external access",
+          "default": false
+        },
+        "host": {
+          "type": "string",
+          "title": "Hostname",
+          "description": "Ingress hostname",
+          "format": "hostname",
+          "examples": ["app.example.com"]
+        },
+        "tls": {
+          "type": "boolean",
+          "title": "Enable TLS",
+          "description": "Enable TLS/HTTPS",
+          "default": true
+        }
+      }
+    },
+    "environment": {
+      "type": "string",
+      "title": "Environment",
+      "description": "Deployment environment",
+      "enum": ["development", "staging", "production"],
+      "default": "development"
+    },
+    "adminEmail": {
+      "type": "string",
+      "title": "Admin Email",
+      "description": "Administrator email address",
+      "format": "email",
+      "examples": ["admin@example.com"]
+    },
+    "externalUrl": {
+      "type": "string",
+      "title": "External URL",
+      "description": "External application URL",
+      "format": "uri",
+      "examples": ["https://app.example.com"]
+    },
+    "features": {
+      "type": "array",
+      "title": "Enabled Features",
+      "description": "List of enabled feature flags",
+      "items": {
+        "type": "string",
+        "enum": ["authentication", "monitoring", "logging", "caching"]
+      },
+      "uniqueItems": true
+    }
+  }
+}

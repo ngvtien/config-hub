@@ -1,0 +1,31 @@
+# Application Configuration Example
+replicaCount: 3
+
+image:
+  repository: myapp
+  tag: "1.2.3"
+  pullPolicy: IfNotPresent
+
+resources:
+  limits:
+    cpu: 500m
+    memory: 512Mi
+  requests:
+    cpu: 250m
+    memory: 256Mi
+
+ingress:
+  enabled: true
+  host: app.example.com
+  tls: true
+
+environment: production
+
+adminEmail: admin@example.com
+
+externalUrl: https://app.example.com
+
+features:
+  - authentication
+  - monitoring
+  - logging
