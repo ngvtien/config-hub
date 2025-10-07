@@ -2,6 +2,7 @@ import { useState, useMemo } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Alert, AlertDescription } from '@/components/ui/alert'
+import { Badge } from '@/components/ui/badge'
 import { RefreshCw, AlertCircle, FileText, Loader2, Lock, Edit, File, Folder, ChevronRight, Home } from 'lucide-react'
 import { ArgoCDApplication, getApplicationSource } from '@/types/argocd'
 import type { GitSourceInfo } from '@/lib/git-source-utils'
@@ -10,6 +11,7 @@ import { useGitFiles } from '@/hooks/use-git-files'
 import { GitAuthDialog, GitCredentials } from './git-auth-dialog'
 import { FileEditorDialog } from './file-editor-dialog'
 import { PullRequestDialog } from './pull-request-dialog'
+import { getFilePriority, sortFilesByPriority } from '@/services/file-priority-service'
 
 interface ConfigFilesSectionProps {
   application: ArgoCDApplication
@@ -25,15 +27,28 @@ export function ConfigFilesSection({ application, selectedSource, onPRCreated }:
   const basePath = source.path || ''
   const branch = source.targetRevision || 'main'
   
+  // Debug logging
+  console.log('ConfigFilesSection source:', {
+    repoUrl,
+    basePath,
+    branch,
+    selectedSource: selectedSource ? 'yes' : 'no'
+  })
+  
   // State - will be reset when component remounts (via key prop in parent)
   const [currentPath, setCurrentPath] = useState<string>('')
   const [showAuthDialog, setShowAuthDialog] = useState(false)
   const [editingFile, setEditingFile] = useState<{ path: string; name: string; content: string; originalContent: string } | null>(null)
   const [showEditorDialog, setShowEditorDialog] = useState(false)
   const [showPRDialog, setShowPRDialog] = useState(false)
+  const [browseFromRoot, setBrowseFromRoot] = useState(false)
   
   // Combine base path with current navigation path
-  const path = currentPath ? `${basePath}/${currentPath}` : basePath
+  // Allow browsing from root if user explicitly requested it
+  const effectiveBasePath = browseFromRoot ? '' : basePath
+  const path = currentPath 
+    ? (effectiveBasePath ? `${effectiveBasePath}/${currentPath}` : currentPath)
+    : effectiveBasePath
 
   // Check if this is a Git-based application
   // For GitSourceInfo, isGitSource is already true, for legacy source check chart
@@ -54,34 +69,18 @@ export function ConfigFilesSection({ application, selectedSource, onPRCreated }:
 
 
   // Memoize the options to prevent unnecessary re-renders
-  // Don't filter by extension - we want to show directories too
   const gitFilesOptions = useMemo(() => ({
     autoFetch: hasCredentials,
     filterExtensions: [] // Show all files and directories
   }), [hasCredentials])
 
-  // Fetch files using the hook - only fetch YAML and JSON files
+  // Fetch files using the hook
   const {
-    files: rawFiles,
+    files,
     loading: filesLoading,
     error: filesError,
     refresh: refreshFiles
   } = useGitFiles(credentials?.id || null, path, branch, gitFilesOptions)
-
-  // Filter files: show all directories, but only YAML/JSON files
-  const files = rawFiles.filter((file) => {
-    // Always show directories
-    if (file.type === 'directory') {
-      return true
-    }
-    
-    // For files, only show YAML and JSON
-    const ext = file.extension || getFileExtension(file.name)
-    return ['.yaml', '.yml', '.json'].includes(ext.toLowerCase())
-  })
-  
-  // Count hidden files for the warning
-  const hiddenFilesCount = rawFiles.length - files.length
 
   const handleRetry = async () => {
     // Refresh both credentials and files
@@ -173,9 +172,30 @@ export function ConfigFilesSection({ application, selectedSource, onPRCreated }:
   }
 
   const handleNavigateToDirectory = (dirPath: string) => {
-    // Navigate into a directory
-    const newPath = currentPath ? `${currentPath}/${dirPath}` : dirPath
-    setCurrentPath(newPath)
+    // dirPath can be either:
+    // 1. Full path from root (e.g., "customers/customer-01") - for top-level dirs
+    // 2. Relative path (e.g., "product-a") - for nested dirs
+    
+    // Check if this is a full path (contains slashes)
+    const isFullPath = dirPath.includes('/')
+    
+    let relativePath: string
+    
+    if (isFullPath) {
+      // It's a full path, make it relative to effectiveBasePath
+      if (effectiveBasePath && dirPath.startsWith(effectiveBasePath + '/')) {
+        relativePath = dirPath.substring(effectiveBasePath.length + 1)
+      } else if (effectiveBasePath === dirPath) {
+        relativePath = ''
+      } else {
+        relativePath = dirPath
+      }
+    } else {
+      // It's a relative path, append to current path
+      relativePath = currentPath ? `${currentPath}/${dirPath}` : dirPath
+    }
+    
+    setCurrentPath(relativePath)
   }
 
   const handleNavigateUp = () => {
@@ -251,8 +271,13 @@ export function ConfigFilesSection({ application, selectedSource, onPRCreated }:
                 onClick={handleNavigateToRoot}
               >
                 <Home className="h-3 w-3 mr-1" />
-                {basePath || '/'}
+                {effectiveBasePath || '/'}
               </Button>
+              {browseFromRoot && basePath && (
+                <Badge variant="outline" className="text-xs">
+                  Browsing from root
+                </Badge>
+              )}
               {currentPath.split('/').filter(p => p).map((part, index) => (
                 <div key={index} className="flex items-center gap-1">
                   <ChevronRight className="h-3 w-3 text-muted-foreground" />
@@ -342,59 +367,74 @@ export function ConfigFilesSection({ application, selectedSource, onPRCreated }:
             {filesError && !filesLoading && (
               <Alert variant="destructive">
                 <AlertCircle className="h-4 w-4" />
-                <AlertDescription className="flex items-center justify-between">
-                  <span>{filesError}</span>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={handleRetry}
-                    className="ml-2"
-                  >
-                    Retry
-                  </Button>
+                <AlertDescription>
+                  <div className="space-y-2">
+                    <p className="font-medium">{filesError}</p>
+                    {filesError.includes('Resource not found') && basePath && (
+                      <div className="text-sm">
+                        <p>The path <code className="bg-destructive/10 px-1 rounded">{basePath}</code> does not exist in this repository.</p>
+                        <p className="mt-1">This may be a ref-only source or the path may be incorrect.</p>
+                      </div>
+                    )}
+                    <div className="flex gap-2 mt-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={handleRetry}
+                      >
+                        Retry
+                      </Button>
+                      {basePath && !browseFromRoot && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            setBrowseFromRoot(true)
+                            setCurrentPath('')
+                          }}
+                        >
+                          Browse from Root
+                        </Button>
+                      )}
+                    </div>
+                  </div>
                 </AlertDescription>
               </Alert>
             )}
 
-            {/* File Filter Info */}
-            {!filesLoading && !filesError && hiddenFilesCount > 0 && (
-              <Alert className="mb-4">
-                <AlertCircle className="h-4 w-4" />
-                <AlertDescription>
-                  <p className="text-sm">
-                    {hiddenFilesCount} file{hiddenFilesCount !== 1 ? 's' : ''} hidden. Only YAML and JSON files are displayed.
-                  </p>
-                </AlertDescription>
-              </Alert>
-            )}
+
 
             {/* File List */}
-            {!filesLoading && !filesError && files.length > 0 && (
-              <div className="space-y-2">
-                {/* Up Navigation */}
-                {currentPath && (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="w-full justify-start mb-2"
-                    onClick={handleNavigateUp}
-                  >
-                    <Folder className="h-4 w-4 mr-2" />
-                    .. (Go up)
-                  </Button>
-                )}
-                
-                <div className="text-sm text-muted-foreground mb-3">
-                  {files.filter(f => f.type === 'directory').length} folder{files.filter(f => f.type === 'directory').length !== 1 ? 's' : ''}, {files.filter(f => f.type === 'file').length} file{files.filter(f => f.type === 'file').length !== 1 ? 's' : ''}
-                </div>
-                
+            {!filesLoading && !filesError && files.length > 0 && (() => {
+              const directories = files.filter(f => f.type === 'directory')
+              const filesList = files.filter(f => f.type === 'file')
+              const sortedFiles = sortFilesByPriority(filesList)
+              
+              return (
                 <div className="space-y-2">
+                  {/* Up Navigation */}
+                  {currentPath && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="w-full justify-start mb-2"
+                      onClick={handleNavigateUp}
+                    >
+                      <Folder className="h-4 w-4 mr-2" />
+                      .. (Go up)
+                    </Button>
+                  )}
+                  
+                  <div className="text-sm text-muted-foreground mb-3">
+                    {directories.length} folder{directories.length !== 1 ? 's' : ''}, {filesList.length} file{filesList.length !== 1 ? 's' : ''}
+                  </div>
+                  
                   {/* Directories first */}
-                  {files.filter(f => f.type === 'directory').map((dir) => (
+                  {directories.map((dir) => (
                     <div
                       key={dir.path}
                       className="flex items-center justify-between p-3 border rounded-lg hover:bg-muted/50 transition-colors cursor-pointer"
-                      onClick={() => handleNavigateToDirectory(dir.name)}
+                      onClick={() => handleNavigateToDirectory(dir.path)}
                     >
                       <div className="flex items-center gap-3 flex-1 min-w-0">
                         <Folder className="h-4 w-4 text-blue-500 flex-shrink-0" />
@@ -407,43 +447,46 @@ export function ConfigFilesSection({ application, selectedSource, onPRCreated }:
                     </div>
                   ))}
                   
-                  {/* Then files */}
-                  {files.filter(f => f.type === 'file').map((file) => (
-                    <div
-                      key={file.path}
-                      className="flex items-center justify-between p-3 border rounded-lg hover:bg-muted/50 transition-colors"
-                    >
-                      <div className="flex items-center gap-3 flex-1 min-w-0">
-                        <File className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium truncate">{file.name}</p>
-                          <div className="flex items-center gap-3 text-xs text-muted-foreground mt-1">
-                            {file.size && (
-                              <span>{formatFileSize(file.size)}</span>
-                            )}
-                            {file.lastModified && (
-                              <span>{formatDate(file.lastModified)}</span>
-                            )}
-                            {file.author && (
-                              <span>by {file.author}</span>
-                            )}
+                  {/* Files - sorted by priority but all visible */}
+                  {sortedFiles.map((file) => {
+                    const importance = getFilePriority(file.name)
+                    const isPrimary = importance.priority === 'primary'
+                    
+                    return (
+                      <div
+                        key={file.path}
+                        className={`flex items-center justify-between p-3 border rounded-lg hover:bg-muted/50 transition-colors cursor-pointer ${
+                          isPrimary ? 'bg-blue-50/50 dark:bg-blue-950/20 border-blue-200 dark:border-blue-900' : ''
+                        }`}
+                        onClick={() => hasCredentials && handleEditFile(file.name)}
+                      >
+                        <div className="flex items-center gap-3 flex-1 min-w-0">
+                          {isPrimary ? (
+                            <span className="text-lg flex-shrink-0">{importance.icon}</span>
+                          ) : (
+                            <File className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                          )}
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2">
+                              <p className="text-sm font-medium truncate">{file.name}</p>
+                              {isPrimary && (
+                                <Badge variant="secondary" className="text-xs">Primary</Badge>
+                              )}
+                            </div>
+                            <div className="flex items-center gap-3 text-xs text-muted-foreground mt-1">
+                              {file.size && <span>{formatFileSize(file.size)}</span>}
+                              {file.lastModified && <span>• {formatDate(file.lastModified)}</span>}
+                              {file.author && <span>• by {file.author}</span>}
+                            </div>
                           </div>
                         </div>
+                        <Edit className="h-4 w-4 text-muted-foreground flex-shrink-0" />
                       </div>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        disabled={!hasCredentials}
-                        onClick={() => handleEditFile(file.name)}
-                      >
-                        <Edit className="h-4 w-4 mr-2" />
-                        Edit
-                      </Button>
-                    </div>
-                  ))}
+                    )
+                  })}
                 </div>
-              </div>
-            )}
+              )
+            })()}
 
             {/* Empty State */}
             {!filesLoading && !filesError && files.length === 0 && (
@@ -535,9 +578,4 @@ function formatDate(dateString: string): string {
   }
 }
 
-// Helper function to get file extension
-function getFileExtension(filename: string): string {
-  const lastDot = filename.lastIndexOf('.')
-  if (lastDot === -1) return ''
-  return filename.substring(lastDot)
-}
+

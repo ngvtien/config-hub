@@ -55,6 +55,9 @@ export function FileEditorDialog({
   const [showDiffPreview, setShowDiffPreview] = useState(false)
   const [showCancelConfirm, setShowCancelConfirm] = useState(false)
   const validationTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+  
+  // Check if this is a template file (contains Go/Helm template syntax)
+  const isTemplateFile = filePath.includes('/templates/') || content.includes('{{') || content.includes('}}')
   const editorRef = useRef<MonacoEditor.IStandaloneCodeEditor | null>(null)
 
   // Detect and track theme changes
@@ -127,10 +130,17 @@ export function FileEditorDialog({
   }, [])
 
   // Debounced validation
-  const validateContent = useCallback((newContent: string, language: string) => {
+  const validateContent = useCallback((newContent: string, language: string, skipValidation: boolean = false) => {
     // Clear previous timeout
     if (validationTimeoutRef.current) {
       clearTimeout(validationTimeoutRef.current)
+    }
+
+    // Skip validation for template files
+    if (skipValidation) {
+      setValidationStatus('idle')
+      setValidationErrors([])
+      return
     }
 
     // Set validating status immediately
@@ -165,13 +175,13 @@ export function FileEditorDialog({
       setValidationStatus('idle')
       setValidationErrors([])
       
-      // Validate initial content
+      // Validate initial content (skip for template files)
       const language = getLanguage(fileName)
       if (language === 'yaml' || language === 'json') {
-        validateContent(initialContent, language)
+        validateContent(initialContent, language, isTemplateFile)
       }
     }
-  }, [open, initialContent, fileName, getLanguage, validateContent])
+  }, [open, initialContent, fileName, getLanguage, validateContent, isTemplateFile])
 
   // Cleanup validation timeout on unmount
   useEffect(() => {
@@ -346,25 +356,22 @@ export function FileEditorDialog({
     })
   }, [])
 
+
+
   const handleContentChange = (newContent: string | undefined) => {
     if (newContent === undefined) return
     setContent(newContent)
     setHasChanges(newContent !== initialContent)
     
-    // Trigger validation for YAML and JSON files
+    // Trigger validation for YAML and JSON files (skip for templates)
     const language = getLanguage(fileName)
     if (language === 'yaml' || language === 'json') {
-      validateContent(newContent, language)
+      validateContent(newContent, language, isTemplateFile)
     }
   }
 
-  const handleEditorDidMount = (editor: MonacoEditor.IStandaloneCodeEditor, monaco: any) => {
+  const handleEditorDidMount = (editor: MonacoEditor.IStandaloneCodeEditor) => {
     editorRef.current = editor
-    
-    // Add keyboard shortcut for save (Ctrl+S / Cmd+S)
-    editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS, () => {
-      handleSave()
-    })
   }
 
   const handleSave = async () => {
@@ -382,7 +389,8 @@ export function FileEditorDialog({
     }
 
     // Perform final validation check for YAML/JSON files
-    if (language === 'yaml' || language === 'json') {
+    // Skip validation for template files (they contain {{ }} syntax)
+    if ((language === 'yaml' || language === 'json') && !isTemplateFile) {
       let finalValidation: { valid: boolean; errors: string[] }
       
       if (language === 'yaml') {
@@ -456,11 +464,6 @@ export function FileEditorDialog({
     const handleKeyDown = (e: KeyboardEvent) => {
       if (!open) return
       
-      // Ctrl+S or Cmd+S to save
-      if ((e.ctrlKey || e.metaKey) && e.key === 's') {
-        e.preventDefault()
-        handleSave()
-      }
       // Escape to cancel (only if no unsaved changes)
       if (e.key === 'Escape' && !hasChanges) {
         e.preventDefault()
@@ -497,28 +500,37 @@ export function FileEditorDialog({
         {/* Validation Status Indicator */}
         {(getLanguage(fileName) === 'yaml' || getLanguage(fileName) === 'json') && (
           <div className="flex items-center gap-2 px-3 py-2 bg-muted/30 border-b text-sm">
-            {validationStatus === 'validating' && (
+            {isTemplateFile ? (
               <>
-                <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
-                <span className="text-muted-foreground">Validating...</span>
+                <Info className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                <span className="text-blue-600 dark:text-blue-400">Template file (validation disabled)</span>
               </>
-            )}
-            {validationStatus === 'valid' && (
+            ) : (
               <>
-                <CheckCircle2 className="h-4 w-4 text-green-600 dark:text-green-400" />
-                <span className="text-green-600 dark:text-green-400">Valid {getLanguage(fileName).toUpperCase()}</span>
-              </>
-            )}
-            {validationStatus === 'invalid' && (
-              <>
-                <AlertCircle className="h-4 w-4 text-destructive" />
-                <span className="text-destructive">Invalid {getLanguage(fileName).toUpperCase()}</span>
-              </>
-            )}
-            {validationStatus === 'idle' && (
-              <>
-                <Info className="h-4 w-4 text-muted-foreground" />
-                <span className="text-muted-foreground">Ready to edit</span>
+                {validationStatus === 'validating' && (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                    <span className="text-muted-foreground">Validating...</span>
+                  </>
+                )}
+                {validationStatus === 'valid' && (
+                  <>
+                    <CheckCircle2 className="h-4 w-4 text-green-600 dark:text-green-400" />
+                    <span className="text-green-600 dark:text-green-400">Valid {getLanguage(fileName).toUpperCase()}</span>
+                  </>
+                )}
+                {validationStatus === 'invalid' && (
+                  <>
+                    <AlertCircle className="h-4 w-4 text-destructive" />
+                    <span className="text-destructive">Invalid {getLanguage(fileName).toUpperCase()}</span>
+                  </>
+                )}
+                {validationStatus === 'idle' && (
+                  <>
+                    <Info className="h-4 w-4 text-muted-foreground" />
+                    <span className="text-muted-foreground">Ready to edit</span>
+                  </>
+                )}
               </>
             )}
           </div>
@@ -616,9 +628,6 @@ export function FileEditorDialog({
                   • Unsaved changes
                 </div>
               )}
-              <div className="text-muted-foreground">
-                Press <kbd className="px-1.5 py-0.5 text-xs font-mono bg-muted border rounded">Ctrl+S</kbd> to save
-              </div>
             </div>
             <div className="flex gap-2">
               <Button
@@ -636,7 +645,7 @@ export function FileEditorDialog({
                   validationStatus === 'invalid' ||
                   validationStatus === 'validating'
                 }
-                title="Save changes (Ctrl+S / Cmd+S)"
+                title="Save changes"
               >
                 {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 Save Changes

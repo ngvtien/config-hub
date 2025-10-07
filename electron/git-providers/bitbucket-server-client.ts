@@ -182,7 +182,15 @@ export class BitbucketServerClient implements GitProvider {
       const pathSegment = normalizedPath ? `/${normalizedPath}` : ''
       const endpoint = `/rest/api/1.0/projects/${this.projectKey}/repos/${this.repositorySlug}/browse${pathSegment}`
 
-      console.log('Bitbucket listFiles endpoint:', endpoint, 'branch:', branch)
+      console.log('Bitbucket Server listFiles:', {
+        inputPath: path,
+        normalizedPath,
+        pathSegment,
+        endpoint,
+        branch
+      })
+      
+      console.log('About to browse:', endpoint)
 
       let start = 0
       let isLastPage = false
@@ -209,9 +217,14 @@ export class BitbucketServerClient implements GitProvider {
 
         // Convert Bitbucket files to GitFile format
         for (const file of children.values) {
+          // For directories, use the full path (toString) as the path
+          // and just the name for display
+          const fullPath = file.path.toString
+          const displayName = file.path.name
+          
           const gitFile: GitFile = {
-            path: file.path.toString,
-            name: file.path.name,
+            path: fullPath,
+            name: displayName,
             type: file.type === 'FILE' ? 'file' : 'directory',
             size: file.size || 0,
             lastModified: '', // Will be populated by getFileCommits if needed
