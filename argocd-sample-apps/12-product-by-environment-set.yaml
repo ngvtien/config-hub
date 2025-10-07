@@ -20,13 +20,10 @@ spec:
           - list:
               elements:
                 - env: dev
-                  autoSync: "true"
-                  branch: develop
+                  branch: main
                 - env: staging
-                  autoSync: "true"
-                  branch: staging
+                  branch: main
                 - env: prod
-                  autoSync: "false"
                   branch: main
   template:
     metadata:
@@ -35,7 +32,6 @@ spec:
         product: '{{path[2]}}'
         customer: '{{path[1]}}'
         environment: '{{env}}'
-        tier: '{{tier}}'
     spec:
       project: default
       sources:
@@ -56,7 +52,7 @@ spec:
         namespace: '{{path[1]}}-{{path[2]}}-{{env}}'
       syncPolicy:
         automated:
-          prune: '{{autoSync}}'
-          selfHeal: '{{autoSync}}'
+          prune: true
+          selfHeal: true
         syncOptions:
           - CreateNamespace=true

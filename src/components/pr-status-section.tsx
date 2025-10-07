@@ -36,6 +36,7 @@ export function PRStatusSection({ selectedSource, refreshTrigger }: PRStatusSect
 
   // Use selected source if provided, otherwise fall back to legacy behavior
   const repoUrl = selectedSource?.repoURL || null
+  const targetBranch = selectedSource?.targetRevision || 'main'
 
   // Find credentials for this repository and reset state when source changes
   useEffect(() => {
@@ -78,9 +79,9 @@ export function PRStatusSection({ selectedSource, refreshTrigger }: PRStatusSect
       const result = await window.electronAPI.git.listPullRequests(credentialId, 'open', 10)
       
       if (result.success && result.data) {
-        // PRs are already filtered by repository (via credentialId which is repo-specific)
-        // Optionally filter by path if needed in the future
-        setPullRequests(result.data)
+        // Filter PRs by target branch to only show PRs targeting this source's branch
+        const filteredPRs = result.data.filter(pr => pr.targetBranch === targetBranch)
+        setPullRequests(filteredPRs)
       } else {
         setError(result.error || 'Failed to fetch pull requests')
       }
@@ -96,7 +97,7 @@ export function PRStatusSection({ selectedSource, refreshTrigger }: PRStatusSect
     if (credentialId) {
       fetchPullRequests()
     }
-  }, [credentialId, refreshTrigger])
+  }, [credentialId, refreshTrigger, targetBranch])
 
   // Don't show section if no repo URL
   if (!repoUrl) {
@@ -108,8 +109,10 @@ export function PRStatusSection({ selectedSource, refreshTrigger }: PRStatusSect
     return null
   }
 
-  // If no PRs and not loading, show compact version
-  const showCompact = !loading && pullRequests.length === 0 && !error
+  // Don't show section if no PRs and not loading/error
+  if (!loading && pullRequests.length === 0 && !error) {
+    return null
+  }
 
   const getStateIcon = (state: string) => {
     switch (state) {
@@ -167,8 +170,8 @@ export function PRStatusSection({ selectedSource, refreshTrigger }: PRStatusSect
 
   return (
     <>
-      <Card className={showCompact ? 'border-dashed' : ''}>
-      <CardHeader className={showCompact ? 'pb-3' : ''}>
+      <Card>
+      <CardHeader>
         <CardTitle className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <GitPullRequest className="h-5 w-5" />
@@ -192,7 +195,7 @@ export function PRStatusSection({ selectedSource, refreshTrigger }: PRStatusSect
           </Button>
         </CardTitle>
       </CardHeader>
-      {!showCompact && <CardContent>
+      <CardContent>
         {error && (
           <Alert variant="destructive" className="mb-4">
             <AlertCircle className="h-4 w-4" />
@@ -200,16 +203,10 @@ export function PRStatusSection({ selectedSource, refreshTrigger }: PRStatusSect
           </Alert>
         )}
 
-        {loading && pullRequests.length === 0 && (
+        {loading && (
           <div className="flex items-center justify-center py-8 text-muted-foreground">
             <RefreshCw className="h-4 w-4 animate-spin mr-2" />
             Loading pull requests...
-          </div>
-        )}
-
-        {!loading && pullRequests.length === 0 && !error && (
-          <div className="text-center py-4 text-sm text-muted-foreground">
-            No open pull requests
           </div>
         )}
 
@@ -321,12 +318,7 @@ export function PRStatusSection({ selectedSource, refreshTrigger }: PRStatusSect
             ))}
           </div>
         )}
-      </CardContent>}
-      {showCompact && (
-        <CardContent className="pt-0 pb-3">
-          <p className="text-sm text-muted-foreground text-center">No open pull requests</p>
-        </CardContent>
-      )}
+      </CardContent>
     </Card>
 
       <PRDetailDialog
