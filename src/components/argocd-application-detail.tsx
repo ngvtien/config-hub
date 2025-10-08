@@ -36,6 +36,7 @@ import {
   Activity,
   Box
 } from 'lucide-react'
+import { Alert, AlertDescription } from '@/components/ui/alert'
 
 interface ArgoCDApplicationDetailProps {
   applicationName: string
@@ -89,11 +90,14 @@ export function ArgoCDApplicationDetail({
   if (!application && !loading) {
     return (
       <div className="container mx-auto p-6">
-        <div className="flex items-center gap-4 mb-6">
-          <Button variant="outline" onClick={onBack}>
-            <ArrowLeft className="h-4 w-4 mr-2" />
-            Back
-          </Button>
+        <div className="mb-6">
+          <button 
+            onClick={onBack}
+            className="text-sm text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1"
+          >
+            <ArrowLeft className="h-3 w-3" />
+            Back to Applications
+          </button>
         </div>
         <Card>
           <CardContent className="pt-6 text-center space-y-2">
@@ -154,11 +158,14 @@ export function ArgoCDApplicationDetail({
   if (error) {
     return (
       <div className="container mx-auto p-6">
-        <div className="flex items-center gap-4 mb-6">
-          <Button variant="outline" onClick={onBack}>
-            <ArrowLeft className="h-4 w-4 mr-2" />
-            Back
-          </Button>
+        <div className="mb-6">
+          <button 
+            onClick={onBack}
+            className="text-sm text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1"
+          >
+            <ArrowLeft className="h-3 w-3" />
+            Back to Applications
+          </button>
         </div>
         <Card className="border-destructive">
           <CardContent className="pt-6">
@@ -180,17 +187,27 @@ export function ArgoCDApplicationDetail({
   const HealthIcon = healthBadge.icon
 
   return (
-    <div className="container mx-auto p-6 space-y-6">
-      {/* Header */}
+    <div className="container mx-auto space-y-6">
+      {/* Header with Breadcrumb */}
       <div className="flex items-center justify-between">
-        <div className="flex items-center gap-4">
-          <Button variant="outline" onClick={onBack}>
-            <ArrowLeft className="h-4 w-4 mr-2" />
-            Back
-          </Button>
-          <div>
+        <div className="space-y-2">
+          {/* Breadcrumb Navigation */}
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <button 
+              onClick={onBack}
+              className="hover:text-foreground transition-colors flex items-center gap-1"
+            >
+              ArgoCD Applications
+            </button>
+            <span>/</span>
+            <span className="text-foreground font-medium">{application.metadata.name}</span>
+          </div>
+          {/* Title */}
+          <div className="flex items-center gap-3">
             <h1 className="text-3xl font-bold">{application.metadata.name}</h1>
-            <p className="text-muted-foreground">{application.metadata.namespace}</p>
+            <Badge variant="outline" className="text-xs">
+              {application.metadata.namespace}
+            </Badge>
           </div>
         </div>
         <div className="flex items-center gap-2">
@@ -363,9 +380,9 @@ export function ArgoCDApplicationDetail({
         </TabsContent>
 
         {/* Source Tab */}
-        <TabsContent value="source" className="space-y-6">
+        <TabsContent value="source" className="space-y-6 min-h-[400px]">
           {/* Git Source Information - Prominent Display */}
-          <Card className="border-2 border-primary/20">
+          <Card className="border-2 border-primary/20 transition-all duration-200">
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <GitBranch className="h-5 w-5 text-primary" />
@@ -541,6 +558,22 @@ export function ArgoCDApplicationDetail({
 
         {/* Configuration Tab */}
         <TabsContent value="configuration" className="space-y-6">
+          {/* Info message for non-ApplicationSet apps */}
+          {!application.metadata.ownerReferences?.some(ref => ref.kind === 'ApplicationSet') && (
+            <Alert>
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription>
+                <p className="font-medium mb-1">Configuration Management</p>
+                <p className="text-sm">
+                  This application is not managed by an ApplicationSet. Configuration file editing and pull request features are designed for ApplicationSet-generated applications where changes can be propagated through generator templates.
+                </p>
+                <p className="text-sm mt-2">
+                  For standalone applications, you can modify the application manifest directly in your Git repository or through the ArgoCD UI.
+                </p>
+              </AlertDescription>
+            </Alert>
+          )}
+
           {/* Git Source Selector (shown when Git sources exist) */}
           {gitSources.length > 0 && (
             <GitSourceSelector

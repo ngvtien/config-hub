@@ -9,7 +9,7 @@
 
 @layer base {
   :root {
-    /* VS Code Light Modern Theme Colors */
+    /* VS Code Light Modern Theme Colors with Amber Primary */
     --background: 0 0% 100%;
     /* #ffffff - Main background */
     --foreground: 0 0% 13%;
@@ -22,10 +22,10 @@
     /* #fafafa - Popover background */
     --popover-foreground: 0 0% 13%;
     /* #212121 - Popover text */
-    --primary: 210 100% 40%;
-    /* #0066cc - VS Code blue */
-    --primary-foreground: 0 0% 100%;
-    /* #ffffff - Primary text */
+    --primary: 37.7 92.1% 50.2%;
+    /* Vibrant amber/orange */
+    --primary-foreground: 26 83.3% 14.1%;
+    /* Dark brown text on primary */
     --secondary: 0 0% 96%;
     /* #f5f5f5 - Secondary background */
     --secondary-foreground: 0 0% 25%;
@@ -46,51 +46,71 @@
     /* #e6e6e6 - Border color */
     --input: 0 0% 98%;
     /* #fafafa - Input background */
-    --ring: 210 100% 40%;
-    /* #0066cc - Focus ring */
-    --radius: 0.5rem;
+    --ring: 37.7 92.1% 50.2%;
+    /* Amber focus ring */
+    --radius: 0.25rem;
+    
+    /* Sidebar colors */
+    --sidebar-primary: 45 93% 47%;
+    /* Amber for sidebar */
+    --sidebar-primary-foreground: 26 83.3% 14.1%;
+    /* Dark brown for sidebar text */
   }
 
   .dark {
-    /* VS Code Dark Modern Theme Colors */
-    --background: 220 13% 9%;
-    /* #1a1a1a - Main background */
+    /* Warm Dark Theme with Brownish-Black Palette */
+    --background: 24 9.8% 6%;
+    /* Very dark brown/charcoal - Main background */
+    --background-gradient: linear-gradient(135deg, hsl(24 9.8% 6%) 0%, hsl(20 8% 8%) 100%);
+    /* Subtle gradient from dark brown to slightly lighter */
     --foreground: 0 0% 88%;
     /* #e1e1e1 - Main text */
-    --card: 220 13% 11%;
-    /* #1e1e1e - Card background */
+    --card: 24 9.8% 8%;
+    /* Slightly lighter than main background */
+    --card-gradient: linear-gradient(135deg, hsl(24 9.8% 8%) 0%, hsl(20 8% 10%) 100%);
+    /* Subtle gradient for cards */
     --card-foreground: 0 0% 88%;
     /* #e1e1e1 - Card text */
-    --popover: 220 13% 11%;
-    /* #1e1e1e - Popover background */
+    --popover: 24 9.8% 8%;
+    /* Same as card */
     --popover-foreground: 0 0% 88%;
     /* #e1e1e1 - Popover text */
-    --primary: 210 100% 60%;
-    /* #007acc - VS Code blue */
-    --primary-foreground: 0 0% 100%;
-    /* #ffffff - Primary text */
-    --secondary: 220 13% 15%;
-    /* #262626 - Secondary background */
+    --primary: 37.7 92.1% 50.2%;
+    /* Vibrant amber/orange */
+    --primary-foreground: 26 83.3% 14.1%;
+    /* Dark brown text on primary */
+    --secondary: 24 9.8% 10%;
+    /* Slightly lighter secondary */
     --secondary-foreground: 0 0% 75%;
     /* #bfbfbf - Secondary text */
-    --muted: 220 13% 13%;
-    /* #212121 - Muted background */
+    --muted: 24 9.8% 9%;
+    /* Muted background */
     --muted-foreground: 0 0% 60%;
     /* #999999 - Muted text */
-    --accent: 220 13% 15%;
-    /* #262626 - Accent background */
+    --accent: 24 9.8% 10%;
+    /* Accent background */
     --accent-foreground: 0 0% 88%;
     /* #e1e1e1 - Accent text */
     --destructive: 0 65% 55%;
     /* #d73a49 - Error red */
     --destructive-foreground: 0 0% 100%;
     /* #ffffff - Error text */
-    --border: 220 13% 18%;
-    /* #2d2d2d - Border color */
-    --input: 220 13% 15%;
-    /* #262626 - Input background */
-    --ring: 210 100% 60%;
-    /* #007acc - Focus ring */
+    --border: 24 9.8% 12%;
+    /* Subtle border */
+    --input: 24 9.8% 8%;
+    /* Input background */
+    --ring: 37.7 92.1% 50.2%;
+    /* Amber focus ring */
+    
+    /* Sidebar colors */
+    --sidebar-background: 24 9.8% 4%;
+    /* Even darker than main background */
+    --sidebar-gradient: linear-gradient(180deg, hsl(24 9.8% 4%) 0%, hsl(20 8% 6%) 100%);
+    /* Vertical gradient */
+    --sidebar-primary: 45 93% 47%;
+    /* Amber for sidebar */
+    --sidebar-primary-foreground: 26 83.3% 14.1%;
+    /* Dark brown for sidebar text */
   }
 }
 
@@ -99,19 +119,34 @@
     @apply border-border;
   }
 
+  /* Thinner, more subtle borders for form controls and UI elements */
+  input,
+  textarea,
+  select,
+  button,
+  [role="combobox"],
+  .border {
+    border-width: 0.5px;
+    border-opacity: 0.6;
+  }
+
   html {
     @apply scroll-smooth;
     font-feature-settings: "cv02", "cv03", "cv04", "cv11";
     font-variant-ligatures: common-ligatures;
+    -webkit-font-smoothing: subpixel-antialiased;
+    -moz-osx-font-smoothing: auto;
   }
 
   body {
     @apply bg-background text-foreground font-sans;
     @apply text-base leading-normal;
     font-feature-settings: "rlig" 1, "calt" 1;
-    text-rendering: optimizeLegibility;
-    -webkit-font-smoothing: antialiased;
-    -moz-osx-font-smoothing: grayscale;
+    text-rendering: geometricPrecision;
+    -webkit-font-smoothing: subpixel-antialiased;
+    -moz-osx-font-smoothing: auto;
+    font-synthesis: none;
+    image-rendering: crisp-edges;
   }
 
   /* VS Code Light Modern specific styles */
@@ -393,6 +428,21 @@ crollbar utilities */
   .scrollbar-thin::-webkit-scrollbar-thumb:hover {
     background: hsl(var(--muted-foreground));
   }
+
+  /* Tab content optimization - reduce flickering */
+  [role="tabpanel"] {
+    will-change: opacity;
+    animation: fadeIn 0.15s ease-in;
+  }
+
+  @keyframes fadeIn {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
 }
 
 /* VS Code Light Modern UI Enhancements */
@@ -414,8 +464,8 @@ crollbar utilities */
   --vscode-panel-border: hsl(0 0% 90%);
 
   /* Button colors */
-  --vscode-button-background: hsl(210 100% 40%);
-  --vscode-button-hoverBackground: hsl(210 100% 35%);
+  --vscode-button-background: hsl(37.7 92.1% 50.2%);
+  --vscode-button-hoverBackground: hsl(37.7 92.1% 45%);
 
   /* Input colors */
   --vscode-input-background: hsl(0 0% 98%);
@@ -423,7 +473,7 @@ crollbar utilities */
 
   /* List colors */
   --vscode-list-hoverBackground: hsl(0 0% 96%);
-  --vscode-list-activeSelectionBackground: hsl(210 100% 40% / 0.1);
+  --vscode-list-activeSelectionBackground: hsl(37.7 92.1% 50.2% / 0.1);
 }
 
 /* VS Code Dark Modern UI Enhancements */
@@ -445,8 +495,8 @@ crollbar utilities */
   --vscode-panel-border: hsl(220 13% 18%);
 
   /* Button colors */
-  --vscode-button-background: hsl(210 100% 60%);
-  --vscode-button-hoverBackground: hsl(210 100% 65%);
+  --vscode-button-background: hsl(37.7 92.1% 50.2%);
+  --vscode-button-hoverBackground: hsl(37.7 92.1% 55%);
 
   /* Input colors */
   --vscode-input-background: hsl(220 13% 15%);
@@ -454,7 +504,7 @@ crollbar utilities */
 
   /* List colors */
   --vscode-list-hoverBackground: hsl(220 13% 15%);
-  --vscode-list-activeSelectionBackground: hsl(210 100% 60% / 0.2);
+  --vscode-list-activeSelectionBackground: hsl(37.7 92.1% 50.2% / 0.2);
 }
 
 /* Apply VS Code Light styling to specific components */
@@ -472,17 +522,17 @@ crollbar utilities */
 
 /* VS Code style focus rings */
 *:focus-visible {
-  outline: 2px solid hsl(210 100% 40%);
+  outline: 2px solid hsl(37.7 92.1% 50.2%);
   outline-offset: 2px;
 }
 
 /* VS Code style buttons */
 .bg-primary {
-  background-color: hsl(210 100% 40%);
+  background-color: hsl(37.7 92.1% 50.2%);
 }
 
 .bg-primary:hover {
-  background-color: hsl(210 100% 35%);
+  background-color: hsl(37.7 92.1% 45%);
 }
 
 /* VS Code style inputs */
@@ -497,8 +547,8 @@ select {
 input:focus,
 textarea:focus,
 select:focus {
-  border-color: hsl(210 100% 40%);
-  box-shadow: 0 0 0 1px hsl(210 100% 40%);
+  border-color: hsl(37.7 92.1% 50.2%);
+  box-shadow: 0 0 0 1px hsl(37.7 92.1% 50.2%);
 }
 
 /* Apply VS Code Dark styling to specific components */
@@ -516,17 +566,17 @@ select:focus {
 
 /* VS Code style focus rings */
 .dark *:focus-visible {
-  outline: 2px solid hsl(210 100% 60%);
+  outline: 2px solid hsl(37.7 92.1% 50.2%);
   outline-offset: 2px;
 }
 
 /* VS Code style buttons */
 .dark .bg-primary {
-  background-color: hsl(210 100% 60%);
+  background-color: hsl(37.7 92.1% 50.2%);
 }
 
 .dark .bg-primary:hover {
-  background-color: hsl(210 100% 65%);
+  background-color: hsl(37.7 92.1% 55%);
 }
 
 /* VS Code style inputs */
@@ -541,6 +591,6 @@ select:focus {
 .dark input:focus,
 .dark textarea:focus,
 .dark select:focus {
-  border-color: hsl(210 100% 60%);
-  box-shadow: 0 0 0 1px hsl(210 100% 60%);
+  border-color: hsl(37.7 92.1% 50.2%);
+  box-shadow: 0 0 0 1px hsl(37.7 92.1% 50.2%);
 }

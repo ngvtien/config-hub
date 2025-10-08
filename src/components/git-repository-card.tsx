@@ -228,20 +228,19 @@ export function GitRepositoryCard({
 
   if (loading) {
     return (
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <GitBranch className="h-5 w-5" />
-            Git Repository
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="flex items-center gap-2 text-muted-foreground">
-            <RefreshCw className="h-4 w-4 animate-spin" />
-            <span>Checking configuration...</span>
+      <div className="bg-muted/30 p-3 rounded-lg space-y-2 border-l-2 border-muted animate-pulse">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <div className="h-4 w-4 bg-muted-foreground/20 rounded-full" />
+            <div className="h-4 w-32 bg-muted-foreground/20 rounded" />
           </div>
-        </CardContent>
-      </Card>
+          <div className="h-7 w-16 bg-muted-foreground/20 rounded" />
+        </div>
+        <div className="flex items-center gap-2">
+          <div className="h-3 w-3 bg-muted-foreground/20 rounded" />
+          <div className="h-3 w-24 bg-muted-foreground/20 rounded" />
+        </div>
+      </div>
     )
   }
 
@@ -249,7 +248,7 @@ export function GitRepositoryCard({
   if (!credential) {
     return (
       <>
-        <Card className="border-amber-200 bg-amber-50/50">
+        <Card className="border-amber-200 bg-amber-50/50 transition-all duration-200">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <GitBranch className="h-5 w-5" />
@@ -403,7 +402,7 @@ export function GitRepositoryCard({
   // Configured state - Compact inline version
   return (
     <>
-      <div className="bg-muted/30 p-3 rounded-lg space-y-2 border-l-2 border-green-500">
+      <div className="bg-muted/30 p-3 rounded-lg space-y-2 border-l-2 border-green-500 transition-all duration-200">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <CheckCircle className="h-4 w-4 text-green-600" />

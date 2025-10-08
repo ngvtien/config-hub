@@ -51,20 +51,20 @@ module.exports = {
         ],
       },
       fontSize: {
-        // Modern type scale based on 1.125 ratio
-        'xs': ['0.75rem', { lineHeight: '1rem', letterSpacing: '0.025em' }],
-        'sm': ['0.875rem', { lineHeight: '1.25rem', letterSpacing: '0.025em' }],
-        'base': ['1rem', { lineHeight: '1.5rem', letterSpacing: '0' }],
-        'lg': ['1.125rem', { lineHeight: '1.75rem', letterSpacing: '-0.025em' }],
-        'xl': ['1.25rem', { lineHeight: '1.75rem', letterSpacing: '-0.025em' }],
-        '2xl': ['1.5rem', { lineHeight: '2rem', letterSpacing: '-0.025em' }],
-        '3xl': ['1.875rem', { lineHeight: '2.25rem', letterSpacing: '-0.025em' }],
-        '4xl': ['2.25rem', { lineHeight: '2.5rem', letterSpacing: '-0.025em' }],
-        '5xl': ['3rem', { lineHeight: '1', letterSpacing: '-0.025em' }],
-        '6xl': ['3.75rem', { lineHeight: '1', letterSpacing: '-0.025em' }],
-        '7xl': ['4.5rem', { lineHeight: '1', letterSpacing: '-0.025em' }],
-        '8xl': ['6rem', { lineHeight: '1', letterSpacing: '-0.025em' }],
-        '9xl': ['8rem', { lineHeight: '1', letterSpacing: '-0.025em' }],
+        // Refined type scale - slightly smaller for sharper, denser UI
+        'xs': ['0.6875rem', { lineHeight: '1rem', letterSpacing: '0.025em' }],      // 11px
+        'sm': ['0.8125rem', { lineHeight: '1.25rem', letterSpacing: '0.025em' }],   // 13px
+        'base': ['0.9375rem', { lineHeight: '1.5rem', letterSpacing: '0' }],        // 15px
+        'lg': ['1.0625rem', { lineHeight: '1.625rem', letterSpacing: '-0.025em' }], // 17px
+        'xl': ['1.1875rem', { lineHeight: '1.75rem', letterSpacing: '-0.025em' }],  // 19px
+        '2xl': ['1.375rem', { lineHeight: '1.875rem', letterSpacing: '-0.025em' }], // 22px
+        '3xl': ['1.75rem', { lineHeight: '2.125rem', letterSpacing: '-0.025em' }],  // 28px
+        '4xl': ['2.125rem', { lineHeight: '2.375rem', letterSpacing: '-0.025em' }], // 34px
+        '5xl': ['2.75rem', { lineHeight: '1', letterSpacing: '-0.025em' }],         // 44px
+        '6xl': ['3.5rem', { lineHeight: '1', letterSpacing: '-0.025em' }],          // 56px
+        '7xl': ['4.25rem', { lineHeight: '1', letterSpacing: '-0.025em' }],         // 68px
+        '8xl': ['5.5rem', { lineHeight: '1', letterSpacing: '-0.025em' }],          // 88px
+        '9xl': ['7.5rem', { lineHeight: '1', letterSpacing: '-0.025em' }],          // 120px
       },
       fontWeight: {
         thin: '100',

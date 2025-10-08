@@ -25,6 +25,7 @@ export function EnvironmentSelector() {
   const [isOpen, setIsOpen] = useState(false)
 
   const environments: { key: Environment; label: string; icon: any; color: string }[] = [
+    { key: 'local', label: 'Local', icon: Globe, color: 'bg-gray-500' },
     { key: 'dev', label: 'Development', icon: TestTube, color: 'bg-blue-500' },
     { key: 'sit', label: 'System Integration', icon: Settings, color: 'bg-yellow-500' },
     { key: 'uat', label: 'User Acceptance', icon: Users, color: 'bg-orange-500' },

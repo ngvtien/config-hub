@@ -52,13 +52,13 @@ function App() {
       case 'test-form':
         return <LazyWrapper><TestFormGeneration /></LazyWrapper>
       case 'settings':
-        return <LazyWrapper><SettingsPage onBack={() => setCurrentPage('dashboard')} /></LazyWrapper>
+        return <LazyWrapper><SettingsPage /></LazyWrapper>
       case 'users':
-        return <LazyWrapper><UsersPage onBack={() => setCurrentPage('dashboard')} /></LazyWrapper>
+        return <LazyWrapper><UsersPage /></LazyWrapper>
       case 'documents':
-        return <LazyWrapper><DocumentsPage onBack={() => setCurrentPage('dashboard')} /></LazyWrapper>
+        return <LazyWrapper><DocumentsPage /></LazyWrapper>
       case 'analytics':
-        return <LazyWrapper><AnalyticsPage onBack={() => setCurrentPage('dashboard')} /></LazyWrapper>
+        return <LazyWrapper><AnalyticsPage /></LazyWrapper>
       default:
         return (
           <div className="max-w-4xl mx-auto space-y-6">
@@ -227,33 +227,40 @@ const config: TypographyConfig = {
     }
   }
 
-  const getPageTitle = () => {
+  const getPageInfo = () => {
     switch (currentPage) {
       case 'typography':
-        return 'Typography System'
+        return { title: 'Typography System', subtitle: 'Font styles and text formatting showcase' }
       case 'argocd':
-        return 'ArgoCD Applications'
+        return { title: 'ArgoCD Applications', subtitle: 'Manage and monitor your Kubernetes applications' }
       case 'test-editor':
-        return 'File Editor Test'
+        return { title: 'File Editor Test', subtitle: 'Test file editing capabilities' }
       case 'test-form':
-        return 'Form Generation Test'
+        return { title: 'Form Generation Test', subtitle: 'Test JSON schema form generation' }
       case 'settings':
-        return 'Settings'
+        return { title: 'Settings', subtitle: 'Configure application preferences and integrations' }
       case 'users':
-        return 'Users'
+        return { title: 'Users', subtitle: 'Manage user accounts and permissions' }
       case 'documents':
-        return 'Documents'
+        return { title: 'Documents', subtitle: 'Browse and manage documentation' }
       case 'analytics':
-        return 'Analytics'
+        return { title: 'Analytics', subtitle: 'View insights and metrics' }
       default:
-        return 'Dashboard'
+        return { title: 'Dashboard', subtitle: "Welcome back! Here's what's happening today." }
     }
   }
+
+  const pageInfo = getPageInfo()
 
   return (
     <>
       <LoadingManager />
-      <AppLayout title={getPageTitle()} currentPage={currentPage} onNavigate={setCurrentPage}>
+      <AppLayout 
+        title={pageInfo.title} 
+        subtitle={pageInfo.subtitle}
+        currentPage={currentPage} 
+        onNavigate={setCurrentPage}
+      >
         {currentPage === 'typography' && (
           <div className="mb-4">
             <Button

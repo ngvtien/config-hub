@@ -2270,28 +2270,6 @@ const renderVaultSettings = () => {
 
   return (
     <div className="max-w-6xl mx-auto space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <div className="flex items-center gap-3 mb-2">
-            <h1 className="text-3xl font-bold">Settings</h1>
-            <Badge variant="outline" className="flex items-center gap-1">
-              <Globe className="w-3 h-3" />
-              {getContextKey().toUpperCase()}
-            </Badge>
-          </div>
-          <p className="text-muted-foreground">
-            Manage your application configuration for {environment} environment
-            {environment === 'uat' ? ` (instance ${instance})` : ''}
-          </p>
-        </div>
-        {onBack && (
-          <Button variant="outline" onClick={onBack}>
-            ← Back
-          </Button>
-        )}
-      </div>
-
       {/* Responsive Tabs Layout */}
       <Tabs value={activeSection} onValueChange={setActiveSection} className="w-full">
         {/* Desktop: Horizontal Tabs */}

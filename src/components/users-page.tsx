@@ -64,25 +64,11 @@ export function UsersPage({ onBack }: UsersPageProps) {
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold flex items-center gap-2">
-            <Users className="w-8 h-8" />
-            Users
-          </h1>
-          <p className="text-muted-foreground">System user information and management</p>
-        </div>
-        <div className="flex gap-2">
-          <Button variant="outline" onClick={handleRefresh} disabled={isLoading}>
-            <RefreshCw className={`w-4 h-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
-            Refresh
-          </Button>
-          {onBack && (
-            <Button variant="outline" onClick={onBack}>
-              ← Back
-            </Button>
-          )}
-        </div>
+      <div className="flex justify-end">
+        <Button variant="outline" onClick={handleRefresh} disabled={isLoading}>
+          <RefreshCw className={`w-4 h-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
+          Refresh
+        </Button>
       </div>
 
       {error && (

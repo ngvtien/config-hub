@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react'
 
-export type Environment = 'dev' | 'sit' | 'uat' | 'prod'
+export type Environment = 'local' | 'dev' | 'sit' | 'uat' | 'prod'
 export type Instance = 0 | 1 | 2 | 3
 
 export interface EnvironmentContextType {
@@ -27,7 +27,7 @@ export function EnvironmentProvider({ children }: EnvironmentProviderProps) {
     const savedEnv = localStorage.getItem('app-environment') as Environment
     const savedInstance = localStorage.getItem('app-instance')
     
-    if (savedEnv && ['dev', 'sit', 'uat', 'prod'].includes(savedEnv)) {
+    if (savedEnv && ['local', 'dev', 'sit', 'uat', 'prod'].includes(savedEnv)) {
       setEnvironment(savedEnv)
     }
     

@@ -9,11 +9,12 @@ import { useAssetPath } from '@/hooks/use-asset-path'
 interface AppLayoutProps {
   children: React.ReactNode
   title?: string
+  subtitle?: string
   currentPage?: string
   onNavigate?: (page: string) => void
 }
 
-export function AppLayout({ children, title, currentPage, onNavigate }: AppLayoutProps) {
+export function AppLayout({ children, title, subtitle, currentPage, onNavigate }: AppLayoutProps) {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
   
   // Get asset paths for logos
@@ -94,11 +95,12 @@ export function AppLayout({ children, title, currentPage, onNavigate }: AppLayou
       <div className="flex-1 flex flex-col overflow-hidden">
         <AppHeader
           title={title}
+          subtitle={subtitle}
           onMenuClick={() => setIsMobileMenuOpen(true)}
           showMenuButton={true}
         />
 
-        <main className="flex-1 overflow-auto p-6">
+        <main className="flex-1 overflow-auto px-6 py-3">
           {children}
         </main>
       </div>

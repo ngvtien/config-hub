@@ -8,12 +8,14 @@ import { Separator } from '@/components/ui/separator'
 
 interface AppHeaderProps {
   title?: string
+  subtitle?: string
   onMenuClick?: () => void
   showMenuButton?: boolean
 }
 
 export function AppHeader({ 
   title = "Dashboard", 
+  subtitle = "Welcome back! Here's what's happening today.",
   onMenuClick,
   showMenuButton = false 
 }: AppHeaderProps) {
@@ -32,9 +34,11 @@ export function AppHeader({
         )}
         <div>
           <h1 className="text-2xl font-bold text-foreground">{title}</h1>
-          <p className="text-sm text-muted-foreground">
-            Welcome back! Here's what's happening today.
-          </p>
+          {subtitle && (
+            <p className="text-sm text-muted-foreground">
+              {subtitle}
+            </p>
+          )}
         </div>
       </div>
       
