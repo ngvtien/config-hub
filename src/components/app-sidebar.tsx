@@ -8,7 +8,7 @@ import {
   Users,
   FileText,
   BarChart3,
-  GitBranch,
+  Workflow,
   ChevronLeft,
   User
 } from 'lucide-react'
@@ -22,7 +22,7 @@ interface AppSidebarProps {
 
 const menuItems = [
   { icon: Home, label: 'Dashboard', page: 'dashboard' },
-  { icon: GitBranch, label: 'ArgoCD', page: 'argocd' },
+  { icon: Workflow, label: 'ArgoCD', page: 'argocd' },
   { icon: Users, label: 'Users', page: 'users' },
   { icon: FileText, label: 'Documents', page: 'documents' },
   { icon: BarChart3, label: 'Analytics', page: 'analytics' },
@@ -133,6 +133,7 @@ export function AppSidebar({ className, currentPage = 'dashboard', onNavigate }:
                     isCollapsed ? "justify-center px-2" : "justify-start px-3"
                   )}
                   onClick={() => onNavigate?.(item.page)}
+                  title={isCollapsed ? item.label : undefined}
                 >
                   <Icon className={cn("h-5 w-5", !isCollapsed && "mr-2")} />
                   {!isCollapsed && (
