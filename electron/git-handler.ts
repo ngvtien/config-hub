@@ -1033,6 +1033,25 @@ export function setupGitHandlers(): void {
     }
   })
 
+  // Decline/Delete a Pull Request
+  ipcMain.handle('git:declinePullRequest', async (_, credentialId: string, prId: number) => {
+    try {
+      const credential = await secureCredentialManager.getCredential(credentialId) as GitCredential
+      if (!credential) {
+        return { success: false, error: 'Credential not found' }
+      }
+
+      const providerType = gitCredentialManager.detectProviderType(credential.repoUrl)
+      const client = await gitCredentialManager.createProviderClient(providerType, credential)
+
+      const result = await client.declinePullRequest(prId)
+      return { success: true, data: result }
+    } catch (error) {
+      console.error('Failed to decline pull request:', error)
+      return { success: false, error: error instanceof Error ? error.message : 'Unknown error' }
+    }
+  })
+
   // Send webhook notification
   ipcMain.handle('git:sendWebhookNotification', async (_, webhookUrl: string, payload: any) => {
     try {

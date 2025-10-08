@@ -1,12 +1,10 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
-import { FileText } from 'lucide-react'
 
 interface DocumentsPageProps {
   onBack?: () => void
 }
 
-export function DocumentsPage({ onBack }: DocumentsPageProps) {
+export function DocumentsPage({ }: DocumentsPageProps) {
   return (
     <div className="max-w-4xl mx-auto space-y-6">
       <Card>

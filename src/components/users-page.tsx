@@ -12,7 +12,7 @@ interface UsersPageProps {
   onBack?: () => void
 }
 
-export function UsersPage({ onBack }: UsersPageProps) {
+export function UsersPage({ }: UsersPageProps) {
   const {
     currentUser,
     availableUsers,

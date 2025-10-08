@@ -123,6 +123,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
       ipcRenderer.invoke('git:approvePullRequest', credentialId, prId),
     mergePullRequest: (credentialId: string, prId: number, mergeStrategy?: string) => 
       ipcRenderer.invoke('git:mergePullRequest', credentialId, prId, mergeStrategy),
+    declinePullRequest: (credentialId: string, prId: number) => 
+      ipcRenderer.invoke('git:declinePullRequest', credentialId, prId),
     
     // Webhook notifications (new)
     sendWebhookNotification: (webhookUrl: string, payload: any) => 

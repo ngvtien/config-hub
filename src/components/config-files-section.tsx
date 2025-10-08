@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent, CardHeader } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
@@ -8,9 +8,10 @@ import { ArgoCDApplication, getApplicationSource } from '@/types/argocd'
 import type { GitSourceInfo } from '@/lib/git-source-utils'
 import { useGitCredentials } from '@/hooks/use-git-credentials'
 import { useGitFiles } from '@/hooks/use-git-files'
+import { useStagedChanges } from '@/hooks/use-staged-changes'
 import { GitAuthDialog, GitCredentials } from './git-auth-dialog'
 import { FileEditorDialog } from './file-editor-dialog'
-import { PullRequestDialog } from './pull-request-dialog'
+import { StagedChangesPanel } from './staged-changes-panel'
 import { getFilePriority, sortFilesByPriority } from '@/services/file-priority-service'
 
 interface ConfigFilesSectionProps {
@@ -40,8 +41,11 @@ export function ConfigFilesSection({ application, selectedSource, onPRCreated }:
   const [showAuthDialog, setShowAuthDialog] = useState(false)
   const [editingFile, setEditingFile] = useState<{ path: string; name: string; content: string; originalContent: string } | null>(null)
   const [showEditorDialog, setShowEditorDialog] = useState(false)
-  const [showPRDialog, setShowPRDialog] = useState(false)
   const [browseFromRoot, setBrowseFromRoot] = useState(false)
+  
+  // Staged changes
+  const { stageFile, getStagedForRepo } = useStagedChanges()
+  const stagedCount = getStagedForRepo(repoUrl).length
   
   // Combine base path with current navigation path
   // Allow browsing from root if user explicitly requested it
@@ -148,27 +152,25 @@ export function ConfigFilesSection({ application, selectedSource, onPRCreated }:
   }
 
   const handleSaveFile = async (content: string) => {
-    if (!editingFile) return
+    if (!editingFile || !credentials?.id) return
 
-    // Update the editing file with new content and open PR dialog
-    setEditingFile({
-      ...editingFile,
-      content
-    })
-    setShowEditorDialog(false)
-    setShowPRDialog(true)
-  }
-
-  const handlePRSuccess = () => {
-    // Close PR dialog and refresh file list
-    setShowPRDialog(false)
-    setEditingFile(null)
-    refreshFiles()
-    
-    // Notify parent to refresh PR list
-    if (onPRCreated) {
-      onPRCreated()
+    // Stage the file instead of immediately creating PR
+    const stagedFile = {
+      path: editingFile.path,
+      name: editingFile.name,
+      content,
+      originalContent: editingFile.originalContent,
+      repoUrl,
+      branch,
+      credentialId: credentials.id,
+      stagedAt: Date.now()
     }
+    
+    console.log('Staging file:', stagedFile)
+    stageFile(stagedFile)
+    
+    setShowEditorDialog(false)
+    setEditingFile(null)
   }
 
   const handleNavigateToDirectory = (dirPath: string) => {
@@ -223,6 +225,13 @@ export function ConfigFilesSection({ application, selectedSource, onPRCreated }:
           <div className="flex items-center gap-2 flex-wrap">
             <FileText className="h-5 w-5 text-primary" />
             <h3 className="text-lg font-semibold">Configuration Files</h3>
+            {/* Staged changes indicator */}
+            {stagedCount > 0 && (
+              <Badge variant="default" className="ml-1 gap-1">
+                <FileText className="h-3 w-3" />
+                {stagedCount} staged
+              </Badge>
+            )}
             {/* Path breadcrumb as badges */}
             <div className="flex items-center gap-1">
               <Badge 
@@ -269,7 +278,17 @@ export function ConfigFilesSection({ application, selectedSource, onPRCreated }:
           </Button>
         </div>
       </CardHeader>
-      <CardContent>
+      <CardContent className="space-y-4">
+        {/* Staged Changes Panel */}
+        {credentials?.id && (
+          <StagedChangesPanel
+            repoUrl={repoUrl}
+            branch={branch}
+            credentialId={credentials.id}
+            applicationName={application.metadata.name}
+            onPRCreated={onPRCreated}
+          />
+        )}
 
         {/* Credentials Loading State */}
         {credentialsLoading && (
@@ -508,20 +527,6 @@ export function ConfigFilesSection({ application, selectedSource, onPRCreated }:
         />
       )}
 
-      {/* Pull Request Dialog */}
-      {editingFile && credentials?.id && (
-        <PullRequestDialog
-          open={showPRDialog}
-          onOpenChange={setShowPRDialog}
-          filePath={editingFile.path}
-          fileName={editingFile.name}
-          newContent={editingFile.content}
-          branch={branch}
-          credentialId={credentials.id}
-          applicationName={application.metadata.name}
-          onSuccess={handlePRSuccess}
-        />
-      )}
     </>
   )
 }

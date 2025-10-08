@@ -558,7 +558,7 @@ export function ArgoCDApplicationDetail({
         {/* Configuration Tab */}
         <TabsContent value="configuration" className="space-y-6">
           {/* Info message for non-ApplicationSet apps */}
-          {!application.metadata.ownerReferences?.some(ref => ref.kind === 'ApplicationSet') && (
+          {!application.metadata.ownerReferences?.some((ref: any) => ref.kind === 'ApplicationSet') && (
             <Alert>
               <AlertCircle className="h-4 w-4" />
               <AlertDescription>

@@ -1029,6 +1029,35 @@ export class BitbucketServerClient implements GitProvider {
   }
 
   /**
+   * Decline a Pull Request
+   * Uses Bitbucket Server REST API /pull-requests/{id}/decline endpoint
+   */
+  async declinePullRequest(prId: number): Promise<{ success: boolean; message: string }> {
+    try {
+      const endpoint = `/rest/api/1.0/projects/${this.projectKey}/repos/${this.repositorySlug}/pull-requests/${prId}/decline`
+      
+      // Get PR version first (required for decline)
+      const prEndpoint = `/rest/api/1.0/projects/${this.projectKey}/repos/${this.repositorySlug}/pull-requests/${prId}`
+      const prResponse = await this.axiosInstance.get(prEndpoint)
+      const version = prResponse.data.version
+      
+      await this.axiosInstance.post(endpoint, { version })
+      
+      return {
+        success: true,
+        message: 'Pull request declined successfully'
+      }
+    } catch (error: any) {
+      console.error('Bitbucket Server declinePullRequest error:', error.response?.data || error.message)
+      
+      return {
+        success: false,
+        message: error.response?.data?.errors?.[0]?.message || error.message || 'Failed to decline pull request'
+      }
+    }
+  }
+
+  /**
    * Convert Bitbucket Pull Request to PullRequest format
    */
   private convertBitbucketPullRequest(pr: BitbucketPullRequest): PullRequest {

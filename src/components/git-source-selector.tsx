@@ -2,13 +2,22 @@ import { useState, useEffect } from 'react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { Alert, AlertDescription } from '@/components/ui/alert'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
 import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip'
-import { GitBranch, Folder, Check, GitPullRequest, RefreshCw, ExternalLink, Eye } from 'lucide-react'
+import { GitBranch, Folder, Check, GitPullRequest, RefreshCw, ExternalLink, Eye, X, AlertCircle } from 'lucide-react'
 import type { GitSourceInfo } from '@/lib/git-source-utils'
 import type { PullRequest } from '@/types/git'
 import { cn } from '@/lib/utils'
@@ -32,7 +41,7 @@ interface SourceItemProps {
 
 function SourceItem({ source, isSelected, onSelect, prCount, onTogglePRs }: SourceItemProps) {
   const { hasCredentials, credentials } = useGitCredentials(source.repoURL)
-  
+
   return (
     <div
       className={cn(
@@ -71,7 +80,7 @@ function SourceItem({ source, isSelected, onSelect, prCount, onTogglePRs }: Sour
           )}
           <span className="font-medium text-sm">{source.displayName}</span>
         </div>
-        
+
         {/* Second line: repository URL with tooltip */}
         <Tooltip>
           <TooltipTrigger asChild>
@@ -83,7 +92,7 @@ function SourceItem({ source, isSelected, onSelect, prCount, onTogglePRs }: Sour
             <p className="font-mono text-xs break-all">{source.repoURL}</p>
           </TooltipContent>
         </Tooltip>
-        
+
         {/* Third line: branch and path */}
         <div className="flex items-center gap-3 text-xs text-muted-foreground">
           <div className="flex items-center gap-1">
@@ -108,7 +117,7 @@ function SourceItem({ source, isSelected, onSelect, prCount, onTogglePRs }: Sour
           )}
         </div>
       </div>
-      
+
       {/* Right side badges (only for selected source) */}
       {isSelected && (
         <div className="flex-shrink-0 flex items-center gap-2">
@@ -116,8 +125,8 @@ function SourceItem({ source, isSelected, onSelect, prCount, onTogglePRs }: Sour
           {prCount !== undefined && prCount > 0 && (
             <Tooltip>
               <TooltipTrigger asChild>
-                <Badge 
-                  variant="outline" 
+                <Badge
+                  variant="outline"
                   className="gap-1.5 cursor-pointer hover:bg-muted transition-colors h-6 px-2"
                   onClick={(e) => {
                     e.stopPropagation()
@@ -133,7 +142,7 @@ function SourceItem({ source, isSelected, onSelect, prCount, onTogglePRs }: Sour
               </TooltipContent>
             </Tooltip>
           )}
-          
+
           {/* Auth Badge */}
           {hasCredentials && credentials && (
             <Tooltip>
@@ -165,14 +174,17 @@ export function GitSourceSelector({
   const [selectedPR, setSelectedPR] = useState<PullRequest | null>(null)
   const [detailDialogOpen, setDetailDialogOpen] = useState(false)
   const [showPRs, setShowPRs] = useState(false) // Collapsed by default
-  
+  const [decliningPRId, setDecliningPRId] = useState<number | null>(null)
+  const [declineError, setDeclineError] = useState<string | null>(null)
+  const [isDeclining, setIsDeclining] = useState(false)
+
   if (sources.length === 0) {
     return null
   }
 
   const selectedSource = sources.find(s => s.index === selectedIndex) || sources[0]
   const { hasCredentials, credentials } = useGitCredentials(selectedSource.repoURL)
-  
+
   // Fetch pull requests for the selected source
   const fetchPullRequests = async () => {
     if (!credentials?.id || !window.electronAPI) return
@@ -181,7 +193,7 @@ export function GitSourceSelector({
 
     try {
       const result = await window.electronAPI.git.listPullRequests(credentials.id, 'open', 10)
-      
+
       if (result.success && result.data) {
         // Filter PRs by target branch
         const filteredPRs = result.data.filter(pr => pr.targetBranch === selectedSource.targetRevision)
@@ -202,10 +214,46 @@ export function GitSourceSelector({
       setPullRequests([])
     }
   }, [credentials?.id, selectedSource.index, refreshTrigger])
-  
+
   const handleViewPRDetails = (pr: PullRequest) => {
     setSelectedPR(pr)
     setDetailDialogOpen(true)
+  }
+
+  const handleDeclinePR = async (prId: number) => {
+    setDecliningPRId(prId)
+  }
+
+  const confirmDeclinePR = async () => {
+    if (!decliningPRId || !credentials?.id || !window.electronAPI) return
+
+    setDeclineError(null)
+    setIsDeclining(true)
+
+    try {
+      // Check if declinePullRequest exists on the API
+      if (!window.electronAPI.git.declinePullRequest) {
+        setDeclineError('Decline PR feature is not available in this version')
+        setIsDeclining(false)
+        return
+      }
+
+      const result = await window.electronAPI.git.declinePullRequest(credentials.id, decliningPRId)
+
+      if (result.success) {
+        // Wait a moment for Bitbucket to update, then refresh PR list
+        await new Promise(resolve => setTimeout(resolve, 1000))
+        await fetchPullRequests()
+        setDecliningPRId(null)
+      } else {
+        setDeclineError(result.error || 'Failed to decline pull request')
+      }
+    } catch (err) {
+      console.error('Failed to decline PR:', err)
+      setDeclineError('Failed to decline pull request')
+    } finally {
+      setIsDeclining(false)
+    }
   }
 
   // If only one source, show it as read-only info
@@ -258,10 +306,10 @@ export function GitSourceSelector({
               {sources.map((source) => {
                 const isSelected = source.index === selectedIndex
                 return (
-                  <SourceItem 
-                    key={source.index} 
-                    source={source} 
-                    isSelected={isSelected} 
+                  <SourceItem
+                    key={source.index}
+                    source={source}
+                    isSelected={isSelected}
                     onSelect={() => onSelectSource(source.index)}
                     prCount={isSelected ? pullRequests.length : undefined}
                     onTogglePRs={() => setShowPRs(!showPRs)}
@@ -269,7 +317,7 @@ export function GitSourceSelector({
                 )
               })}
             </div>
-            
+
             {/* Pull Requests Section - Only show when expanded */}
             {hasCredentials && pullRequests.length > 0 && showPRs && (
               <div className="pt-3 border-t space-y-2">
@@ -288,7 +336,7 @@ export function GitSourceSelector({
                     <RefreshCw className={`h-3 w-3 ${loadingPRs ? 'animate-spin' : ''}`} />
                   </Button>
                 </div>
-                
+
                 {/* PR List */}
                 <div className="space-y-2">
                   {pullRequests.map((pr) => (
@@ -322,18 +370,39 @@ export function GitSourceSelector({
                             )}
                           </div>
                         </div>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            handleViewPRDetails(pr)
-                          }}
-                          className="h-6 px-2 text-xs flex-shrink-0"
-                        >
-                          <Eye className="h-3 w-3 mr-1" />
-                          Details
-                        </Button>
+                        <div className="flex items-center gap-1 flex-shrink-0">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              handleViewPRDetails(pr)
+                            }}
+                            className="h-6 px-2 text-xs"
+                          >
+                            <Eye className="h-3 w-3 mr-1" />
+                            Details
+                          </Button>
+                          {pr.state === 'open' && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                handleDeclinePR(pr.id)
+                              }}
+                              disabled={isDeclining && decliningPRId === pr.id}
+                              className="h-6 px-2 text-xs text-destructive hover:text-destructive disabled:opacity-50"
+                              title="Decline PR"
+                            >
+                              {isDeclining && decliningPRId === pr.id ? (
+                                <RefreshCw className="h-3 w-3 animate-spin" />
+                              ) : (
+                                <X className="h-3 w-3" />
+                              )}
+                            </Button>
+                          )}
+                        </div>
                       </div>
                     </div>
                   ))}
@@ -343,7 +412,7 @@ export function GitSourceSelector({
           </div>
         </CardContent>
       </Card>
-      
+
       {/* PR Detail Dialog */}
       <PRDetailDialog
         open={detailDialogOpen}
@@ -355,6 +424,47 @@ export function GitSourceSelector({
           setDetailDialogOpen(false)
         }}
       />
+
+      {/* Decline PR Confirmation Dialog */}
+      <Dialog open={!!decliningPRId} onOpenChange={(open) => !open && !isDeclining && setDecliningPRId(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Decline Pull Request</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to decline this pull request? This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          {declineError && (
+            <Alert variant="destructive">
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription>{declineError}</AlertDescription>
+            </Alert>
+          )}
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setDecliningPRId(null)}
+              disabled={isDeclining}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={confirmDeclinePR}
+              disabled={isDeclining}
+            >
+              {isDeclining ? (
+                <>
+                  <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                  Declining...
+                </>
+              ) : (
+                'Decline PR'
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </TooltipProvider>
   )
 }

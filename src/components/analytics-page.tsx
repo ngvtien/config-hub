@@ -1,12 +1,10 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
-import { BarChart3 } from 'lucide-react'
 
 interface AnalyticsPageProps {
   onBack?: () => void
 }
 
-export function AnalyticsPage({ onBack }: AnalyticsPageProps) {
+export function AnalyticsPage({ }: AnalyticsPageProps) {
   return (
     <div className="max-w-4xl mx-auto space-y-6">
       <Card>

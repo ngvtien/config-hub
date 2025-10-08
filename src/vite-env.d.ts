@@ -179,6 +179,7 @@ interface Window {
       getPullRequestDiff: (credentialId: string, prId: number) => Promise<GitResponse<{ path: string; diff: string }[]>>
       approvePullRequest: (credentialId: string, prId: number) => Promise<GitResponse<any>>
       mergePullRequest: (credentialId: string, prId: number, mergeStrategy?: string) => Promise<GitResponse<any>>
+      declinePullRequest: (credentialId: string, prId: number) => Promise<GitResponse<any>>
       
       // Webhook notifications (new)
       sendWebhookNotification: (webhookUrl: string, payload: any) => Promise<GitResponse<void>>

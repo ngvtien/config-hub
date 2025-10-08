@@ -29,7 +29,6 @@ import {
   Shield,
   Save,
   RefreshCw,
-  Globe,
   Eye,
   EyeOff
 } from 'lucide-react'
@@ -45,8 +44,8 @@ interface SettingsSection {
   serviceIcon?: string | null
 }
 
-export function SettingsPage({ onBack }: SettingsPageProps) {
-  const { environment, instance, getContextKey } = useEnvironment()
+export function SettingsPage({ }: SettingsPageProps) {
+  const { environment, getContextKey } = useEnvironment()
   const { settings, updateSection } = useEnvironmentSettings()
   const [activeSection, setActiveSection] = useState('general')
 

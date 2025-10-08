@@ -9,6 +9,14 @@ export interface ArgoCDApplication {
     creationTimestamp: string
     labels?: Record<string, string>
     annotations?: Record<string, string>
+    ownerReferences?: Array<{
+      apiVersion: string
+      kind: string
+      name: string
+      uid: string
+      controller?: boolean
+      blockOwnerDeletion?: boolean
+    }>
   }
   spec: {
     project: string

@@ -183,7 +183,7 @@ export function DiffPreviewDialog({
           <Info className="h-4 w-4" />
           <AlertDescription>
             Review the changes below. Green lines are additions, red lines are deletions.
-            {onCreatePullRequest && ' Click "Create Pull Request" to submit these changes for review.'}
+            {onCreatePullRequest && ' Click "Stage Changes" to add this file to your staged changes.'}
           </AlertDescription>
         </Alert>
 
@@ -229,7 +229,7 @@ export function DiffPreviewDialog({
                   disabled={diffStats.additions === 0 && diffStats.deletions === 0 && diffStats.changes === 0}
                 >
                   <GitPullRequest className="mr-2 h-4 w-4" />
-                  Create Pull Request
+                  Stage Changes
                 </Button>
               )}
             </div>

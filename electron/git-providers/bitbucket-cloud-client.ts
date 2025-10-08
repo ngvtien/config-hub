@@ -500,6 +500,44 @@ export class BitbucketCloudClient implements GitProvider {
   }
 
   /**
+   * Decline a Pull Request
+   * Uses Bitbucket Cloud API 2.0 /pullrequests/{id}/decline endpoint
+   */
+  async declinePullRequest(prId: number): Promise<{ success: boolean; message: string }> {
+    try {
+      // Use the decline endpoint with POST (as per Bitbucket Cloud API)
+      const endpoint = `/repositories/${this.workspace}/${this.repoSlug}/pullrequests/${prId}/decline`
+      console.log('Bitbucket Cloud decline PR endpoint:', endpoint)
+      
+      // POST with empty body to decline
+      const response = await this.axiosInstance.post(endpoint, {})
+      console.log('Bitbucket Cloud decline PR response:', response.status, response.data?.state)
+      
+      return {
+        success: true,
+        message: 'Pull request declined successfully'
+      }
+    } catch (error: any) {
+      console.error('Bitbucket Cloud declinePullRequest error:', {
+        status: error.response?.status,
+        statusText: error.response?.statusText,
+        data: error.response?.data,
+        message: error.message
+      })
+      
+      const errorMessage = error.response?.data?.error?.message 
+        || error.response?.data?.message
+        || error.message 
+        || 'Failed to decline pull request'
+      
+      return {
+        success: false,
+        message: `${errorMessage} (Status: ${error.response?.status || 'unknown'})`
+      }
+    }
+  }
+
+  /**
    * Delete a branch
    * Uses Bitbucket Cloud API 2.0 /refs/branches/{name} endpoint
    */

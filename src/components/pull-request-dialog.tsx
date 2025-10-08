@@ -22,6 +22,7 @@ import {
   CheckCircle,
   FileText,
 } from 'lucide-react'
+import type { StagedFile } from '@/hooks/use-staged-changes'
 
 interface PullRequestDialogProps {
   open: boolean
@@ -33,6 +34,7 @@ interface PullRequestDialogProps {
   credentialId: string
   applicationName: string
   onSuccess: () => void
+  stagedFiles?: StagedFile[] // Optional: for multi-file PRs
 }
 
 export function PullRequestDialog({
@@ -45,6 +47,7 @@ export function PullRequestDialog({
   credentialId,
   applicationName,
   onSuccess,
+  stagedFiles,
 }: PullRequestDialogProps) {
   const [step, setStep] = useState<'form' | 'creating' | 'success' | 'error'>('form')
   const [branchName, setBranchName] = useState('')
@@ -60,9 +63,24 @@ export function PullRequestDialog({
     if (open) {
       const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19)
       const defaultBranch = `config-hub/${applicationName}/${timestamp}`
-      const defaultTitle = `Update ${fileName} for ${applicationName}`
-      const defaultCommit = `Update ${fileName}\n\nModified via Config Hub`
-      const defaultDescription = `## Changes\n\nUpdated configuration file: \`${filePath}\`\n\n## Application\n\n${applicationName}\n\n## Modified by\n\nConfig Hub`
+      
+      // Handle multiple files
+      const isMultiFile = stagedFiles && stagedFiles.length > 1
+      const fileCount = stagedFiles?.length || 1
+      
+      const defaultTitle = isMultiFile
+        ? `Update ${fileCount} configuration files for ${applicationName}`
+        : `Update ${fileName} for ${applicationName}`
+      
+      const defaultCommit = isMultiFile
+        ? `Update ${fileCount} configuration files\n\nModified via Config Hub`
+        : `Update ${fileName}\n\nModified via Config Hub`
+      
+      const fileList = stagedFiles && stagedFiles.length > 0
+        ? stagedFiles.map((f: StagedFile) => `- \`${f.path}\``).join('\n')
+        : `- \`${filePath}\``
+      
+      const defaultDescription = `## Changes\n\nUpdated configuration file${isMultiFile ? 's' : ''}:\n\n${fileList}\n\n## Application\n\n${applicationName}\n\n## Modified by\n\nConfig Hub`
 
       setBranchName(defaultBranch)
       setPrTitle(defaultTitle)
@@ -73,7 +91,7 @@ export function PullRequestDialog({
       setPrUrl(null)
       setPrId(null)
     }
-  }, [open, applicationName, fileName, filePath])
+  }, [open, applicationName, fileName, filePath, stagedFiles])
 
   const handleCreate = async () => {
     if (!window.electronAPI) return
@@ -82,11 +100,20 @@ export function PullRequestDialog({
     setError(null)
 
     try {
+      // Prepare file changes - use stagedFiles if available, otherwise single file
+      const fileChanges = stagedFiles && stagedFiles.length > 0
+        ? stagedFiles.map((file: StagedFile) => ({
+            path: file.path,
+            content: file.content,
+            action: 'modify' as const
+          }))
+        : [{ path: filePath, content: newContent, action: 'modify' as const }]
+
       // Step 1: Commit changes (this will create the branch if it doesn't exist)
       const commitResult = await window.electronAPI.git.commitChanges(
         credentialId,
         branchName,
-        [{ path: filePath, content: newContent, action: 'modify' }],
+        fileChanges,
         commitMessage
       )
 
