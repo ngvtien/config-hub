@@ -6,7 +6,6 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { ConfigFilesSection } from '@/components/config-files-section'
-import { PRStatusSection } from '@/components/pr-status-section'
 import { GitSourceSelector } from '@/components/git-source-selector'
 import { GitRepositoryCard } from '@/components/git-repository-card'
 import { getGitSources } from '@/lib/git-source-utils'
@@ -574,21 +573,15 @@ export function ArgoCDApplicationDetail({
             </Alert>
           )}
 
-          {/* Git Source Selector (shown when Git sources exist) */}
+          {/* Git Source Selector with integrated Pull Requests */}
           {gitSources.length > 0 && (
             <GitSourceSelector
               sources={gitSources}
               selectedIndex={selectedSourceIndex}
               onSelectSource={setSelectedSourceIndex}
+              refreshTrigger={prRefreshTrigger}
             />
           )}
-
-          {/* Pull Request Status */}
-          <PRStatusSection 
-            application={application}
-            selectedSource={gitSources.find(s => s.index === selectedSourceIndex)}
-            refreshTrigger={prRefreshTrigger}
-          />
           
           {/* Configuration Files */}
           <ConfigFilesSection 

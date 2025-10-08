@@ -172,15 +172,15 @@ export function PRStatusSection({ selectedSource, refreshTrigger }: PRStatusSect
     <>
       <Card>
       <CardHeader>
-        <CardTitle className="flex items-center justify-between">
+        <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <GitPullRequest className="h-5 w-5" />
-            Pull Requests
+            <GitPullRequest className="h-5 w-5 text-primary" />
+            <h3 className="text-lg font-semibold">Pull Requests</h3>
             {pullRequests.length > 0 && (
-              <Badge variant="secondary">{pullRequests.length}</Badge>
+              <Badge variant="secondary" className="ml-1">{pullRequests.length}</Badge>
             )}
             {selectedSource && (
-              <Badge variant="outline" className="text-xs font-normal">
+              <Badge variant="outline" className="text-xs font-normal ml-1">
                 Source {selectedSource.index + 1}
               </Badge>
             )}
@@ -193,7 +193,7 @@ export function PRStatusSection({ selectedSource, refreshTrigger }: PRStatusSect
           >
             <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
           </Button>
-        </CardTitle>
+        </div>
       </CardHeader>
       <CardContent>
         {error && (

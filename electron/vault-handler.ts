@@ -1,5 +1,6 @@
 import { ipcMain } from 'electron'
 import axios, { AxiosInstance, AxiosRequestConfig } from 'axios'
+import https from 'node:https'
 import fs from 'node:fs'
 import { simpleCredentialManager, VaultCredential } from './simple-credential-manager'
 
@@ -56,10 +57,10 @@ class SecureVaultClient {
         baseURL: credential.serverUrl,
         headers,
         timeout: 30000,
-        // Security: Validate SSL certificates
-        httpsAgent: {
-          rejectUnauthorized: true
-        }
+        // Security: Validate SSL certificates (disable for self-signed certs in dev)
+        httpsAgent: new https.Agent({
+          rejectUnauthorized: process.env.NODE_ENV === 'production'
+        })
       })
 
       // Add request interceptor for logging
@@ -78,8 +79,17 @@ class SecureVaultClient {
       client.interceptors.response.use(
         (response) => response,
         (error) => {
-          console.error(`Vault API Response Error [${credential.name}]:`, error.response?.status, error.response?.statusText)
-          throw new Error(`Vault API Error: ${error.response?.data?.errors?.join(', ') || error.message}`)
+          const errorDetails = {
+            status: error.response?.status,
+            statusText: error.response?.statusText,
+            data: error.response?.data,
+            url: error.config?.url,
+            method: error.config?.method
+          }
+          console.error(`Vault API Response Error [${credential.name}]:`, JSON.stringify(errorDetails, null, 2))
+          
+          const errorMessage = error.response?.data?.errors?.join(', ') || error.message
+          throw new Error(`Vault API Error: ${errorMessage}`)
         }
       )
 
@@ -101,11 +111,15 @@ class SecureVaultClient {
     try {
       let authResponse: any
 
+      console.log(`Authenticating with Vault using ${credential.authMethod} method`)
+      
       switch (credential.authMethod) {
         case 'token':
           if (!credential.token) {
             throw new Error('Token is required for token authentication')
           }
+          const tokenPreview = credential.token.substring(0, 8) + '...' + credential.token.substring(credential.token.length - 4)
+          console.log(`Using token authentication for ${credential.name}, token: ${tokenPreview} (length: ${credential.token.length})`)
           return credential.token
 
         case 'userpass':
@@ -226,19 +240,42 @@ class SecureVaultClient {
   // Test connection and authentication
   async testConnection(credentialId: string): Promise<boolean> {
     try {
-      // Test basic connectivity
-      await this.makeRequest({
-        credentialId,
-        endpoint: '/v1/sys/health',
-        method: 'GET'
-      })
+      console.log(`Testing Vault connection for credential: ${credentialId}`)
+      
+      // Get the credential to check mount path
+      const credential = await simpleCredentialManager.getCredential(credentialId) as VaultCredential
+      if (!credential) {
+        throw new Error('Vault credential not found')
+      }
 
-      // Test authentication by getting token info
-      await this.makeRequest({
-        credentialId,
-        endpoint: '/v1/auth/token/lookup-self',
-        method: 'GET'
-      })
+      // Test basic connectivity (doesn't require auth)
+      const client = await this.getClient(credentialId)
+      const healthResponse = await client.get('/v1/sys/health')
+      console.log(`Vault health check passed`)
+
+      // Test authentication by trying to list secrets at the mount path
+      // This is a more practical test than token lookup
+      const token = await this.getValidToken(credentialId)
+      console.log(`Vault authentication successful, got token`)
+      
+      // Try to list secrets at the root of the mount path
+      try {
+        await this.makeRequest({
+          credentialId,
+          endpoint: `/v1/${credential.mountPath}/metadata`,
+          method: 'LIST'
+        })
+        console.log(`Vault secret access test passed`)
+      } catch (listError: any) {
+        // If LIST fails, try a simple GET to sys/mounts which most tokens can access
+        console.log(`LIST failed, trying sys/mounts instead`)
+        await this.makeRequest({
+          credentialId,
+          endpoint: '/v1/sys/mounts',
+          method: 'GET'
+        })
+        console.log(`Vault mounts access test passed`)
+      }
 
       return true
     } catch (error) {
@@ -251,13 +288,16 @@ class SecureVaultClient {
   async storeCredentials(config: VaultConfig): Promise<string> {
     const credentialId = config.id || simpleCredentialManager.generateCredentialId('vault', config.serverUrl)
     
+    // Clean and trim token to remove any whitespace, newlines, or invalid characters
+    const cleanToken = config.token ? config.token.trim().replace(/[\r\n\t]/g, '') : undefined
+    
     const credential: VaultCredential = {
       id: credentialId,
       name: config.name,
       type: 'vault',
       serverUrl: config.serverUrl,
       authMethod: config.authMethod,
-      token: config.token,
+      token: cleanToken,
       username: config.username,
       password: config.password,
       namespace: config.namespace,

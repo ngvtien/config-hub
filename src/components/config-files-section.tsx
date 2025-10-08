@@ -220,10 +220,41 @@ export function ConfigFilesSection({ application, selectedSource, onPRCreated }:
     <Card>
       <CardHeader>
         <div className="flex items-center justify-between">
-          <CardTitle className="flex items-center gap-2">
-            <FileText className="h-5 w-5" />
-            Configuration Files
-          </CardTitle>
+          <div className="flex items-center gap-2 flex-wrap">
+            <FileText className="h-5 w-5 text-primary" />
+            <h3 className="text-lg font-semibold">Configuration Files</h3>
+            {/* Path breadcrumb as badges */}
+            <div className="flex items-center gap-1">
+              <Badge 
+                variant="outline" 
+                className="text-xs font-mono cursor-pointer hover:bg-muted"
+                onClick={handleNavigateToRoot}
+              >
+                <Home className="h-3 w-3 mr-1" />
+                {effectiveBasePath || '/'}
+              </Badge>
+              {browseFromRoot && basePath && (
+                <Badge variant="secondary" className="text-xs">
+                  from root
+                </Badge>
+              )}
+              {currentPath.split('/').filter(p => p).map((part, index) => (
+                <div key={index} className="flex items-center gap-1">
+                  <ChevronRight className="h-3 w-3 text-muted-foreground" />
+                  <Badge 
+                    variant="outline" 
+                    className="text-xs font-mono cursor-pointer hover:bg-muted"
+                    onClick={() => {
+                      const pathParts = currentPath.split('/').filter(p => p).slice(0, index + 1)
+                      setCurrentPath(pathParts.join('/'))
+                    }}
+                  >
+                    {part}
+                  </Badge>
+                </div>
+              ))}
+            </div>
+          </div>
           <Button
             variant="outline"
             size="sm"
@@ -239,64 +270,6 @@ export function ConfigFilesSection({ application, selectedSource, onPRCreated }:
         </div>
       </CardHeader>
       <CardContent>
-        {/* Repository Information */}
-        <div className="space-y-3 mb-4">
-          <div className="text-sm">
-            <span className="text-muted-foreground">Repository:</span>
-            <p className="font-mono text-xs mt-1 break-all">{repoUrl}</p>
-          </div>
-          <div className="text-sm">
-            <span className="text-muted-foreground">Branch:</span>
-            <p className="font-mono text-xs mt-1">{branch}</p>
-          </div>
-          
-          {/* Show authenticated user */}
-          {hasCredentials && credentials && (
-            <div className="text-sm">
-              <span className="text-muted-foreground">Authenticated as:</span>
-              <p className="font-mono text-xs mt-1 text-green-600 dark:text-green-400">
-                ✓ {credentials.username || 'Unknown user'}
-              </p>
-            </div>
-          )}
-          
-          {/* Breadcrumb Navigation */}
-          <div className="text-sm">
-            <span className="text-muted-foreground">Path:</span>
-            <div className="flex items-center gap-1 mt-1 flex-wrap">
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-6 px-2 font-mono text-xs"
-                onClick={handleNavigateToRoot}
-              >
-                <Home className="h-3 w-3 mr-1" />
-                {effectiveBasePath || '/'}
-              </Button>
-              {browseFromRoot && basePath && (
-                <Badge variant="outline" className="text-xs">
-                  Browsing from root
-                </Badge>
-              )}
-              {currentPath.split('/').filter(p => p).map((part, index) => (
-                <div key={index} className="flex items-center gap-1">
-                  <ChevronRight className="h-3 w-3 text-muted-foreground" />
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="h-6 px-2 font-mono text-xs"
-                    onClick={() => {
-                      const pathParts = currentPath.split('/').filter(p => p).slice(0, index + 1)
-                      setCurrentPath(pathParts.join('/'))
-                    }}
-                  >
-                    {part}
-                  </Button>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
 
         {/* Credentials Loading State */}
         {credentialsLoading && (
