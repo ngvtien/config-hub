@@ -749,7 +749,20 @@ export class BitbucketServerClient implements GitProvider {
    */
   async getPullRequestDiff(prId: number): Promise<{ path: string; diff: string }[]> {
     try {
-      // Try the /diff endpoint first (returns unified diff)
+      // Try API 2.0 first - it has better diff handling
+      console.log('Bitbucket getPullRequestDiff - trying API 2.0 approach')
+      
+      try {
+        const api2Result = await this.getPullRequestDiffV2(prId)
+        if (api2Result.length > 0) {
+          console.log('✅ API 2.0 succeeded with', api2Result.length, 'files')
+          return api2Result
+        }
+      } catch (api2Error) {
+        console.log('API 2.0 failed, falling back to API 1.0:', api2Error)
+      }
+
+      // Fallback to API 1.0 with improved parsing
       const diffEndpoint = `/rest/api/1.0/projects/${this.projectKey}/repos/${this.repositorySlug}/pull-requests/${prId}/diff`
       console.log('Bitbucket getPullRequestDiff - trying /diff endpoint:', diffEndpoint)
 
@@ -761,26 +774,25 @@ export class BitbucketServerClient implements GitProvider {
           }
         })
 
-        console.log('Bitbucket /diff response:', {
+        console.log('🚀 FAST: Using combined diff approach')
+        console.log('🔍 Bitbucket /diff response:', {
           status: diffResponse.status,
           dataType: typeof diffResponse.data,
-          dataLength: diffResponse.data?.length || 0,
-          firstChars: typeof diffResponse.data === 'string' ? diffResponse.data.substring(0, 100) : 'not string'
+          hasDiffs: !!diffResponse.data?.diffs,
+          diffsCount: diffResponse.data?.diffs?.length || 0
         })
 
-        // Parse the unified diff
-        const diffText = typeof diffResponse.data === 'string' 
-          ? diffResponse.data 
-          : JSON.stringify(diffResponse.data)
-        
-        const fileDiffs = this.parseDiff(diffText)
-        
-        if (fileDiffs.length > 0) {
-          console.log('Successfully parsed', fileDiffs.length, 'files from /diff')
-          return fileDiffs
+        // Parse the JSON diff response properly
+        if (diffResponse.data && typeof diffResponse.data === 'object' && diffResponse.data.diffs) {
+          const fileDiffs = this.parseCombinedJsonDiff(diffResponse.data)
+          
+          if (fileDiffs.length > 0) {
+            console.log('✅ FAST: Successfully parsed', fileDiffs.length, 'files from combined diff')
+            return fileDiffs
+          }
         }
         
-        console.log('/diff returned no files, trying /changes endpoint')
+        console.log('Combined diff parsing failed, trying /changes endpoint')
       } catch (diffError) {
         console.log('/diff endpoint failed, trying /changes:', diffError)
       }
@@ -806,64 +818,156 @@ export class BitbucketServerClient implements GitProvider {
       
       // For each file, get its diff using the /diff endpoint with path parameter
       const fileDiffs = await Promise.all(
-        changes.map(async (change: any) => {
+        changes.map(async (change: any, index: number) => {
           const filePath = change.path?.toString || change.path?.name || 'unknown'
           
+          console.log(`🔍 Processing file ${index}:`, {
+            filePath,
+            changeType: change.type,
+            changeObject: change
+          })
+          
           try {
+            console.log(`🔧 WORKAROUND: Getting raw file content for ${filePath} due to Bitbucket API bug`)
+            
+            // WORKAROUND: Get raw file content from both commits and compute diff ourselves
+            // This avoids the Bitbucket Server API bug where individual file diffs return wrong data
+            
+            // Get the PR details to get source and target commit hashes
+            const prEndpoint = `/rest/api/1.0/projects/${this.projectKey}/repos/${this.repositorySlug}/pull-requests/${prId}`
+            const prResponse = await this.axiosInstance.get(prEndpoint)
+            const fromCommit = prResponse.data.fromRef.latestCommit
+            const toCommit = prResponse.data.toRef.latestCommit
+            
+            console.log(`🔧 Getting file content from commits: ${fromCommit} -> ${toCommit}`)
+            
+            // Get old version of file
+            let oldContent = ''
+            try {
+              const oldFileResponse = await this.axiosInstance.get(
+                `/rest/api/1.0/projects/${this.projectKey}/repos/${this.repositorySlug}/raw/${filePath}`,
+                { params: { at: fromCommit } }
+              )
+              oldContent = oldFileResponse.data || ''
+            } catch (err) {
+              console.log(`Could not get old version of ${filePath}:`, err)
+              oldContent = ''
+            }
+            
+            // Get new version of file
+            let newContent = ''
+            try {
+              const newFileResponse = await this.axiosInstance.get(
+                `/rest/api/1.0/projects/${this.projectKey}/repos/${this.repositorySlug}/raw/${filePath}`,
+                { params: { at: toCommit } }
+              )
+              newContent = newFileResponse.data || ''
+            } catch (err) {
+              console.log(`Could not get new version of ${filePath}:`, err)
+              newContent = ''
+            }
+            
+            console.log(`🔧 Raw content lengths - Old: ${oldContent.length}, New: ${newContent.length}`)
+            console.log(`🔧 Old content preview: ${oldContent.substring(0, 100)}`)
+            console.log(`🔧 New content preview: ${newContent.substring(0, 100)}`)
+            
+            // Create a unified diff format with FULL CONTEXT
+            let diffText = `diff --git a/${filePath} b/${filePath}\n`
+            diffText += `--- a/${filePath}\n`
+            diffText += `+++ b/${filePath}\n`
+            
+            // For CodeMirror, we want to show the full file content with changes
+            // This gives the best diff viewing experience
+            const oldLines = oldContent.split('\n')
+            const newLines = newContent.split('\n')
+            const maxLines = Math.max(oldLines.length, newLines.length)
+            
+            // Find all changed lines
+            const changes: Array<{line: number, type: 'changed' | 'added' | 'removed'}> = []
+            
+            for (let i = 0; i < maxLines; i++) {
+              const oldLine = oldLines[i] || ''
+              const newLine = newLines[i] || ''
+              
+              if (oldLine !== newLine) {
+                if (i < oldLines.length && i < newLines.length) {
+                  changes.push({line: i, type: 'changed'})
+                } else if (i >= oldLines.length) {
+                  changes.push({line: i, type: 'added'})
+                } else {
+                  changes.push({line: i, type: 'removed'})
+                }
+              }
+            }
+            
+            if (changes.length > 0) {
+              // Create a hunk that includes more context around changes
+              const contextLines = 5 // Show 5 lines of context around changes
+              const firstChange = changes[0].line
+              const lastChange = changes[changes.length - 1].line
+              
+              const hunkStart = Math.max(0, firstChange - contextLines)
+              const hunkEnd = Math.min(maxLines - 1, lastChange + contextLines)
+              
+              const hunkOldLines = hunkEnd - hunkStart + 1
+              const hunkNewLines = hunkEnd - hunkStart + 1
+              
+              diffText += `@@ -${hunkStart + 1},${hunkOldLines} +${hunkStart + 1},${hunkNewLines} @@\n`
+              
+              // Add all lines in the hunk with proper prefixes
+              for (let i = hunkStart; i <= hunkEnd; i++) {
+                const oldLine = oldLines[i] || ''
+                const newLine = newLines[i] || ''
+                
+                if (oldLine === newLine) {
+                  // Context line (unchanged)
+                  diffText += ` ${oldLine}\n`
+                } else {
+                  // Changed line - show both old and new
+                  if (i < oldLines.length) {
+                    diffText += `-${oldLine}\n`
+                  }
+                  if (i < newLines.length) {
+                    diffText += `+${newLine}\n`
+                  }
+                }
+              }
+            } else {
+              // No changes found - this shouldn't happen, but handle it
+              diffText += `@@ -1,${oldLines.length} +1,${newLines.length} @@\n`
+              for (let i = 0; i < Math.max(oldLines.length, newLines.length); i++) {
+                const oldLine = oldLines[i] || ''
+                const newLine = newLines[i] || ''
+                
+                if (oldLine === newLine) {
+                  diffText += ` ${oldLine}\n`
+                } else {
+                  if (oldLine) diffText += `-${oldLine}\n`
+                  if (newLine) diffText += `+${newLine}\n`
+                }
+              }
+            }
+            
+            console.log(`🔧 Generated workaround diff for ${filePath}:`, {
+              diffLength: diffText.length,
+              diffPreview: diffText.substring(0, 300)
+            })
+            
+            return {
+              path: filePath,
+              diff: diffText
+            }
+            
+            // OLD BUGGY CODE (commented out):
             // Get diff for specific file using path parameter
-            const fileDiffResponse = await this.axiosInstance.get(diffEndpoint, {
+            /*const fileDiffResponse = await this.axiosInstance.get(diffEndpoint, {
               params: {
                 contextLines: 3,
                 whitespace: 'show',
                 path: filePath // Filter diff to specific file
               }
             })
-            
-            // Bitbucket Server returns JSON with hunks structure
-            const diffData = fileDiffResponse.data
-            
-            // Convert Bitbucket's JSON format to unified diff format
-            let diffText = `diff --git a/${filePath} b/${filePath}\n`
-            diffText += `--- a/${filePath}\n`
-            diffText += `+++ b/${filePath}\n`
-            
-            // Process diffs array
-            if (diffData.diffs && Array.isArray(diffData.diffs)) {
-              for (const diff of diffData.diffs) {
-                // Process hunks
-                if (diff.hunks && Array.isArray(diff.hunks)) {
-                  for (const hunk of diff.hunks) {
-                    // Add hunk header
-                    diffText += `@@ -${hunk.sourceLine},${hunk.sourceSpan} +${hunk.destinationLine},${hunk.destinationSpan} @@`
-                    if (hunk.context) {
-                      diffText += ` ${hunk.context}`
-                    }
-                    diffText += `\n`
-                    
-                    // Process segments
-                    if (hunk.segments && Array.isArray(hunk.segments)) {
-                      for (const segment of hunk.segments) {
-                        if (segment.lines && Array.isArray(segment.lines)) {
-                          for (const line of segment.lines) {
-                            // Add line with appropriate prefix
-                            let prefix = ' '
-                            if (segment.type === 'ADDED') prefix = '+'
-                            else if (segment.type === 'REMOVED') prefix = '-'
-                            
-                            diffText += `${prefix}${line.line}\n`
-                          }
-                        }
-                      }
-                    }
-                  }
-                }
-              }
-            }
-            
-            return {
-              path: filePath,
-              diff: diffText
-            }
+            */
           } catch (err) {
             console.error(`Failed to get diff for ${filePath}:`, err)
             // Fallback: show basic file info
@@ -892,7 +996,187 @@ export class BitbucketServerClient implements GitProvider {
   }
 
   /**
-   * Parse unified diff format into file-based diffs
+   * Get PR diff using Bitbucket Server REST API 2.0 (preferred method)
+   */
+  private async getPullRequestDiffV2(prId: number): Promise<{ path: string; diff: string }[]> {
+    console.log('🔍 API 2.0: Starting getPullRequestDiffV2 for PR', prId)
+    
+    // Try different API 2.0 endpoints - Bitbucket Server might have different paths
+    const possibleEndpoints = [
+      `/rest/api/2.0/projects/${this.projectKey}/repos/${this.repositorySlug}/pullrequests/${prId}/diffstat`,
+      `/rest/api/2.0/projects/${this.projectKey}/repos/${this.repositorySlug}/pull-requests/${prId}/diffstat`,
+      `/rest/api/2.0/projects/${this.projectKey}/repos/${this.repositorySlug}/pullrequests/${prId}/diff`,
+      `/rest/api/2.0/projects/${this.projectKey}/repos/${this.repositorySlug}/pull-requests/${prId}/diff`
+    ]
+    
+    let changedFiles: any[] = []
+    let workingEndpoint = ''
+    
+    // Try each endpoint to find one that works
+    for (const endpoint of possibleEndpoints) {
+      try {
+        console.log('🔍 API 2.0: Trying endpoint:', endpoint)
+        const response = await this.axiosInstance.get(endpoint)
+        console.log('✅ API 2.0: Endpoint worked!', {
+          status: response.status,
+          dataKeys: Object.keys(response.data || {}),
+          hasValues: !!response.data?.values,
+          valuesLength: response.data?.values?.length || 0
+        })
+        
+        changedFiles = response.data?.values || response.data || []
+        workingEndpoint = endpoint
+        break
+      } catch (err: any) {
+        console.log('❌ API 2.0: Endpoint failed:', endpoint, err.response?.status || err.message)
+      }
+    }
+    
+    if (!workingEndpoint) {
+      throw new Error('No working API 2.0 endpoints found')
+    }
+    
+    console.log('🔍 API 2.0: Found', changedFiles.length, 'changed files using:', workingEndpoint)
+    console.log('🔍 API 2.0: Sample file data:', changedFiles[0])
+    
+    if (changedFiles.length === 0) {
+      throw new Error('No changed files found in API 2.0 response')
+    }
+    
+    // Get individual diff for each file using API 2.0
+    const fileDiffs = await Promise.all(
+      changedFiles.map(async (file: any, index: number) => {
+        // Try different ways to extract file path
+        const filePath = file.old?.path || file.new?.path || file.path?.toString || file.path?.name || file.path || `file-${index}`
+        
+        console.log(`🔍 API 2.0: Processing file ${index}:`, {
+          filePath,
+          fileObject: file,
+          extractedPath: filePath
+        })
+        
+        try {
+          // Try different API 2.0 individual file diff endpoints
+          const diffEndpoints = [
+            `/rest/api/2.0/projects/${this.projectKey}/repos/${this.repositorySlug}/pullrequests/${prId}/diff/${encodeURIComponent(filePath)}`,
+            `/rest/api/2.0/projects/${this.projectKey}/repos/${this.repositorySlug}/pull-requests/${prId}/diff/${encodeURIComponent(filePath)}`,
+            `/rest/api/2.0/projects/${this.projectKey}/repos/${this.repositorySlug}/pullrequests/${prId}/diff?path=${encodeURIComponent(filePath)}`,
+            `/rest/api/2.0/projects/${this.projectKey}/repos/${this.repositorySlug}/pull-requests/${prId}/diff?path=${encodeURIComponent(filePath)}`
+          ]
+          
+          for (const diffEndpoint of diffEndpoints) {
+            try {
+              console.log(`🔍 API 2.0: Trying diff endpoint for ${filePath}:`, diffEndpoint)
+              
+              const diffResponse = await this.axiosInstance.get(diffEndpoint, {
+                headers: {
+                  'Accept': 'text/plain'
+                },
+                params: {
+                  context: 3,
+                  ignore_whitespace: false
+                }
+              })
+              
+              const diffText = typeof diffResponse.data === 'string' 
+                ? diffResponse.data 
+                : JSON.stringify(diffResponse.data)
+              
+              console.log(`✅ API 2.0: Got diff for ${filePath}:`, {
+                endpoint: diffEndpoint,
+                length: diffText.length,
+                preview: diffText.substring(0, 200)
+              })
+              
+              return {
+                path: filePath,
+                diff: diffText
+              }
+            } catch (diffErr: any) {
+              console.log(`❌ API 2.0: Diff endpoint failed for ${filePath}:`, diffEndpoint, diffErr.response?.status || diffErr.message)
+            }
+          }
+          
+          throw new Error(`All diff endpoints failed for ${filePath}`)
+        } catch (err) {
+          console.error(`🔥 API 2.0: Failed to get diff for ${filePath}:`, err)
+          throw err
+        }
+      })
+    )
+    
+    console.log('✅ API 2.0: Successfully got diffs for', fileDiffs.length, 'files')
+    return fileDiffs
+  }
+
+  /**
+   * Parse Bitbucket's JSON combined diff format (FAST approach)
+   */
+  private parseCombinedJsonDiff(diffData: any): { path: string; diff: string }[] {
+    console.log('🚀 FAST: Parsing combined JSON diff')
+    
+    if (!diffData.diffs || !Array.isArray(diffData.diffs)) {
+      console.log('No diffs array found in response')
+      return []
+    }
+    
+    const fileDiffs: { path: string; diff: string }[] = []
+    
+    for (const fileDiff of diffData.diffs) {
+      const filePath = fileDiff.destination?.toString || fileDiff.source?.toString || 'unknown'
+      
+      console.log(`🚀 FAST: Processing file ${filePath}`)
+      
+      // Convert JSON hunks to unified diff format
+      let diffText = `diff --git a/${filePath} b/${filePath}\n`
+      diffText += `--- a/${filePath}\n`
+      diffText += `+++ b/${filePath}\n`
+      
+      if (fileDiff.hunks && Array.isArray(fileDiff.hunks)) {
+        for (const hunk of fileDiff.hunks) {
+          // Add hunk header
+          diffText += `@@ -${hunk.sourceLine},${hunk.sourceSpan} +${hunk.destinationLine},${hunk.destinationSpan} @@`
+          if (hunk.context) {
+            diffText += ` ${hunk.context}`
+          }
+          diffText += `\n`
+          
+          // Process segments
+          if (hunk.segments && Array.isArray(hunk.segments)) {
+            for (const segment of hunk.segments) {
+              if (segment.lines && Array.isArray(segment.lines)) {
+                for (const line of segment.lines) {
+                  // Add line with appropriate prefix
+                  let prefix = ' '
+                  if (segment.type === 'ADDED') prefix = '+'
+                  else if (segment.type === 'REMOVED') prefix = '-'
+                  
+                  diffText += `${prefix}${line.line}\n`
+                }
+              }
+            }
+          }
+        }
+      }
+      
+      console.log(`🚀 FAST: Generated diff for ${filePath}:`, {
+        diffLength: diffText.length,
+        hasMinusLines: diffText.includes('\n-'),
+        hasPlusLines: diffText.includes('\n+')
+      })
+      
+      fileDiffs.push({
+        path: filePath,
+        diff: diffText
+      })
+    }
+    
+    console.log(`🚀 FAST: Processed ${fileDiffs.length} files from combined diff`)
+    return fileDiffs
+  }
+
+  /**
+   * Parse unified diff format into file-based diffs (IMPROVED - fixes combined diff bug)
    */
   private parseDiff(diffText: string): { path: string; diff: string }[] {
     if (!diffText || diffText.trim().length === 0) {
@@ -903,40 +1187,53 @@ export class BitbucketServerClient implements GitProvider {
     const files: { path: string; diff: string }[] = []
     const lines = diffText.split('\n')
     
-    let currentFile: { path: string; diff: string } | null = null
-    let currentDiff: string[] = []
-    
     console.log('parseDiff: Processing', lines.length, 'lines')
     
-    for (const line of lines) {
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i]
+      
       // New file starts with "diff --git"
       if (line.startsWith('diff --git')) {
-        // Save previous file if exists
-        if (currentFile && currentDiff.length > 0) {
-          currentFile.diff = currentDiff.join('\n')
-          files.push(currentFile)
-          console.log('parseDiff: Added file', currentFile.path, 'with', currentDiff.length, 'lines')
-        }
-        
         // Extract file path (format: diff --git a/path b/path)
         const match = line.match(/diff --git a\/(.*) b\/(.*)/)
         if (match) {
-          currentFile = { path: match[2], diff: '' }
-          currentDiff = [line]
+          const filePath = match[2]
+          
+          // Look ahead to find the end of this file's diff
+          let j = i + 1
+          while (j < lines.length && !lines[j].startsWith('diff --git')) {
+            j++
+          }
+          
+          // Extract only this file's diff lines
+          const fileDiffLines = lines.slice(i, j)
+          const fileDiff = fileDiffLines.join('\n')
+          
+          files.push({
+            path: filePath,
+            diff: fileDiff
+          })
+          
+          console.log('parseDiff: Added file', filePath, 'with', fileDiffLines.length, 'lines (improved parsing)')
+          
+          // Skip to the next file
+          i = j - 1 // -1 because the for loop will increment
         }
-      } else if (currentFile) {
-        currentDiff.push(line)
       }
     }
     
-    // Save last file
-    if (currentFile && currentDiff.length > 0) {
-      currentFile.diff = currentDiff.join('\n')
-      files.push(currentFile)
-      console.log('parseDiff: Added last file', currentFile.path, 'with', currentDiff.length, 'lines')
+    console.log('parseDiff: Total files parsed:', files.length)
+    
+    // Debug: Check if we have the combined diff bug
+    if (files.length > 0) {
+      const firstFile = files[0]
+      const combinedDiffCount = (firstFile.diff.match(/diff --git/g) || []).length
+      if (combinedDiffCount > 1) {
+        console.warn('🐛 DETECTED COMBINED DIFF BUG: First file contains', combinedDiffCount, 'diff headers')
+        console.warn('This indicates the backend is returning combined diffs - frontend workaround will handle this')
+      }
     }
     
-    console.log('parseDiff: Total files parsed:', files.length)
     return files
   }
 

@@ -22,7 +22,7 @@ import Form from '@rjsf/core'
 import validator from '@rjsf/validator-ajv8'
 import { customTheme } from './json-schema-form-theme'
 import { CodeMirrorEditor } from './codemirror-editor'
-import { DiffPreviewDialog } from './diff-preview-dialog'
+import { CodeMirrorDiffDialog } from './codemirror-diff-dialog'
 
 interface OpenFile {
   id: string
@@ -559,9 +559,9 @@ export function EditorPanel({
         </>
       )}
 
-      {/* Diff Preview Dialog */}
+      {/* CodeMirror Diff Preview Dialog */}
       {activeFile && (
-        <DiffPreviewDialog
+        <CodeMirrorDiffDialog
           open={showDiffPreview}
           onOpenChange={setShowDiffPreview}
           fileName={activeFile.name}
@@ -569,10 +569,15 @@ export function EditorPanel({
           branch={currentBranch}
           originalContent={activeFile.originalContent}
           modifiedContent={activeFile.content}
+          language={getLanguage(activeFile.name)}
           onCreatePullRequest={() => {
             // This will stage the file - the staging logic is handled by the parent
             handleSave()
             setShowDiffPreview(false)
+          }}
+          onRevert={() => {
+            // Revert changes to original content
+            handleContentChange(activeFile.originalContent)
           }}
         />
       )}

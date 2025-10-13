@@ -23,7 +23,7 @@ import {
   FileText,
   AlertCircle,
 } from 'lucide-react'
-import ReactDiffViewer, { DiffMethod } from 'react-diff-viewer-continued'
+import { BulletproofDiffViewer } from './bulletproof-diff-viewer'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import type { PullRequest } from '@/types/git'
@@ -74,10 +74,25 @@ export function PRDetailDialog({
         console.log('PRDetailDialog - Diff result:', { 
           success: result.success, 
           fileCount: result.data?.length || 0,
-          error: result.error 
+          error: result.error,
+          files: result.data?.map(f => ({
+            path: f.path,
+            diffLength: f.diff?.length || 0,
+            diffPreview: f.diff?.substring(0, 100) + '...'
+          }))
         })
 
         if (result.success && result.data) {
+          console.log('Raw PR diff data received:', result.data)
+          
+          // Just use the data as-is and let each file component handle its own diff
+          result.data.forEach((file, idx) => {
+            console.log(`File ${idx}: ${file.path}`, {
+              diffLength: file.diff?.length || 0,
+              diffPreview: file.diff?.substring(0, 100) || 'No diff content'
+            })
+          })
+          
           setFileDiffs(result.data)
         } else {
           setDiffError(result.error || 'Failed to load diff')
@@ -425,129 +440,13 @@ export function PRDetailDialog({
                     ))}
                   </div>
 
-                  {/* Diff view */}
+                  {/* BULLETPROOF: Handles any backend format */}
                   {showDiff && (
-                    <div className="space-y-4 mt-4">
-                      {fileDiffs.map((file, idx) => {
-                        // Parse the diff to extract old and new content
-                        const lines = file.diff.split('\n')
-                        let oldContent = ''
-                        let newContent = ''
-                        
-                        for (const line of lines) {
-                          if (line.startsWith('---') || line.startsWith('+++') || 
-                              line.startsWith('@@') || line.startsWith('diff')) {
-                            continue // Skip diff headers
-                          }
-                          
-                          if (line.startsWith('-')) {
-                            oldContent += line.substring(1) + '\n'
-                          } else if (line.startsWith('+')) {
-                            newContent += line.substring(1) + '\n'
-                          } else {
-                            // Context line (no prefix)
-                            oldContent += line + '\n'
-                            newContent += line + '\n'
-                          }
-                        }
-                        
-                        return (
-                          <div key={idx} className="border border-border rounded-md overflow-hidden mb-4">
-                            <div className="bg-muted/30 px-3 py-2 border-b border-border flex items-center justify-between">
-                              <div className="flex items-center gap-2 font-mono text-xs font-medium text-foreground">
-                                <FileText className="h-3.5 w-3.5 text-muted-foreground" />
-                                <span>{file.path}</span>
-                              </div>
-                              <div className="flex items-center gap-3 text-xs font-mono">
-                                <span className="text-green-600 dark:text-green-400 font-semibold">+{newContent.split('\n').length - oldContent.split('\n').length}</span>
-                                <span className="text-red-600 dark:text-red-400 font-semibold">-{oldContent.split('\n').length - newContent.split('\n').length}</span>
-                              </div>
-                            </div>
-                            <div className="diff-viewer-wrapper">
-                              <ReactDiffViewer
-                                oldValue={oldContent}
-                                newValue={newContent}
-                                splitView={true}
-                                compareMethod={DiffMethod.WORDS}
-                                useDarkTheme={document.documentElement.classList.contains('dark')}
-                                leftTitle="Before"
-                                rightTitle="After"
-                                showDiffOnly={false}
-                                hideLineNumbers={false}
-                                styles={{
-                                  variables: {
-                                    dark: {
-                                      diffViewerBackground: '#0d1117',
-                                      diffViewerColor: '#c9d1d9',
-                                      addedBackground: '#0d4429',
-                                      addedColor: '#aff5b4',
-                                      removedBackground: '#6e1a1a',
-                                      removedColor: '#ffdcd7',
-                                      wordAddedBackground: '#1a7f37',
-                                      wordRemovedBackground: '#da3633',
-                                      addedGutterBackground: '#0d1117',
-                                      removedGutterBackground: '#0d1117',
-                                      gutterBackground: '#0d1117',
-                                      gutterBackgroundDark: '#0d1117',
-                                      gutterColor: '#6e7681',
-                                      highlightBackground: '#1f2937',
-                                      highlightGutterBackground: '#1f2937',
-                                      codeFoldGutterBackground: '#0d1117',
-                                      codeFoldBackground: '#0d1117',
-                                      emptyLineBackground: '#0d1117',
-                                    },
-                                    light: {
-                                      diffViewerBackground: '#ffffff',
-                                      diffViewerColor: '#24292f',
-                                      addedBackground: '#e6ffec',
-                                      addedColor: '#24292f',
-                                      removedBackground: '#ffebe9',
-                                      removedColor: '#24292f',
-                                      wordAddedBackground: '#abf2bc',
-                                      wordRemovedBackground: '#ffcecb',
-                                      addedGutterBackground: '#ccffd8',
-                                      removedGutterBackground: '#ffd7d5',
-                                      gutterBackground: '#f6f8fa',
-                                      gutterBackgroundDark: '#f6f8fa',
-                                      gutterColor: '#57606a',
-                                      highlightBackground: '#fff8c5',
-                                      highlightGutterBackground: '#fff8c5',
-                                      codeFoldGutterBackground: '#f6f8fa',
-                                      codeFoldBackground: '#f6f8fa',
-                                      emptyLineBackground: '#fafbfc',
-                                    },
-                                  },
-                                  line: {
-                                    padding: '0 8px',
-                                    fontSize: '11.5px',
-                                    lineHeight: '18px',
-                                    fontFamily: 'JetBrains Mono, SF Mono, Monaco, Cascadia Code, Consolas, monospace',
-                                    fontWeight: '400',
-                                    letterSpacing: '0',
-                                  },
-                                  gutter: {
-                                    padding: '0 8px',
-                                    minWidth: '45px',
-                                    fontSize: '11px',
-                                    lineHeight: '18px',
-                                    fontWeight: '400',
-                                  },
-                                  marker: {
-                                    padding: '0 6px',
-                                    fontSize: '11px',
-                                  },
-                                  contentText: {
-                                    fontSize: '11.5px',
-                                    lineHeight: '18px',
-                                    fontWeight: '400',
-                                    letterSpacing: '0',
-                                  },
-                                }}
-                              />
-                            </div>
-                          </div>
-                        )
-                      })}
+                    <div className="mt-4">
+                      <BulletproofDiffViewer
+                        fileDiffs={fileDiffs}
+                        theme={document.documentElement.classList.contains('dark') ? 'dark' : 'light'}
+                      />
                     </div>
                   )}
                 </div>

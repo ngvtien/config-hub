@@ -5,7 +5,7 @@ import { X, FileText, GitPullRequest, Eye } from 'lucide-react'
 import { useStagedChanges, type StagedFile } from '@/hooks/use-staged-changes'
 import { useState } from 'react'
 import { PullRequestDialog } from './pull-request-dialog'
-import { DiffPreviewDialog } from './diff-preview-dialog'
+import { CodeMirrorDiffDialog } from './codemirror-diff-dialog'
 
 interface StagedChangesPanelProps {
   repoUrl: string
@@ -27,6 +27,18 @@ export function StagedChangesPanel({
   const [showPRDialog, setShowPRDialog] = useState(false)
   const [isExpanded, setIsExpanded] = useState(true)
   const [viewingFile, setViewingFile] = useState<StagedFile | null>(null)
+
+  // Get file language from extension
+  const getFileLanguage = (filename: string): string => {
+    const lower = filename.toLowerCase()
+    if (lower.endsWith('.yaml') || lower.endsWith('.yml')) return 'yaml'
+    if (lower.endsWith('.json')) return 'json'
+    if (lower.endsWith('.tf') || lower.endsWith('.hcl') || lower.endsWith('.tfvars')) return 'hcl'
+    if (lower.endsWith('.cue')) return 'cue'
+    if (lower.endsWith('.md') || lower.endsWith('.markdown')) return 'markdown'
+    if (lower.endsWith('.js') || lower.endsWith('.ts')) return 'javascript'
+    return 'yaml'
+  }
 
   console.log('StagedChangesPanel - repoUrl:', repoUrl, 'stagedFiles:', stagedFiles.length)
 
@@ -134,9 +146,9 @@ export function StagedChangesPanel({
         stagedFiles={stagedFiles}
       />
 
-      {/* Diff Preview for Staged File */}
+      {/* CodeMirror Diff Preview for Staged File */}
       {viewingFile && (
-        <DiffPreviewDialog
+        <CodeMirrorDiffDialog
           open={!!viewingFile}
           onOpenChange={(open) => !open && setViewingFile(null)}
           fileName={viewingFile.name}
@@ -144,6 +156,7 @@ export function StagedChangesPanel({
           branch={branch}
           originalContent={viewingFile.originalContent}
           modifiedContent={viewingFile.content}
+          language={getFileLanguage(viewingFile.name)}
         />
       )}
     </>
