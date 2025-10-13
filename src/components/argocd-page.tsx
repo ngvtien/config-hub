@@ -181,7 +181,8 @@ export function ArgoCDPage() {
   }
 
   return (
-    <div className="container mx-auto p-6 space-y-6">
+    <div className="-mx-6 space-y-6">
+      <div className="px-6 space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
@@ -475,10 +476,11 @@ export function ArgoCDPage() {
           </CardContent>
         </Card>
       )}
+      </div>
 
       {/* Applications Grid View */}
       {viewMode === 'grid' && (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className="grid gap-4 px-6" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))' }}>
           {displayApplications.map(({ application }) => {
             const syncBadge = getStatusBadge(application.status.sync.status, 'sync')
             const healthBadge = getStatusBadge(application.status.health.status, 'health')
@@ -614,7 +616,7 @@ export function ArgoCDPage() {
 
       {/* Applications List View */}
       {viewMode === 'list' && (
-        <div className="space-y-2">
+        <div className="space-y-2 px-6">
           {displayApplications.map(({ application }) => {
             const syncBadge = getStatusBadge(application.status.sync.status, 'sync')
             const healthBadge = getStatusBadge(application.status.health.status, 'health')
@@ -694,6 +696,7 @@ export function ArgoCDPage() {
 
       {/* Empty State */}
       {!loading && displayApplications.length === 0 && (
+        <div className="px-6">
         <Card>
           <CardContent className="pt-6 text-center">
             <div className="space-y-2">
@@ -706,6 +709,7 @@ export function ArgoCDPage() {
             </div>
           </CardContent>
         </Card>
+        </div>
       )}
 
       {/* Loading State */}
