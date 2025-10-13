@@ -5,11 +5,12 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { ConfigFilesSection } from '@/components/config-files-section'
-import { GitSourceSelector } from '@/components/git-source-selector'
+import { TabbedConfigurationEditor } from '@/components/tabbed-configuration-editor'
 import { GitRepositoryCard } from '@/components/git-repository-card'
 import { getGitSources } from '@/lib/git-source-utils'
 import type { GitSourceInfo } from '@/lib/git-source-utils'
+import { SourcePullRequests } from '@/components/source-pull-requests'
+
 
 import {
   Dialog,
@@ -23,6 +24,7 @@ import {
   ArrowLeft,
   RefreshCw,
   GitBranch,
+  GitPullRequest,
   Server,
   Clock,
   AlertCircle,
@@ -69,7 +71,8 @@ export function ArgoCDApplicationDetail({
   const [activeTab, setActiveTab] = useState('overview')
   const [selectedSourceIndex, setSelectedSourceIndex] = useState(0)
   const [gitSources, setGitSources] = useState<GitSourceInfo[]>([])
-  const [prRefreshTrigger, setPrRefreshTrigger] = useState(0)
+
+
 
   // Extract Git sources when application loads
   useEffect(() => {
@@ -82,8 +85,8 @@ export function ArgoCDApplicationDetail({
   }, [application])
 
   const handlePRCreated = () => {
-    // Trigger PR list refresh by incrementing the trigger
-    setPrRefreshTrigger(prev => prev + 1)
+    // Handle PR creation callback
+    console.log('PR created')
   }
 
   if (!application && !loading) {
@@ -241,7 +244,7 @@ export function ArgoCDApplicationDetail({
 
       {/* Tabs Navigation */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-        <TabsList className="grid w-full grid-cols-5">
+        <TabsList className="grid w-full grid-cols-6">
           <TabsTrigger value="overview" className="flex items-center gap-2">
             <Eye className="h-4 w-4" />
             Overview
@@ -257,6 +260,10 @@ export function ArgoCDApplicationDetail({
           <TabsTrigger value="configuration" className="flex items-center gap-2">
             <FileText className="h-4 w-4" />
             Configuration
+          </TabsTrigger>
+          <TabsTrigger value="pull-requests" className="flex items-center gap-2">
+            <GitPullRequest className="h-4 w-4" />
+            Pull Requests
           </TabsTrigger>
           <TabsTrigger value="activity" className="flex items-center gap-2">
             <Activity className="h-4 w-4" />
@@ -556,10 +563,10 @@ export function ArgoCDApplicationDetail({
         </TabsContent>
 
         {/* Configuration Tab */}
-        <TabsContent value="configuration" className="space-y-6">
+        <TabsContent value="configuration" className="h-[calc(100vh-200px)]">
           {/* Info message for non-ApplicationSet apps */}
           {!application.metadata.ownerReferences?.some((ref: any) => ref.kind === 'ApplicationSet') && (
-            <Alert>
+            <Alert className="mb-4">
               <AlertCircle className="h-4 w-4" />
               <AlertDescription>
                 <p className="font-medium mb-1">Configuration Management</p>
@@ -573,21 +580,12 @@ export function ArgoCDApplicationDetail({
             </Alert>
           )}
 
-          {/* Git Source Selector with integrated Pull Requests */}
-          {gitSources.length > 0 && (
-            <GitSourceSelector
-              sources={gitSources}
-              selectedIndex={selectedSourceIndex}
-              onSelectSource={setSelectedSourceIndex}
-              refreshTrigger={prRefreshTrigger}
-            />
-          )}
-
-          {/* Configuration Files */}
-          <ConfigFilesSection
-            key={`config-files-${selectedSourceIndex}`}
+          {/* Tabbed Configuration Editor */}
+          <TabbedConfigurationEditor
             application={application}
-            selectedSource={gitSources.find(s => s.index === selectedSourceIndex)}
+            gitSources={gitSources}
+            selectedSourceIndex={selectedSourceIndex}
+            onSelectSource={setSelectedSourceIndex}
             onPRCreated={handlePRCreated}
           />
         </TabsContent>
@@ -916,6 +914,79 @@ export function ArgoCDApplicationDetail({
               </CardContent>
             </Card>
           )}
+        </TabsContent>
+
+        {/* Pull Requests Tab */}
+        <TabsContent value="pull-requests" className="space-y-6">
+          <div className="space-y-6">
+            {/* Pull Request Management Header */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <GitPullRequest className="h-5 w-5" />
+                  Pull Request Management
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-sm text-muted-foreground mb-4">
+                  Manage pull requests for configuration changes across all Git sources associated with this application.
+                </p>
+                
+                {/* Quick Actions */}
+                <div className="flex flex-wrap gap-2">
+                  <Button 
+                    size="sm" 
+                    className="flex items-center gap-2"
+                    onClick={() => setActiveTab('configuration')}
+                  >
+                    <GitPullRequest className="h-4 w-4" />
+                    Create New PR
+                  </Button>
+                  <Button 
+                    size="sm" 
+                    variant="outline" 
+                    className="flex items-center gap-2"
+                    onClick={() => window.location.reload()}
+                  >
+                    <RefreshCw className="h-4 w-4" />
+                    Refresh All
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Git Sources with PR Status */}
+            {gitSources.length > 0 ? (
+              <div className="space-y-4">
+                {gitSources.map((source, index) => (
+                  <SourcePullRequests
+                    key={index}
+                    source={source}
+                    index={index}
+                    onEditFiles={() => {
+                      setSelectedSourceIndex(source.index)
+                      setActiveTab('configuration')
+                    }}
+                  />
+                ))}
+              </div>
+            ) : (
+              /* No Git Sources */
+              <Card>
+                <CardContent className="pt-6">
+                  <div className="text-center py-8 space-y-3">
+                    <AlertCircle className="h-12 w-12 text-muted-foreground mx-auto" />
+                    <div>
+                      <p className="font-medium">No Git Sources Available</p>
+                      <p className="text-sm text-muted-foreground">
+                        This application doesn't have any Git-based sources for pull request management
+                      </p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+          </div>
         </TabsContent>
 
         {/* Activity Tab */}
