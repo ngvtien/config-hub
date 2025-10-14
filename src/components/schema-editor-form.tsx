@@ -39,8 +39,10 @@ import {
     List,
     Braces,
     File,
-    Sparkles
+    Sparkles,
+    X
 } from 'lucide-react'
+import { Checkbox } from '@/components/ui/checkbox'
 // Note: Resizable components not available, using simple layout
 
 interface SchemaProperty {
@@ -58,7 +60,6 @@ interface SchemaProperty {
 
 interface SchemaEditorFormProps {
     content: string
-    onChange: (content: string) => void
     filePath: string
     onShowDiff: (originalContent: string, modifiedContent: string) => void
 }
@@ -80,12 +81,24 @@ const AddPropertyDialog = React.memo(({
     const [propertyDescription, setPropertyDescription] = useState("")
     const [error, setError] = useState("")
 
+    // Array specific states
+    const [arrayItemType, setArrayItemType] = useState("string")
+    const [objectProperties, setObjectProperties] = useState<Array<{ name: string; type: string }>>([])
+
+    // Enum management
+    const [enumValues, setEnumValues] = useState<string[]>([])
+    const [newEnumValue, setNewEnumValue] = useState("")
+
     const resetForm = useCallback(() => {
         setPropertyName("")
         setPropertyType("string")
         setPropertyTitle("")
         setPropertyDescription("")
         setError("")
+        setArrayItemType("string")
+        setObjectProperties([])
+        setEnumValues([])
+        setNewEnumValue("")
     }, [])
 
     const handleSubmit = useCallback(() => {
@@ -133,10 +146,60 @@ const AddPropertyDialog = React.memo(({
                 break
         }
 
+        // Handle array items
+        if (propertyType === "array") {
+            if (arrayItemType === "object" && objectProperties.length > 0) {
+                const itemProperties: { [key: string]: SchemaProperty } = {}
+                objectProperties.forEach((prop) => {
+                    itemProperties[prop.name] = {
+                        type: prop.type,
+                        title: prop.name,
+                        default: prop.type === "string" ? "" : prop.type === "number" || prop.type === "integer" ? 0 : prop.type === "boolean" ? false : undefined,
+                    }
+                })
+                newProperty.items = {
+                    type: "object",
+                    properties: itemProperties,
+                }
+            } else {
+                newProperty.items = { type: arrayItemType }
+            }
+            newProperty.default = []
+        }
+
+        // Handle enum values for string types
+        if (propertyType === "string" && enumValues.length > 0) {
+            newProperty.enum = [...enumValues]
+        }
+
         onAddProperty(parentPath, trimmedName, newProperty)
         resetForm()
         setOpen(false)
-    }, [propertyName, propertyType, propertyTitle, propertyDescription, existingProperties, parentPath, onAddProperty, resetForm])
+    }, [propertyName, propertyType, propertyTitle, propertyDescription, existingProperties, parentPath, onAddProperty, resetForm, arrayItemType, objectProperties, enumValues])
+
+    const handleAddObjectProperty = useCallback(() => {
+        const name = `property${objectProperties.length + 1}`
+        setObjectProperties(prev => [...prev, { name, type: "string" }])
+    }, [objectProperties.length])
+
+    const handleRemoveObjectProperty = useCallback((index: number) => {
+        setObjectProperties(prev => prev.filter((_, i) => i !== index))
+    }, [])
+
+    const handleObjectPropertyChange = useCallback((index: number, field: "name" | "type", value: string) => {
+        setObjectProperties(prev => prev.map((prop, i) => (i === index ? { ...prop, [field]: value } : prop)))
+    }, [])
+
+    const handleAddEnumValue = useCallback(() => {
+        if (newEnumValue.trim() && !enumValues.includes(newEnumValue.trim())) {
+            setEnumValues(prev => [...prev, newEnumValue.trim()])
+            setNewEnumValue("")
+        }
+    }, [newEnumValue, enumValues])
+
+    const handleRemoveEnumValue = useCallback((index: number) => {
+        setEnumValues(prev => prev.filter((_, i) => i !== index))
+    }, [])
 
     return (
         <Dialog open={open} onOpenChange={setOpen}>
@@ -207,6 +270,136 @@ const AddPropertyDialog = React.memo(({
                             rows={2}
                         />
                     </div>
+
+                    {/* Array Configuration */}
+                    {propertyType === "array" && (
+                        <div className="space-y-3 border rounded-md p-3 bg-muted/30">
+                            <Label className="text-sm font-medium">Array Item Configuration</Label>
+
+                            <div className="space-y-2">
+                                <Label htmlFor="array-item-type">Item Type</Label>
+                                <Select value={arrayItemType} onValueChange={setArrayItemType}>
+                                    <SelectTrigger>
+                                        <SelectValue placeholder="Select item type" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="string">String</SelectItem>
+                                        <SelectItem value="number">Number</SelectItem>
+                                        <SelectItem value="integer">Integer</SelectItem>
+                                        <SelectItem value="boolean">Boolean</SelectItem>
+                                        <SelectItem value="object">Object</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                            </div>
+
+                            {/* Object Properties for Array Items */}
+                            {arrayItemType === "object" && (
+                                <div className="space-y-2">
+                                    <div className="flex items-center justify-between">
+                                        <Label className="text-sm">Object Properties</Label>
+                                        <Button
+                                            type="button"
+                                            variant="outline"
+                                            size="sm"
+                                            onClick={handleAddObjectProperty}
+                                            className="h-7 text-xs"
+                                        >
+                                            <Plus className="h-3 w-3 mr-1" />
+                                            Add Property
+                                        </Button>
+                                    </div>
+
+                                    {objectProperties.length > 0 ? (
+                                        <div className="space-y-2 max-h-32 overflow-y-auto">
+                                            {objectProperties.map((prop, index) => (
+                                                <div key={index} className="flex gap-2 items-center bg-background p-2 rounded border">
+                                                    <Input
+                                                        value={prop.name}
+                                                        onChange={(e) => handleObjectPropertyChange(index, "name", e.target.value)}
+                                                        placeholder="Property name"
+                                                        className="h-7 text-xs"
+                                                    />
+                                                    <Select
+                                                        value={prop.type}
+                                                        onValueChange={(value) => handleObjectPropertyChange(index, "type", value)}
+                                                    >
+                                                        <SelectTrigger className="h-7 text-xs w-24">
+                                                            <SelectValue />
+                                                        </SelectTrigger>
+                                                        <SelectContent>
+                                                            <SelectItem value="string">String</SelectItem>
+                                                            <SelectItem value="number">Number</SelectItem>
+                                                            <SelectItem value="integer">Integer</SelectItem>
+                                                            <SelectItem value="boolean">Boolean</SelectItem>
+                                                        </SelectContent>
+                                                    </Select>
+                                                    <Button
+                                                        type="button"
+                                                        variant="ghost"
+                                                        size="sm"
+                                                        onClick={() => handleRemoveObjectProperty(index)}
+                                                        className="h-7 w-7 p-0 text-destructive"
+                                                    >
+                                                        <X className="h-3 w-3" />
+                                                    </Button>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    ) : (
+                                        <div className="text-xs text-muted-foreground text-center py-2">
+                                            No properties defined for array objects
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+                        </div>
+                    )}
+
+                    {/* Enum Values for String Types */}
+                    {propertyType === "string" && (
+                        <div className="space-y-3 border rounded-md p-3 bg-muted/30">
+                            <Label className="text-sm font-medium">Enum Values (Optional)</Label>
+
+                            {enumValues.length > 0 && (
+                                <div className="space-y-1 max-h-24 overflow-y-auto">
+                                    {enumValues.map((value, index) => (
+                                        <div key={index} className="flex items-center justify-between px-2 py-1 bg-background rounded border text-sm">
+                                            <span className="font-mono">{value}</span>
+                                            <Button
+                                                type="button"
+                                                variant="ghost"
+                                                size="sm"
+                                                onClick={() => handleRemoveEnumValue(index)}
+                                                className="h-5 w-5 p-0 text-destructive"
+                                            >
+                                                <X className="h-3 w-3" />
+                                            </Button>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+
+                            <div className="flex gap-2">
+                                <Input
+                                    value={newEnumValue}
+                                    onChange={(e) => setNewEnumValue(e.target.value)}
+                                    placeholder="Add enum value"
+                                    className="h-7 text-xs"
+                                    onKeyDown={(e) => e.key === "Enter" && handleAddEnumValue()}
+                                />
+                                <Button
+                                    type="button"
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={handleAddEnumValue}
+                                    disabled={!newEnumValue.trim() || enumValues.includes(newEnumValue.trim())}
+                                    className="h-7 text-xs"
+                                >
+                                    Add
+                                </Button>
+                            </div>
+                        </div>
+                    )}
                 </div>
 
                 <DialogFooter>
@@ -294,9 +487,10 @@ const TreeNode = React.memo(({
 
 TreeNode.displayName = "TreeNode"
 
-export function SchemaEditorForm({ content, onChange, filePath, onShowDiff }: SchemaEditorFormProps) {
+export function SchemaEditorForm({ content, filePath, onShowDiff }: SchemaEditorFormProps) {
     const [selectedPath, setSelectedPath] = useState<string | null>(null)
     const [editingProperty, setEditingProperty] = useState<SchemaProperty | null>(null)
+    const [newEnumValue, setNewEnumValue] = useState("")
     const lastContentRef = useRef<string>('')
 
     // Use schema editor store for pre-staging changes
@@ -487,7 +681,7 @@ export function SchemaEditorForm({ content, onChange, filePath, onShowDiff }: Sc
             delete current.properties[propertyName]
             console.log('Remove Property: Setting pre-staged changes', newSchema)
             setPrestagedChanges(filePath, newSchema)
-            
+
             // Clear selection since the property was removed
             setSelectedPath(null)
             setEditingProperty(null)
@@ -596,20 +790,189 @@ export function SchemaEditorForm({ content, onChange, filePath, onShowDiff }: Sc
 
                                     <div className="space-y-2">
                                         <Label>Default Value</Label>
-                                        <Input
-                                            value={editingProperty.default ?? ""}
-                                            onChange={(e) => {
-                                                let value: any = e.target.value
-                                                if (editingProperty.type === "number" || editingProperty.type === "integer") {
-                                                    value = Number(value) || 0
-                                                } else if (editingProperty.type === "boolean") {
-                                                    value = value === "true"
-                                                }
-                                                handlePropertyDefaultChange(value)
-                                            }}
-                                            placeholder="Default value"
-                                        />
+                                        {editingProperty.type === "boolean" ? (
+                                            <div className="flex items-center space-x-3 p-3 rounded-md border bg-muted/30">
+                                                <Checkbox
+                                                    checked={editingProperty.default === true}
+                                                    onCheckedChange={(checked: boolean) => handlePropertyDefaultChange(checked)}
+                                                />
+                                                <div className="flex flex-col">
+                                                    <span className="text-sm font-medium">{editingProperty.default === true ? "True" : "False"}</span>
+                                                    <span className="text-xs text-muted-foreground">Toggle to set the default boolean value</span>
+                                                </div>
+                                            </div>
+                                        ) : editingProperty.type === "array" ? (
+                                            <div className="space-y-2 border rounded-md p-3 bg-muted/30">
+                                                <div className="flex items-center justify-between">
+                                                    <span className="text-sm font-medium">Array Items</span>
+                                                    <Button
+                                                        variant="outline"
+                                                        size="sm"
+                                                        onClick={() => {
+                                                            const itemType = editingProperty.items?.type || "string"
+                                                            let newItem: any
+
+                                                            switch (itemType) {
+                                                                case "string": newItem = ""; break
+                                                                case "number":
+                                                                case "integer": newItem = 0; break
+                                                                case "boolean": newItem = false; break
+                                                                case "object":
+                                                                    if (editingProperty.items?.properties) {
+                                                                        newItem = {}
+                                                                        Object.entries(editingProperty.items.properties).forEach(([key, prop]) => {
+                                                                            newItem[key] = prop.default !== undefined ? prop.default :
+                                                                                prop.type === "string" ? "" :
+                                                                                    prop.type === "number" || prop.type === "integer" ? 0 :
+                                                                                        prop.type === "boolean" ? false : ""
+                                                                        })
+                                                                    } else {
+                                                                        newItem = {}
+                                                                    }
+                                                                    break
+                                                                default: newItem = ""
+                                                            }
+
+                                                            const currentDefault = Array.isArray(editingProperty.default) ? [...editingProperty.default] : []
+                                                            handlePropertyDefaultChange([...currentDefault, newItem])
+                                                        }}
+                                                        className="h-7 text-xs"
+                                                    >
+                                                        <Plus className="h-3 w-3 mr-1" />
+                                                        Add Item
+                                                    </Button>
+                                                </div>
+
+                                                {Array.isArray(editingProperty.default) && editingProperty.default.length > 0 ? (
+                                                    <ScrollArea className="h-32 rounded-md border">
+                                                        <div className="p-2 space-y-2">
+                                                            {editingProperty.default.map((item: any, index: number) => (
+                                                                <div key={index} className="flex items-center gap-2 bg-background p-2 rounded border">
+                                                                    <Badge variant="outline" className="text-xs">#{index + 1}</Badge>
+                                                                    <Input
+                                                                        value={typeof item === "object" ? JSON.stringify(item) : String(item)}
+                                                                        onChange={(e) => {
+                                                                            const newDefault = [...(editingProperty.default as any[])]
+                                                                            let value: any = e.target.value
+
+                                                                            if (editingProperty.items?.type === "number" || editingProperty.items?.type === "integer") {
+                                                                                value = Number(value) || 0
+                                                                            } else if (editingProperty.items?.type === "boolean") {
+                                                                                value = value === "true"
+                                                                            } else if (editingProperty.items?.type === "object") {
+                                                                                try {
+                                                                                    value = JSON.parse(value)
+                                                                                } catch {
+                                                                                    return // Invalid JSON, don't update
+                                                                                }
+                                                                            }
+
+                                                                            newDefault[index] = value
+                                                                            handlePropertyDefaultChange(newDefault)
+                                                                        }}
+                                                                        className="h-7 text-xs flex-1"
+                                                                    />
+                                                                    <Button
+                                                                        variant="ghost"
+                                                                        size="sm"
+                                                                        onClick={() => {
+                                                                            const newDefault = [...(editingProperty.default as any[])]
+                                                                            newDefault.splice(index, 1)
+                                                                            handlePropertyDefaultChange(newDefault)
+                                                                        }}
+                                                                        className="h-7 w-7 p-0 text-destructive"
+                                                                    >
+                                                                        <X className="h-3 w-3" />
+                                                                    </Button>
+                                                                </div>
+                                                            ))}
+                                                        </div>
+                                                    </ScrollArea>
+                                                ) : (
+                                                    <div className="text-xs text-muted-foreground text-center py-4 border border-dashed rounded">
+                                                        No array items added
+                                                    </div>
+                                                )}
+                                            </div>
+                                        ) : (
+                                            <Input
+                                                value={editingProperty.default ?? ""}
+                                                onChange={(e) => {
+                                                    let value: any = e.target.value
+                                                    if (editingProperty.type === "number" || editingProperty.type === "integer") {
+                                                        value = Number(value) || 0
+                                                    } else if (editingProperty.type === "boolean") {
+                                                        value = value === "true"
+                                                    }
+                                                    handlePropertyDefaultChange(value)
+                                                }}
+                                                placeholder="Default value"
+                                            />
+                                        )}
                                     </div>
+
+                                    {/* Enum Values Management for String Types */}
+                                    {editingProperty.type === "string" && (
+                                        <div className="space-y-3">
+                                            <Label>Enum Values</Label>
+                                            {editingProperty.enum?.length ? (
+                                                <ScrollArea className="h-32 rounded-md border">
+                                                    <div className="p-2 space-y-1">
+                                                        {editingProperty.enum.map((value: string, index: number) => (
+                                                            <div key={index} className="flex items-center justify-between px-3 py-2 text-sm bg-muted/50 rounded hover:bg-muted">
+                                                                <span className="font-mono">{value}</span>
+                                                                <Button
+                                                                    variant="ghost"
+                                                                    size="sm"
+                                                                    onClick={() => {
+                                                                        const newEnum = [...(editingProperty.enum || [])]
+                                                                        newEnum.splice(index, 1)
+                                                                        setEditingProperty(prev => prev ? { ...prev, enum: newEnum.length > 0 ? newEnum : undefined } : null)
+                                                                    }}
+                                                                    className="h-6 w-6 p-0 text-destructive"
+                                                                >
+                                                                    <X className="h-3 w-3" />
+                                                                </Button>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                </ScrollArea>
+                                            ) : (
+                                                <div className="flex items-center justify-center h-20 rounded-md border border-dashed text-muted-foreground">
+                                                    No enum values added
+                                                </div>
+                                            )}
+
+                                            <div className="flex gap-2">
+                                                <Input
+                                                    value={newEnumValue}
+                                                    onChange={(e) => setNewEnumValue(e.target.value)}
+                                                    placeholder="Add new enum value"
+                                                    onKeyDown={(e) => {
+                                                        if (e.key === "Enter" && newEnumValue.trim() && !editingProperty.enum?.includes(newEnumValue.trim())) {
+                                                            const currentEnum = editingProperty.enum || []
+                                                            setEditingProperty(prev => prev ? { ...prev, enum: [...currentEnum, newEnumValue.trim()] } : null)
+                                                            setNewEnumValue("")
+                                                        }
+                                                    }}
+                                                />
+                                                <Button
+                                                    variant="outline"
+                                                    onClick={() => {
+                                                        if (newEnumValue.trim() && !editingProperty.enum?.includes(newEnumValue.trim())) {
+                                                            const currentEnum = editingProperty.enum || []
+                                                            setEditingProperty(prev => prev ? { ...prev, enum: [...currentEnum, newEnumValue.trim()] } : null)
+                                                            setNewEnumValue("")
+                                                        }
+                                                    }}
+                                                    disabled={!newEnumValue.trim() || editingProperty.enum?.includes(newEnumValue.trim())}
+                                                >
+                                                    <Plus className="h-4 w-4 mr-2" />
+                                                    Add
+                                                </Button>
+                                            </div>
+                                        </div>
+                                    )}
 
                                     <div className="space-y-2">
                                         <Button
@@ -642,9 +1005,9 @@ export function SchemaEditorForm({ content, onChange, filePath, onShowDiff }: Sc
 
                                                 console.log('Update Property: Setting pre-staged changes', newSchema)
                                                 setPrestagedChanges(filePath, newSchema)
-                                                
+
                                                 // Refresh the editing property from the updated schema
-                                                const updatedProperty = selectedPath === "root" 
+                                                const updatedProperty = selectedPath === "root"
                                                     ? newSchema as SchemaProperty
                                                     : (() => {
                                                         const parts = selectedPath.split(".")
@@ -658,7 +1021,7 @@ export function SchemaEditorForm({ content, onChange, filePath, onShowDiff }: Sc
                                                         }
                                                         return current
                                                     })()
-                                                
+
                                                 if (updatedProperty) {
                                                     console.log('Update Property: Refreshing editing property', updatedProperty)
                                                     setEditingProperty(updatedProperty)
@@ -686,7 +1049,7 @@ export function SchemaEditorForm({ content, onChange, filePath, onShowDiff }: Sc
                                                     <AlertDialogHeader>
                                                         <AlertDialogTitle>Remove Property</AlertDialogTitle>
                                                         <AlertDialogDescription>
-                                                            Are you sure you want to remove the property "{editingProperty?.title || selectedPath?.split('.').pop()}"? 
+                                                            Are you sure you want to remove the property "{editingProperty?.title || selectedPath?.split('.').pop()}"?
                                                             This action cannot be undone and will remove the property and all its nested properties.
                                                         </AlertDialogDescription>
                                                     </AlertDialogHeader>

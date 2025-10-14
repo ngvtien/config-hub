@@ -620,7 +620,6 @@ export function EditorPanel({
             ) : viewMode === 'schema' && activeFile.name.endsWith('.schema.json') ? (
               <SchemaEditorForm
                 content={activeFile.content}
-                onChange={handleContentChange}
                 filePath={activeFile.path}
                 onShowDiff={handleSchemaDiffReview}
               />
