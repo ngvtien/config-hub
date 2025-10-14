@@ -113,8 +113,15 @@ export function SourcePullRequests({ source, index, onEditFiles }: SourcePullReq
         {/* Error State */}
         {error && (
           <div className="border rounded-lg p-4 bg-destructive/5 border-destructive/20">
-            <p className="text-sm text-destructive font-medium">Failed to load pull requests</p>
-            <p className="text-xs text-muted-foreground mt-1">{error}</p>
+            <p className="text-sm text-destructive font-medium">
+              {error.includes('404') ? 'Repository not accessible' : 'Failed to load pull requests'}
+            </p>
+            <p className="text-xs text-muted-foreground mt-1">
+              {error.includes('404') 
+                ? 'Repository may not exist or credentials may not have access to this repository'
+                : error
+              }
+            </p>
             <Button size="sm" variant="outline" onClick={refetch} className="mt-2">
               Try Again
             </Button>

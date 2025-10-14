@@ -64,7 +64,9 @@ export class BitbucketCloudClient implements GitProvider {
     console.log('BitbucketCloudClient initialized:', {
       workspace: this.workspace,
       repoSlug: this.repoSlug,
-      baseUrl: this.repositoryInfo.baseUrl
+      baseUrl: this.repositoryInfo.baseUrl,
+      hasToken: !!this.token,
+      tokenLength: this.token ? this.token.length : 0
     })
   }
 
@@ -74,7 +76,9 @@ export class BitbucketCloudClient implements GitProvider {
    */
   async listFiles(path: string, branch: string, recursive?: boolean): Promise<GitFile[]> {
     try {
-      const endpoint = `/repositories/${this.workspace}/${this.repoSlug}/src/${branch}/${path || ''}`
+      // Normalize path to avoid double slashes
+      const normalizedPath = path ? path.replace(/^\/+/, '') : ''
+      const endpoint = `/repositories/${this.workspace}/${this.repoSlug}/src/${branch}/${normalizedPath}`
       console.log('Bitbucket Cloud listFiles endpoint:', endpoint)
 
       const response = await this.axiosInstance.get(endpoint)
@@ -121,7 +125,9 @@ export class BitbucketCloudClient implements GitProvider {
    */
   async getFileContent(filePath: string, branch: string): Promise<GitFileContent> {
     try {
-      const endpoint = `/repositories/${this.workspace}/${this.repoSlug}/src/${branch}/${filePath}`
+      // Normalize path to avoid double slashes
+      const normalizedPath = filePath.replace(/^\/+/, '')
+      const endpoint = `/repositories/${this.workspace}/${this.repoSlug}/src/${branch}/${normalizedPath}`
       console.log('Bitbucket Cloud getFileContent endpoint:', endpoint)
 
       const response = await this.axiosInstance.get(endpoint, {
@@ -202,26 +208,78 @@ export class BitbucketCloudClient implements GitProvider {
     author: { name: string; email: string }
   ): Promise<GitCommit> {
     try {
+      // First, check if the branch exists and get parent commit
+      let parentCommit = null
+      try {
+        const branchCheckEndpoint = `/repositories/${this.workspace}/${this.repoSlug}/refs/branches/${encodeURIComponent(branch)}`
+        const branchResponse = await this.axiosInstance.get(branchCheckEndpoint)
+        parentCommit = branchResponse.data?.target?.hash
+        console.log('Branch exists:', branch, 'Parent commit:', parentCommit)
+      } catch (branchError: any) {
+        if (branchError.response?.status === 404) {
+          // Branch doesn't exist, get main/master branch as parent
+          try {
+            const mainBranchEndpoint = `/repositories/${this.workspace}/${this.repoSlug}/refs/branches/main`
+            const mainResponse = await this.axiosInstance.get(mainBranchEndpoint)
+            parentCommit = mainResponse.data?.target?.hash
+            console.log('Branch does not exist, using main as parent:', parentCommit)
+          } catch (mainError: any) {
+            // Try master if main doesn't exist
+            try {
+              const masterBranchEndpoint = `/repositories/${this.workspace}/${this.repoSlug}/refs/branches/master`
+              const masterResponse = await this.axiosInstance.get(masterBranchEndpoint)
+              parentCommit = masterResponse.data?.target?.hash
+              console.log('Using master as parent:', parentCommit)
+            } catch (masterError: any) {
+              console.warn('Could not find parent branch (main/master):', masterError.message)
+            }
+          }
+        } else {
+          console.warn('Error checking branch:', branchError.message)
+        }
+      }
+
       const endpoint = `/repositories/${this.workspace}/${this.repoSlug}/src`
+      
+      console.log('Bitbucket Cloud createCommit endpoint:', endpoint)
+      console.log('Bitbucket Cloud createCommit branch:', branch)
+      console.log('Bitbucket Cloud createCommit changes:', changes.map(c => ({ path: c.path, action: c.action })))
       
       // Bitbucket Cloud uses form data for commits
       const FormData = (await import('form-data')).default
       const formData = new FormData()
       
-      // Add commit message
+      // Add commit message and branch
       formData.append('message', message)
       formData.append('branch', branch)
-      formData.append('author', `${author.name} <${author.email}>`)
       
-      // Add file changes
+      // Add parent commit if we have one (for new branches)
+      if (parentCommit) {
+        formData.append('parents', parentCommit)
+      }
+      
+      // Add author if provided
+      if (author.name && author.email) {
+        formData.append('author', `${author.name} <${author.email}>`)
+      }
+      
+      // Add file changes - Bitbucket Cloud expects files as form fields
       for (const change of changes) {
         if (change.action === 'add' || change.action === 'modify') {
-          formData.append(change.path, change.content)
+          // Normalize path to avoid leading slashes
+          const normalizedPath = change.path.replace(/^\/+/, '')
+          console.log('Adding file to commit:', normalizedPath)
+          // Use the file path as the form field name and content as value
+          formData.append(normalizedPath, change.content || '')
         } else if (change.action === 'delete') {
-          formData.append('files', change.path)
+          // For deletions, add to the files parameter (comma-separated list)
+          const normalizedPath = change.path.replace(/^\/+/, '')
+          console.log('Deleting file in commit:', normalizedPath)
+          formData.append('files', normalizedPath)
         }
       }
 
+      console.log('Sending commit request to Bitbucket Cloud...')
       const response = await this.axiosInstance.post(endpoint, formData, {
         headers: {
           ...formData.getHeaders(),

@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -45,6 +45,12 @@ export function FileBrowserPanel({
   const repoUrl = source.repoURL
   const basePath = source.path || ''
   const branch = source.targetRevision || 'main'
+
+  // Reset currentPath when source changes
+  useEffect(() => {
+    setCurrentPath('')
+    setSearchQuery('')
+  }, [source.repoURL, source.path, source.index])
   
   // Staged changes
   const { getStagedForRepo } = useStagedChanges()

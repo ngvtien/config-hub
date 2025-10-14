@@ -939,15 +939,24 @@ export function setupGitHandlers(): void {
   })
 
   // List Pull Requests
-  ipcMain.handle('git:listPullRequests', async (_, credentialId: string, state?: 'open' | 'merged' | 'declined' | 'all', limit?: number) => {
+  ipcMain.handle('git:listPullRequests', async (_, credentialId: string, repoUrl?: string, state?: 'open' | 'merged' | 'declined' | 'all', limit?: number) => {
     try {
       const credential = await secureCredentialManager.getCredential(credentialId) as GitCredential
       if (!credential) {
         return { success: false, error: 'Credential not found' }
       }
 
-      const providerType = gitCredentialManager.detectProviderType(credential.repoUrl)
-      const client = await gitCredentialManager.createProviderClient(providerType, credential)
+      // Use the provided repoUrl or fall back to the credential's repoUrl
+      const targetRepoUrl = repoUrl || credential.repoUrl
+      
+      // Create a credential object for the target repository
+      const targetCredential = {
+        ...credential,
+        repoUrl: targetRepoUrl
+      }
+
+      const providerType = gitCredentialManager.detectProviderType(targetRepoUrl)
+      const client = await gitCredentialManager.createProviderClient(providerType, targetCredential)
 
       const pullRequests = await client.listPullRequests(state, limit)
       return { success: true, data: pullRequests }

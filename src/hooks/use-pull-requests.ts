@@ -33,6 +33,7 @@ export function usePullRequests({
     try {
       const result = await window.electronAPI.git.listPullRequests(
         credentials.id,
+        repoUrl,
         state,
         limit
       )

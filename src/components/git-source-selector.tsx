@@ -192,7 +192,7 @@ export function GitSourceSelector({
     setLoadingPRs(true)
 
     try {
-      const result = await window.electronAPI.git.listPullRequests(credentials.id, 'open', 10)
+      const result = await window.electronAPI.git.listPullRequests(credentials.id, selectedSource.repoURL, 'open', 10)
 
       if (result.success && result.data) {
         // Filter PRs by target branch

@@ -111,8 +111,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
       ipcRenderer.invoke('git:commitChanges', credentialId, branch, changes, commitMessage),
     
     // Pull Request operations (new)
-    listPullRequests: (credentialId: string, state?: 'open' | 'merged' | 'declined' | 'all', limit?: number) => 
-      ipcRenderer.invoke('git:listPullRequests', credentialId, state, limit),
+    listPullRequests: (credentialId: string, repoUrl?: string, state?: 'open' | 'merged' | 'declined' | 'all', limit?: number) => 
+      ipcRenderer.invoke('git:listPullRequests', credentialId, repoUrl, state, limit),
     createPullRequest: (credentialId: string, sourceBranch: string, targetBranch: string, title: string, description: string, reviewers?: string[]) => 
       ipcRenderer.invoke('git:createPullRequest', credentialId, sourceBranch, targetBranch, title, description, reviewers),
     getPullRequest: (credentialId: string, prId: number) => 

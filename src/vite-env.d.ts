@@ -173,7 +173,7 @@ interface Window {
       commitChanges: (credentialId: string, branch: string, changes: any[], commitMessage: string) => Promise<GitResponse<any>>
       
       // Pull Request operations (new)
-      listPullRequests: (credentialId: string, state?: 'open' | 'merged' | 'declined' | 'all', limit?: number) => Promise<GitResponse<any[]>>
+      listPullRequests: (credentialId: string, repoUrl?: string, state?: 'open' | 'merged' | 'declined' | 'all', limit?: number) => Promise<GitResponse<any[]>>
       createPullRequest: (credentialId: string, sourceBranch: string, targetBranch: string, title: string, description: string, reviewers?: string[]) => Promise<GitResponse<any>>
       getPullRequest: (credentialId: string, prId: number) => Promise<GitResponse<any>>
       getPullRequestDiff: (credentialId: string, prId: number) => Promise<GitResponse<{ path: string; diff: string }[]>>

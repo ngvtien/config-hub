@@ -76,7 +76,7 @@ export function PRStatusSection({ selectedSource, refreshTrigger }: PRStatusSect
     setError(null)
 
     try {
-      const result = await window.electronAPI.git.listPullRequests(credentialId, 'open', 10)
+      const result = await window.electronAPI.git.listPullRequests(credentialId, repoUrl || undefined, 'open', 10)
       
       if (result.success && result.data) {
         // Filter PRs by target branch to only show PRs targeting this source's branch

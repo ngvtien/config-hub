@@ -951,6 +951,21 @@ export function ArgoCDApplicationDetail({
                     <RefreshCw className="h-4 w-4" />
                     Refresh All
                   </Button>
+                  <Button 
+                    size="sm" 
+                    variant="outline" 
+                    className="flex items-center gap-2"
+                    onClick={() => {
+                      // Clear localStorage and sessionStorage
+                      localStorage.clear()
+                      sessionStorage.clear()
+                      // Force reload to clear any in-memory cache
+                      window.location.reload()
+                    }}
+                  >
+                    <RefreshCw className="h-4 w-4" />
+                    Clear Cache
+                  </Button>
                 </div>
               </CardContent>
             </Card>

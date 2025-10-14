@@ -161,6 +161,7 @@ export function TabbedConfigurationEditor({
         {/* File Browser Panel - Left Side */}
         <div className="w-80 flex-shrink-0">
           <FileBrowserPanel
+            key={`${currentSource.repoURL}-${currentSource.index}`}
             source={currentSource}
             applicationName={application.metadata.name}
             onEditFile={handleEditFile}
