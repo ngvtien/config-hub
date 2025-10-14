@@ -25,6 +25,7 @@ import { CodeMirrorEditor } from './codemirror-editor'
 import { CodeMirrorDiffDialog } from './codemirror-diff-dialog'
 import { SchemaEditorForm } from './schema-editor-form'
 import { useSchemaEditorStore } from '@/stores/schema-editor-store'
+import { SecretsFormEditor } from './secrets/secrets-form-editor'
 
 interface OpenFile {
   id: string
@@ -45,6 +46,7 @@ interface EditorPanelProps {
   onSetActiveFile: (fileId: string) => void
   credentialId?: string | null
   currentBranch?: string
+  repoUrl?: string
 }
 
 export function EditorPanel({
@@ -55,7 +57,8 @@ export function EditorPanel({
   onContentChange,
   onSetActiveFile,
   credentialId,
-  currentBranch = 'main'
+  currentBranch = 'main',
+  repoUrl = ''
 }: EditorPanelProps) {
   const [theme, setTheme] = useState<'light' | 'dark'>('light')
   const [validationStatus, setValidationStatus] = useState<'valid' | 'invalid' | 'validating' | 'idle'>('idle')
@@ -63,6 +66,7 @@ export function EditorPanel({
   const [viewMode, setViewModeState] = useState<'yaml' | 'form' | 'json' | 'schema'>('yaml')
   const [isSchemaEditing, setIsSchemaEditing] = useState(false)
   const isSchemaEditingRef = useRef(false)
+  const [fileViewModes, setFileViewModes] = useState<Record<string, 'yaml' | 'form' | 'json' | 'schema'>>({})
 
   // Use schema editor store for view mode
   const { getViewMode, setViewMode: setSchemaViewMode } = useSchemaEditorStore()
@@ -74,6 +78,14 @@ export function EditorPanel({
       setSchemaViewMode(activeFile.path, mode === 'schema' ? 'form' : 'code')
     }
     setViewModeState(mode)
+    
+    // Store view mode preference for this file
+    if (activeFile) {
+      setFileViewModes(prev => ({
+        ...prev,
+        [activeFile.id]: mode
+      }))
+    }
   }
   const [schema, setSchema] = useState<any | null>(null)
   const [schemaLoading, setSchemaLoading] = useState(false)
@@ -121,7 +133,8 @@ export function EditorPanel({
     activeFile.content.includes('{{ ') ||
     activeFile.content.includes(' }}')
   )
-  const canHaveSchema = isYamlFile && !isTemplateFile
+  const isSecretsFile = activeFile && activeFile.name.toLowerCase() === 'secrets.yaml'
+  const canHaveSchema = isYamlFile && !isTemplateFile && !isSecretsFile
 
   // Detect theme changes
   useEffect(() => {
@@ -374,7 +387,13 @@ export function EditorPanel({
   // Reset state when active file changes
   useEffect(() => {
     if (activeFile) {
-      setViewMode('yaml') // Always start in YAML view
+      // Restore saved view mode for this file, or default to YAML
+      const savedViewMode = fileViewModes[activeFile.id]
+      if (savedViewMode) {
+        setViewModeState(savedViewMode)
+      } else {
+        setViewModeState('yaml') // Default to YAML view for new files
+      }
       setSchema(null)
       setFormData(null)
       setValidationStatus('idle')
@@ -541,8 +560,8 @@ export function EditorPanel({
                     size="sm" 
                     className="h-6 px-2"
                     onClick={() => handleViewModeChange('form')}
-                    disabled={!schema && !schemaLoading}
-                    title={!schema ? 'No schema available for form view' : 'Switch to form view'}
+                    disabled={!isSecretsFile && !schema && !schemaLoading}
+                    title={isSecretsFile ? 'Switch to secrets form view' : (!schema ? 'No schema available for form view' : 'Switch to form view')}
                   >
                     <FormInput className="h-3 w-3 mr-1" />
                     Form
@@ -622,6 +641,16 @@ export function EditorPanel({
                 content={activeFile.content}
                 filePath={activeFile.path}
                 onShowDiff={handleSchemaDiffReview}
+              />
+            ) : viewMode === 'form' && isSecretsFile ? (
+              <SecretsFormEditor
+                content={activeFile.content}
+                onChange={handleContentChange}
+                environment="dev"
+                filePath={activeFile.path}
+                repoUrl={repoUrl}
+                branch={currentBranch}
+                credentialId={credentialId || ''}
               />
             ) : (
               <div className="h-full overflow-y-auto p-4 bg-background">

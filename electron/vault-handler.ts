@@ -35,6 +35,7 @@ interface VaultRequest {
 class SecureVaultClient {
   private clients: Map<string, AxiosInstance> = new Map()
   private tokens: Map<string, { token: string; expiry: number }> = new Map()
+  private kvVersionCache: Map<string, boolean> = new Map() // credentialId -> isKvV2
 
   // Create or get client for credential
   private async getClient(credentialId: string): Promise<AxiosInstance> {
@@ -63,31 +64,16 @@ class SecureVaultClient {
         })
       })
 
-      // Add request interceptor for logging
+      // Add request interceptor for error handling
       client.interceptors.request.use(
-        (config) => {
-          console.log(`Vault API Request [${credential.name}]: ${config.method?.toUpperCase()} ${config.url}`)
-          return config
-        },
-        (error) => {
-          console.error(`Vault API Request Error [${credential.name}]:`, error.message)
-          return Promise.reject(error)
-        }
+        (config) => config,
+        (error) => Promise.reject(error)
       )
 
       // Add response interceptor for error handling
       client.interceptors.response.use(
         (response) => response,
         (error) => {
-          const errorDetails = {
-            status: error.response?.status,
-            statusText: error.response?.statusText,
-            data: error.response?.data,
-            url: error.config?.url,
-            method: error.config?.method
-          }
-          console.error(`Vault API Response Error [${credential.name}]:`, JSON.stringify(errorDetails, null, 2))
-          
           const errorMessage = error.response?.data?.errors?.join(', ') || error.message
           throw new Error(`Vault API Error: ${errorMessage}`)
         }
@@ -111,15 +97,11 @@ class SecureVaultClient {
     try {
       let authResponse: any
 
-      console.log(`Authenticating with Vault using ${credential.authMethod} method`)
-      
       switch (credential.authMethod) {
         case 'token':
           if (!credential.token) {
             throw new Error('Token is required for token authentication')
           }
-          const tokenPreview = credential.token.substring(0, 8) + '...' + credential.token.substring(credential.token.length - 4)
-          console.log(`Using token authentication for ${credential.name}, token: ${tokenPreview} (length: ${credential.token.length})`)
           return credential.token
 
         case 'userpass':
@@ -178,7 +160,6 @@ class SecureVaultClient {
       
       return token
     } catch (error) {
-      console.error(`Vault authentication failed [${credentialId}]:`, error)
       throw error
     }
   }
@@ -194,6 +175,42 @@ class SecureVaultClient {
     
     // Authenticate to get new token
     return await this.authenticate(credentialId)
+  }
+
+  // Detect if mount is KV v2
+  async isKvV2(credentialId: string): Promise<boolean> {
+    // Check cache first
+    if (this.kvVersionCache.has(credentialId)) {
+      return this.kvVersionCache.get(credentialId)!
+    }
+
+    try {
+      const credential = await simpleCredentialManager.getCredential(credentialId) as VaultCredential
+      if (!credential) {
+        return true // Default to v2
+      }
+
+      const mountsResponse = await this.makeRequest({
+        credentialId,
+        endpoint: '/v1/sys/mounts',
+        method: 'GET'
+      })
+
+      const mounts = mountsResponse.data || {}
+      const mountKey = `${credential.mountPath}/`
+      const mountInfo = mounts[mountKey]
+      
+      if (!mountInfo) {
+        return true // Default to v2
+      }
+      
+      const isV2 = mountInfo?.options?.version === '2'
+      this.kvVersionCache.set(credentialId, isV2)
+      
+      return isV2
+    } catch (error) {
+      return true // Default to v2
+    }
   }
 
   // Validate request parameters
@@ -232,7 +249,6 @@ class SecureVaultClient {
       const response = await client.request(axiosConfig)
       return response.data
     } catch (error) {
-      console.error(`Vault API request failed [${request.credentialId}]:`, error)
       throw error
     }
   }
@@ -240,47 +256,56 @@ class SecureVaultClient {
   // Test connection and authentication
   async testConnection(credentialId: string): Promise<boolean> {
     try {
-      console.log(`Testing Vault connection for credential: ${credentialId}`)
-      
-      // Get the credential to check mount path
       const credential = await simpleCredentialManager.getCredential(credentialId) as VaultCredential
       if (!credential) {
         throw new Error('Vault credential not found')
       }
 
-      // Test basic connectivity (doesn't require auth)
+      // Test basic connectivity
       const client = await this.getClient(credentialId)
-      const healthResponse = await client.get('/v1/sys/health')
-      console.log(`Vault health check passed`)
+      await client.get('/v1/sys/health')
 
-      // Test authentication by trying to list secrets at the mount path
-      // This is a more practical test than token lookup
-      const token = await this.getValidToken(credentialId)
-      console.log(`Vault authentication successful, got token`)
+      // Test authentication
+      await this.getValidToken(credentialId)
       
-      // Try to list secrets at the root of the mount path
+      // Verify mount path exists
+      const mountsResponse = await this.makeRequest({
+        credentialId,
+        endpoint: '/v1/sys/mounts',
+        method: 'GET'
+      })
+      
+      const mounts = mountsResponse.data || {}
+      const mountKey = `${credential.mountPath}/`
+      
+      if (!mounts[mountKey]) {
+        throw new Error(
+          `The secret mount path "${credential.mountPath}" does not exist in Vault. ` +
+          `Available mounts: ${Object.keys(mounts).filter(k => k.endsWith('/')).map(k => k.slice(0, -1)).join(', ')}. ` +
+          `You can enable it with: vault secrets enable -path=${credential.mountPath} kv-v2`
+        )
+      }
+      
+      // Verify read permissions
+      const mountInfo = mounts[mountKey]
+      const isKvV2 = mountInfo.options?.version === '2'
+      const listPath = isKvV2 
+        ? `/v1/${credential.mountPath}/metadata`
+        : `/v1/${credential.mountPath}`
+      
       try {
         await this.makeRequest({
           credentialId,
-          endpoint: `/v1/${credential.mountPath}/metadata`,
+          endpoint: listPath,
           method: 'LIST'
         })
-        console.log(`Vault secret access test passed`)
       } catch (listError: any) {
-        // If LIST fails, try a simple GET to sys/mounts which most tokens can access
-        console.log(`LIST failed, trying sys/mounts instead`)
-        await this.makeRequest({
-          credentialId,
-          endpoint: '/v1/sys/mounts',
-          method: 'GET'
-        })
-        console.log(`Vault mounts access test passed`)
+        // LIST might fail if path is empty, but mount exists
       }
-
+      
       return true
     } catch (error) {
-      console.error(`Vault connection test failed [${credentialId}]:`, error)
-      return false
+      throw error
     }
   }
 
@@ -321,6 +346,7 @@ class SecureVaultClient {
   clearCache(): void {
     this.clients.clear()
     this.tokens.clear()
+    this.kvVersionCache.clear()
   }
 }
 
@@ -335,7 +361,6 @@ export function setupVaultHandlers(): void {
       const credentialId = await secureVaultClient.storeCredentials(config)
       return { success: true, data: { credentialId } }
     } catch (error) {
-      console.error('Failed to store Vault credentials:', error)
       return { success: false, error: error instanceof Error ? error.message : 'Unknown error' }
     }
   })
@@ -346,7 +371,6 @@ export function setupVaultHandlers(): void {
       const connected = await secureVaultClient.testConnection(credentialId)
       return { success: connected, connected }
     } catch (error) {
-      console.error('Vault connection test failed:', error)
       return { success: false, error: error instanceof Error ? error.message : 'Unknown error' }
     }
   })
@@ -359,15 +383,19 @@ export function setupVaultHandlers(): void {
         throw new Error('No credentials found for credential ID')
       }
 
+      const isV2 = await secureVaultClient.isKvV2(credentialId)
+      const endpoint = isV2
+        ? `/v1/${credential.mountPath}/data/${secretPath}`
+        : `/v1/${credential.mountPath}/${secretPath}`
+
       const data = await secureVaultClient.makeRequest({
         credentialId,
-        endpoint: `/v1/${credential.mountPath}/data/${secretPath}`,
+        endpoint,
         method: 'GET'
       })
 
       return { success: true, data }
     } catch (error) {
-      console.error('Failed to get Vault secret:', error)
       return { success: false, error: error instanceof Error ? error.message : 'Unknown error' }
     }
   })
@@ -380,16 +408,19 @@ export function setupVaultHandlers(): void {
         throw new Error('No credentials found for credential ID')
       }
 
-      const path = secretPath ? `${credential.mountPath}/metadata/${secretPath}` : `${credential.mountPath}/metadata`
+      const isV2 = await secureVaultClient.isKvV2(credentialId)
+      const basePath = secretPath ? `${credential.mountPath}/${secretPath}` : credential.mountPath
+      const path = isV2 ? `${basePath}/metadata` : basePath
+      
       const data = await secureVaultClient.makeRequest({
         credentialId,
         endpoint: `/v1/${path}`,
         method: 'LIST'
       })
 
-      return { success: true, data: data.data?.keys || [] }
+      const keys = data.data?.keys || []
+      return { success: true, data: keys }
     } catch (error) {
-      console.error('Failed to list Vault secrets:', error)
       return { success: false, error: error instanceof Error ? error.message : 'Unknown error' }
     }
   })
@@ -402,16 +433,23 @@ export function setupVaultHandlers(): void {
         throw new Error('No credentials found for credential ID')
       }
 
+      const isV2 = await secureVaultClient.isKvV2(credentialId)
+      const endpoint = isV2
+        ? `/v1/${credential.mountPath}/data/${secretPath}`
+        : `/v1/${credential.mountPath}/${secretPath}`
+      
+      // KV v2 wraps data in { data: {...} }, v1 sends directly
+      const payload = isV2 ? { data: secretData } : secretData
+
       const data = await secureVaultClient.makeRequest({
         credentialId,
-        endpoint: `/v1/${credential.mountPath}/data/${secretPath}`,
-        method: 'POST',
-        data: { data: secretData }
+        endpoint,
+        method: isV2 ? 'POST' : 'PUT',
+        data: payload
       })
 
       return { success: true, data }
     } catch (error) {
-      console.error('Failed to put Vault secret:', error)
       return { success: false, error: error instanceof Error ? error.message : 'Unknown error' }
     }
   })
@@ -424,15 +462,19 @@ export function setupVaultHandlers(): void {
         throw new Error('No credentials found for credential ID')
       }
 
+      const isV2 = await secureVaultClient.isKvV2(credentialId)
+      const endpoint = isV2
+        ? `/v1/${credential.mountPath}/metadata/${secretPath}`
+        : `/v1/${credential.mountPath}/${secretPath}`
+
       await secureVaultClient.makeRequest({
         credentialId,
-        endpoint: `/v1/${credential.mountPath}/metadata/${secretPath}`,
+        endpoint,
         method: 'DELETE'
       })
 
       return { success: true }
     } catch (error) {
-      console.error('Failed to delete Vault secret:', error)
       return { success: false, error: error instanceof Error ? error.message : 'Unknown error' }
     }
   })
@@ -448,7 +490,6 @@ export function setupVaultHandlers(): void {
 
       return { success: true, data }
     } catch (error) {
-      console.error('Failed to get Vault health:', error)
       return { success: false, error: error instanceof Error ? error.message : 'Unknown error' }
     }
   })
@@ -459,7 +500,6 @@ export function setupVaultHandlers(): void {
       const credentials = await simpleCredentialManager.listCredentials('vault', environment)
       return { success: true, data: credentials }
     } catch (error) {
-      console.error('Failed to list Vault credentials:', error)
       return { success: false, error: error instanceof Error ? error.message : 'Unknown error' }
     }
   })
@@ -470,7 +510,6 @@ export function setupVaultHandlers(): void {
       const credential = await simpleCredentialManager.getCredential(credentialId)
       return { success: true, data: credential }
     } catch (error) {
-      console.error('Failed to get Vault credential:', error)
       return { success: false, error: error instanceof Error ? error.message : 'Unknown error' }
     }
   })
@@ -481,7 +520,6 @@ export function setupVaultHandlers(): void {
       const success = await simpleCredentialManager.deleteCredential(credentialId)
       return { success }
     } catch (error) {
-      console.error('Failed to delete Vault credential:', error)
       return { success: false, error: error instanceof Error ? error.message : 'Unknown error' }
     }
   })
@@ -492,7 +530,6 @@ export function setupVaultHandlers(): void {
       secureVaultClient.clearCache()
       return { success: true }
     } catch (error) {
-      console.error('Failed to clear Vault cache:', error)
       return { success: false, error: error instanceof Error ? error.message : 'Unknown error' }
     }
   })
