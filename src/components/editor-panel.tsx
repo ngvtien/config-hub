@@ -313,14 +313,17 @@ export function EditorPanel({
     } else if (newMode === 'yaml') {
       // Switching from Form to YAML
       try {
-        const yamlContent = yaml.dump(formData, {
-          indent: 2,
-          lineWidth: -1,
-          noRefs: true,
-          sortKeys: false
-        })
-        if (activeFile) {
-          onContentChange(activeFile.id, yamlContent)
+        // Only update content if formData is valid (not null/undefined)
+        if (formData !== null && formData !== undefined) {
+          const yamlContent = yaml.dump(formData, {
+            indent: 2,
+            lineWidth: -1,
+            noRefs: true,
+            sortKeys: false
+          })
+          if (activeFile) {
+            onContentChange(activeFile.id, yamlContent)
+          }
         }
         setViewMode('yaml')
       } catch (err) {
@@ -358,18 +361,21 @@ export function EditorPanel({
     setFormData(data.formData)
     
     // Convert to YAML and update content
-    try {
-      const yamlContent = yaml.dump(data.formData, {
-        indent: 2,
-        lineWidth: -1,
-        noRefs: true,
-        sortKeys: false
-      })
-      if (activeFile) {
-        onContentChange(activeFile.id, yamlContent)
+    // Only update if formData is valid (not null/undefined)
+    if (data.formData !== null && data.formData !== undefined) {
+      try {
+        const yamlContent = yaml.dump(data.formData, {
+          indent: 2,
+          lineWidth: -1,
+          noRefs: true,
+          sortKeys: false
+        })
+        if (activeFile) {
+          onContentChange(activeFile.id, yamlContent)
+        }
+      } catch (err) {
+        console.error('Failed to convert form data to YAML:', err)
       }
-    } catch (err) {
-      console.error('Failed to convert form data to YAML:', err)
     }
   }
 
@@ -383,6 +389,18 @@ export function EditorPanel({
     setValidationStatus(status)
     setValidationErrors(errors)
   }
+
+  // Initialize formData when schema loads and we're in form view
+  useEffect(() => {
+    if (activeFile && schema && viewMode === 'form' && !formData) {
+      try {
+        const parsedData = yaml.load(activeFile.content)
+        setFormData(parsedData)
+      } catch (err) {
+        console.error('Failed to parse YAML for form view:', err)
+      }
+    }
+  }, [schema, viewMode, activeFile, formData])
 
   // Reset state when active file changes
   useEffect(() => {

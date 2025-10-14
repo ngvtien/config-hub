@@ -180,6 +180,7 @@ export function TabbedConfigurationEditor({
             onSetActiveFile={setActiveFileId}
             credentialId={credentials?.id}
             currentBranch={currentSource.targetRevision || 'main'}
+            repoUrl={currentSource.repoURL}
           />
         </div>
       </div>
