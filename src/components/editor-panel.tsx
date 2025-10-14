@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { Button } from '@/components/ui/button'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { 
@@ -23,6 +23,8 @@ import validator from '@rjsf/validator-ajv8'
 import { customTheme } from './json-schema-form-theme'
 import { CodeMirrorEditor } from './codemirror-editor'
 import { CodeMirrorDiffDialog } from './codemirror-diff-dialog'
+import { SchemaEditorForm } from './schema-editor-form'
+import { useSchemaEditorStore } from '@/stores/schema-editor-store'
 
 interface OpenFile {
   id: string
@@ -58,13 +60,54 @@ export function EditorPanel({
   const [theme, setTheme] = useState<'light' | 'dark'>('light')
   const [validationStatus, setValidationStatus] = useState<'valid' | 'invalid' | 'validating' | 'idle'>('idle')
   const [validationErrors, setValidationErrors] = useState<string[]>([])
-  const [viewMode, setViewMode] = useState<'yaml' | 'form'>('yaml')
+  const [viewMode, setViewModeState] = useState<'yaml' | 'form' | 'json' | 'schema'>('yaml')
+  const [isSchemaEditing, setIsSchemaEditing] = useState(false)
+  const isSchemaEditingRef = useRef(false)
+
+  // Use schema editor store for view mode
+  const { getViewMode, setViewMode: setSchemaViewMode } = useSchemaEditorStore()
+
+  // Wrapper to handle view mode changes
+  const setViewMode = (mode: 'yaml' | 'form' | 'json' | 'schema') => {
+    console.log('setViewMode called with:', mode)
+    if (activeFile?.name.endsWith('.schema.json')) {
+      setSchemaViewMode(activeFile.path, mode === 'schema' ? 'form' : 'code')
+    }
+    setViewModeState(mode)
+  }
   const [schema, setSchema] = useState<any | null>(null)
   const [schemaLoading, setSchemaLoading] = useState(false)
   const [formData, setFormData] = useState<any>(null)
   const [showDiffPreview, setShowDiffPreview] = useState(false)
+  const [schemaDiffData, setSchemaDiffData] = useState<{
+    originalContent: string
+    modifiedContent: string
+  } | null>(null)
   
   const activeFile = openFiles.find(f => f.id === activeFileId)
+
+  // Update ref when state changes
+  useEffect(() => {
+    isSchemaEditingRef.current = isSchemaEditing
+  }, [isSchemaEditing])
+
+  // Set appropriate default view mode when file changes (only when switching files, not content changes)
+  useEffect(() => {
+    // Only change view mode when switching to a different file, not when content changes
+    if (activeFile && !isSchemaEditingRef.current) {
+      console.log('Setting default view mode for file:', activeFile.name, 'isSchemaEditing:', isSchemaEditingRef.current, 'currentViewMode:', viewMode)
+      if (activeFile.name.endsWith('.schema.json')) {
+        // Use the stored view mode from staging hook
+        const storedViewMode = getViewMode(activeFile.path)
+        const storedMode = storedViewMode === 'form' ? 'schema' : 'json'
+        setViewMode(storedMode)
+      } else if (getLanguage(activeFile.name) === 'yaml') {
+        setViewMode('yaml')
+      }
+    } else {
+      console.log('Skipping view mode change - isSchemaEditing:', isSchemaEditingRef.current)
+    }
+  }, [activeFile?.id]) // Only depend on file ID to prevent content change triggers
   
   // Check if this is a YAML file and could have a schema
   const isYamlFile = activeFile && (activeFile.name.toLowerCase().endsWith('.yaml') || activeFile.name.toLowerCase().endsWith('.yml'))
@@ -212,6 +255,8 @@ export function EditorPanel({
   const handleContentChange = (newContent: string) => {
     if (!activeFile) return
     
+    console.log('handleContentChange called, isSchemaEditing:', isSchemaEditingRef.current, 'viewMode:', viewMode)
+    
     onContentChange(activeFile.id, newContent)
     
     // Validate YAML files (skip template files)
@@ -237,8 +282,10 @@ export function EditorPanel({
   }
 
   // Handle view mode switching
-  const handleViewModeChange = (newMode: 'yaml' | 'form') => {
+  const handleViewModeChange = (newMode: 'yaml' | 'form' | 'json' | 'schema') => {
     if (!activeFile || newMode === viewMode) return
+
+    console.log('Switching view mode from', viewMode, 'to', newMode)
 
     if (newMode === 'form') {
       // Switching from YAML to Form
@@ -250,7 +297,7 @@ export function EditorPanel({
         console.error('Failed to parse YAML for form view:', err)
         // Stay in YAML mode if parsing fails
       }
-    } else {
+    } else if (newMode === 'yaml') {
       // Switching from Form to YAML
       try {
         const yamlContent = yaml.dump(formData, {
@@ -266,8 +313,32 @@ export function EditorPanel({
       } catch (err) {
         console.error('Failed to convert form data to YAML:', err)
       }
+    } else if (newMode === 'json') {
+      // Switching to JSON view
+      console.log('Switching to JSON view - user initiated')
+      setIsSchemaEditing(false)
+      if (activeFile) {
+        setSchemaViewMode(activeFile.path, 'code')
+      }
+      setViewMode('json')
+    } else if (newMode === 'schema') {
+      // Switching to schema editor
+      console.log('Switching to schema editor - user initiated')
+      setIsSchemaEditing(true)
+      if (activeFile) {
+        setSchemaViewMode(activeFile.path, 'form')
+      }
+      setViewMode('schema')
     }
   }
+
+  // Handle schema editor diff review
+  const handleSchemaDiffReview = useCallback((originalContent: string, modifiedContent: string) => {
+    setSchemaDiffData({ originalContent, modifiedContent })
+    setShowDiffPreview(true)
+  }, [])
+
+
 
   // Handle form data changes
   const handleFormChange = (data: any) => {
@@ -453,6 +524,7 @@ export function EditorPanel({
                 Diff
               </Button>
               
+              {/* View Mode Toggle for YAML files */}
               {getLanguage(activeFile.name) === 'yaml' && !isTemplateFile && (
                 <div className="flex items-center gap-1 border rounded-md p-1">
                   <Button 
@@ -471,6 +543,30 @@ export function EditorPanel({
                     onClick={() => handleViewModeChange('form')}
                     disabled={!schema && !schemaLoading}
                     title={!schema ? 'No schema available for form view' : 'Switch to form view'}
+                  >
+                    <FormInput className="h-3 w-3 mr-1" />
+                    Form
+                  </Button>
+                </div>
+              )}
+
+              {/* View Mode Toggle for Schema JSON files */}
+              {activeFile.name.endsWith('.schema.json') && (
+                <div className="flex items-center gap-1 border rounded-md p-1">
+                  <Button 
+                    variant={viewMode === 'json' ? 'default' : 'ghost'} 
+                    size="sm" 
+                    className="h-6 px-2"
+                    onClick={() => handleViewModeChange('json')}
+                  >
+                    <FileCode className="h-3 w-3 mr-1" />
+                    Code
+                  </Button>
+                  <Button 
+                    variant={viewMode === 'schema' ? 'default' : 'ghost'} 
+                    size="sm" 
+                    className="h-6 px-2"
+                    onClick={() => handleViewModeChange('schema')}
                   >
                     <FormInput className="h-3 w-3 mr-1" />
                     Form
@@ -513,13 +609,20 @@ export function EditorPanel({
 
           {/* Editor Area - YAML or Form View */}
           <div className="flex-1 min-h-0">
-            {viewMode === 'yaml' ? (
+            {viewMode === 'yaml' || viewMode === 'json' ? (
               <CodeMirrorEditor
                 value={activeFile.content}
                 onChange={handleContentChange}
                 language={getLanguage(activeFile.name)}
                 theme={theme}
                 onValidationChange={handleValidationChange}
+              />
+            ) : viewMode === 'schema' && activeFile.name.endsWith('.schema.json') ? (
+              <SchemaEditorForm
+                content={activeFile.content}
+                onChange={handleContentChange}
+                filePath={activeFile.path}
+                onShowDiff={handleSchemaDiffReview}
               />
             ) : (
               <div className="h-full overflow-y-auto p-4 bg-background">
@@ -563,21 +666,41 @@ export function EditorPanel({
       {activeFile && (
         <CodeMirrorDiffDialog
           open={showDiffPreview}
-          onOpenChange={setShowDiffPreview}
+          onOpenChange={(open) => {
+            setShowDiffPreview(open)
+            if (!open) {
+              setSchemaDiffData(null)
+            }
+          }}
           fileName={activeFile.name}
           filePath={activeFile.path}
           branch={currentBranch}
-          originalContent={activeFile.originalContent}
-          modifiedContent={activeFile.content}
+          originalContent={schemaDiffData?.originalContent || activeFile.originalContent}
+          modifiedContent={schemaDiffData?.modifiedContent || activeFile.content}
           language={getLanguage(activeFile.name)}
           onCreatePullRequest={() => {
-            // This will stage the file - the staging logic is handled by the parent
-            handleSave()
+            if (schemaDiffData) {
+              // Apply schema changes and stage for PR
+              handleContentChange(schemaDiffData.modifiedContent)
+              handleSave()
+            } else {
+              // Regular file staging
+              handleSave()
+            }
             setShowDiffPreview(false)
+            setSchemaDiffData(null)
           }}
           onRevert={() => {
-            // Revert changes to original content
-            handleContentChange(activeFile.originalContent)
+            if (schemaDiffData) {
+              // Clear schema pre-staged changes
+              const { clearPrestagedChanges } = useSchemaEditorStore.getState()
+              clearPrestagedChanges(activeFile.path)
+            } else {
+              // Revert regular file changes
+              handleContentChange(activeFile.originalContent)
+            }
+            setShowDiffPreview(false)
+            setSchemaDiffData(null)
           }}
         />
       )}

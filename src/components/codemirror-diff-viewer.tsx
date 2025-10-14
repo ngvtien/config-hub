@@ -222,11 +222,12 @@ export function CodeMirrorDiffViewer({
       id={instanceId}
       className={`codemirror-diff-viewer ${className}`}
       style={{
-        height: '100%',
+        height: 'auto',
         minHeight: '400px',
+        maxHeight: '100%',
         border: `1px solid ${theme === 'dark' ? '#374151' : '#d1d5db'}`,
         borderRadius: '8px',
-        overflow: 'hidden',
+        overflow: 'visible',
         backgroundColor: theme === 'dark' ? '#1f2937' : '#ffffff',
       }}
     />

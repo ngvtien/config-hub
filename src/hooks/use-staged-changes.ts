@@ -25,7 +25,7 @@ export const useStagedChanges = create<StagedChangesState>()(
   persist(
     (set, get) => ({
       stagedFiles: [],
-      
+
       stageFile: (file) => {
         set((state) => {
           // Remove existing file with same path if it exists
@@ -35,21 +35,21 @@ export const useStagedChanges = create<StagedChangesState>()(
           }
         })
       },
-      
+
       unstageFile: (path) => {
         set((state) => ({
           stagedFiles: state.stagedFiles.filter(f => f.path !== path)
         }))
       },
-      
+
       clearStaged: () => {
         set({ stagedFiles: [] })
       },
-      
+
       getStagedForRepo: (repoUrl) => {
         return get().stagedFiles.filter(f => f.repoUrl === repoUrl)
       },
-      
+
       hasStagedChanges: (repoUrl) => {
         return get().stagedFiles.some(f => f.repoUrl === repoUrl)
       }

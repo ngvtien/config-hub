@@ -60,7 +60,7 @@ export function CodeMirrorDiffDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[95vw] max-w-[1400px] max-h-[90vh] flex flex-col">
+      <DialogContent className="sm:max-w-[95vw] max-w-[1400px] h-[90vh] max-h-[90vh] flex flex-col overflow-hidden">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <FileText className="h-5 w-5" />
@@ -119,13 +119,13 @@ export function CodeMirrorDiffDialog({
         </Alert>
 
         {/* CodeMirror Diff Viewer */}
-        <div className="flex-1 overflow-hidden">
+        <div className="flex-1 min-h-0 max-h-[60vh] overflow-auto border rounded-md">
           <CodeMirrorDiffViewer
             originalContent={originalContent}
             modifiedContent={modifiedContent}
             language={language}
             theme={isDarkMode ? 'dark' : 'light'}
-            className="h-full"
+            className="w-full"
             orientation="horizontal"
             readOnly={true}
           />
