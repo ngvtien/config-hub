@@ -18,14 +18,13 @@ import {
   GitCompare
 } from 'lucide-react'
 import * as yaml from 'js-yaml'
-import Form from '@rjsf/core'
-import validator from '@rjsf/validator-ajv8'
-import { customTheme } from './json-schema-form-theme'
 import { CodeMirrorEditor } from './codemirror-editor'
 import { CodeMirrorDiffDialog } from './codemirror-diff-dialog'
 import { SchemaEditorForm } from './schema-editor-form'
 import { useSchemaEditorStore } from '@/stores/schema-editor-store'
 import { SecretsFormEditor } from './secrets/secrets-form-editor'
+import { ImprovedFormEditor } from './improved-form-editor'
+import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from '@/components/ui/resizable'
 
 interface OpenFile {
   id: string
@@ -358,13 +357,15 @@ export function EditorPanel({
 
   // Handle form data changes
   const handleFormChange = (data: any) => {
-    setFormData(data.formData)
+    // Support both old format (data.formData) and new format (data directly)
+    const newFormData = data.formData !== undefined ? data.formData : data
+    setFormData(newFormData)
     
     // Convert to YAML and update content
     // Only update if formData is valid (not null/undefined)
-    if (data.formData !== null && data.formData !== undefined) {
+    if (newFormData !== null && newFormData !== undefined) {
       try {
-        const yamlContent = yaml.dump(data.formData, {
+        const yamlContent = yaml.dump(newFormData, {
           indent: 2,
           lineWidth: -1,
           noRefs: true,
@@ -402,9 +403,17 @@ export function EditorPanel({
     }
   }, [schema, viewMode, activeFile, formData])
 
-  // Reset state when active file changes
+  // Reset state when active file changes (only when switching files, not on content changes)
   useEffect(() => {
     if (activeFile) {
+      console.log('File changed effect triggered for:', activeFile.id, 'current viewMode:', viewMode)
+      
+      // Don't reset if we're already viewing this file in form mode
+      if (viewMode === 'form' && formData) {
+        console.log('Skipping reset - already in form view with data')
+        return
+      }
+      
       // Restore saved view mode for this file, or default to YAML
       const savedViewMode = fileViewModes[activeFile.id]
       if (savedViewMode) {
@@ -433,7 +442,7 @@ export function EditorPanel({
         fetchSchema(activeFile)
       }
     }
-  }, [activeFile, canHaveSchema, fetchSchema, getLanguage, validateYaml])
+  }, [activeFile?.id, canHaveSchema, fetchSchema, getLanguage, validateYaml])
 
   // No files open state
   if (openFiles.length === 0) {
@@ -661,47 +670,72 @@ export function EditorPanel({
                 onShowDiff={handleSchemaDiffReview}
               />
             ) : viewMode === 'form' && isSecretsFile ? (
-              <SecretsFormEditor
-                content={activeFile.content}
-                onChange={handleContentChange}
-                environment="dev"
-                filePath={activeFile.path}
-                repoUrl={repoUrl}
-                branch={currentBranch}
-                credentialId={credentialId || ''}
-              />
-            ) : (
-              <div className="h-full overflow-y-auto p-4 bg-background">
-                {schema && formData ? (
-                  <Form
-                    schema={schema}
-                    uiSchema={generateUISchema(schema)}
-                    formData={formData}
-                    onChange={handleFormChange}
-                    validator={validator}
-                    {...customTheme}
-                    showErrorList={false}
-                    liveValidate={true}
-                  >
-                    <div /> {/* Hide the default submit button */}
-                  </Form>
-                ) : (
-                  <div className="flex items-center justify-center h-full text-center space-y-4">
-                    <div>
-                      <FormInput className="h-16 w-16 mx-auto text-muted-foreground/50 mb-4" />
-                      <h3 className="text-lg font-medium">Form View Not Available</h3>
-                      <p className="text-sm text-muted-foreground mt-1">
-                        {schemaLoading 
-                          ? 'Loading schema...' 
-                          : 'No JSON schema found for this file'
-                        }
-                      </p>
-                      <p className="text-xs text-muted-foreground mt-2">
-                        Form view requires a corresponding .schema.json file
-                      </p>
-                    </div>
+              <ResizablePanelGroup direction="horizontal" className="h-full">
+                <ResizablePanel defaultSize={65} minSize={40}>
+                  <div className="h-full bg-background">
+                    <SecretsFormEditor
+                      content={activeFile.content}
+                      onChange={handleContentChange}
+                      environment="dev"
+                      filePath={activeFile.path}
+                      repoUrl={repoUrl}
+                      branch={currentBranch}
+                      credentialId={credentialId || ''}
+                    />
                   </div>
-                )}
+                </ResizablePanel>
+                <ResizableHandle withHandle />
+                <ResizablePanel defaultSize={35} minSize={20}>
+                  <div className="h-full">
+                    <CodeMirrorEditor
+                      value={activeFile.content}
+                      onChange={handleContentChange}
+                      language="yaml"
+                      theme={theme}
+                      onValidationChange={handleValidationChange}
+                    />
+                  </div>
+                </ResizablePanel>
+              </ResizablePanelGroup>
+            ) : viewMode === 'form' && schema && formData ? (
+              <ResizablePanelGroup direction="horizontal" className="h-full">
+                <ResizablePanel defaultSize={60} minSize={30}>
+                  <div className="h-full bg-background">
+                    <ImprovedFormEditor
+                      schema={schema}
+                      formData={formData}
+                      onChange={handleFormChange}
+                    />
+                  </div>
+                </ResizablePanel>
+                <ResizableHandle withHandle />
+                <ResizablePanel defaultSize={40} minSize={20}>
+                  <div className="h-full">
+                    <CodeMirrorEditor
+                      value={activeFile.content}
+                      onChange={handleContentChange}
+                      language={getLanguage(activeFile.name)}
+                      theme={theme}
+                      onValidationChange={handleValidationChange}
+                    />
+                  </div>
+                </ResizablePanel>
+              </ResizablePanelGroup>
+            ) : (
+              <div className="flex items-center justify-center h-full text-center space-y-4">
+                <div>
+                  <FormInput className="h-16 w-16 mx-auto text-muted-foreground/50 mb-4" />
+                  <h3 className="text-lg font-medium">Form View Not Available</h3>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    {schemaLoading 
+                      ? 'Loading schema...' 
+                      : 'No JSON schema found for this file'
+                    }
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-2">
+                    Form view requires a corresponding .schema.json file
+                  </p>
+                </div>
               </div>
             )}
           </div>
