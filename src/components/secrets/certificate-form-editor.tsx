@@ -1,12 +1,11 @@
 import { useState, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Textarea } from '@/components/ui/textarea'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
 import { 
   Search, Plus, Trash2, Loader2, CheckCircle, XCircle, 
-  Shield, Link2, Eye, Settings, RefreshCw, FileKey
+  Shield, Link2, Eye
 } from 'lucide-react'
 import { useDialog } from '@/hooks/use-dialog'
 import { useEnvironmentSettings } from '@/hooks/use-environment-settings'

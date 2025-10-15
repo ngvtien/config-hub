@@ -389,7 +389,7 @@ export async function removeCertificateFromChain(
     
     // Get existing chain IDs and remove the specified one
     const existingChains = existingMetadata.chain_ids?.split(',').filter(Boolean) || []
-    const updatedChains = existingChains.filter(id => id !== chainId)
+    const updatedChains = existingChains.filter((id: string) => id !== chainId)
     
     return updateMetadataSafely(vaultAPI, credentialId, path, {
       chain_ids: updatedChains.join(',')
