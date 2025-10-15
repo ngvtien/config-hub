@@ -29,7 +29,6 @@ import {
   Clock,
   AlertCircle,
   CheckCircle,
-  Play,
   FileText,
   Calendar,
   Settings,
@@ -60,14 +59,13 @@ export function ArgoCDApplicationDetail({
     parameters,
     loading,
     error,
-    fetchApplication,
-    syncApplication
+    fetchApplication
+    // syncApplication // TODO: Re-enable when sync functionality is implemented
   } = useArgoCDApplication(applicationName, namespace)
 
   const [showLogs, setShowLogs] = useState(false)
   const [showEvents, setShowEvents] = useState(false)
   const [showParameters, setShowParameters] = useState(false)
-  const [syncing, setSyncing] = useState(false)
   const [activeTab, setActiveTab] = useState('overview')
   const [selectedSourceIndex, setSelectedSourceIndex] = useState(0)
   const [gitSources, setGitSources] = useState<GitSourceInfo[]>([])
@@ -120,14 +118,15 @@ export function ArgoCDApplicationDetail({
     )
   }
 
-  const handleSync = async (dryRun = false) => {
-    setSyncing(true)
-    try {
-      await syncApplication({ dryRun, prune: true })
-    } finally {
-      setSyncing(false)
-    }
-  }
+  // TODO: Implement sync functionality
+  // const handleSync = async (dryRun = false) => {
+  //   setSyncing(true)
+  //   try {
+  //     await syncApplication({ dryRun, prune: true })
+  //   } finally {
+  //     setSyncing(false)
+  //   }
+  // }
 
   const getStatusBadge = (status: string, type: 'sync' | 'health') => {
     if (type === 'sync') {
@@ -222,7 +221,8 @@ export function ArgoCDApplicationDetail({
             <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
             Refresh
           </Button>
-          <Button
+          {/* TODO: Implement Dry Run and Sync functionality */}
+          {/* <Button
             variant="outline"
             size="sm"
             onClick={() => handleSync(true)}
@@ -238,7 +238,7 @@ export function ArgoCDApplicationDetail({
           >
             <Play className={`h-4 w-4 mr-2 ${syncing ? 'animate-spin' : ''}`} />
             Sync
-          </Button>
+          </Button> */}
         </div>
       </div>
 
@@ -931,29 +931,29 @@ export function ArgoCDApplicationDetail({
                 <p className="text-sm text-muted-foreground mb-4">
                   Manage pull requests for configuration changes across all Git sources associated with this application.
                 </p>
-                
+
                 {/* Quick Actions */}
                 <div className="flex flex-wrap gap-2">
-                  <Button 
-                    size="sm" 
+                  <Button
+                    size="sm"
                     className="flex items-center gap-2"
                     onClick={() => setActiveTab('configuration')}
                   >
                     <GitPullRequest className="h-4 w-4" />
                     Create New PR
                   </Button>
-                  <Button 
-                    size="sm" 
-                    variant="outline" 
+                  <Button
+                    size="sm"
+                    variant="outline"
                     className="flex items-center gap-2"
                     onClick={() => window.location.reload()}
                   >
                     <RefreshCw className="h-4 w-4" />
                     Refresh All
                   </Button>
-                  <Button 
-                    size="sm" 
-                    variant="outline" 
+                  <Button
+                    size="sm"
+                    variant="outline"
                     className="flex items-center gap-2"
                     onClick={() => {
                       // Clear localStorage and sessionStorage
