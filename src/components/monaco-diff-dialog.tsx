@@ -17,11 +17,12 @@ import {
   Plus, 
   Minus, 
   GitPullRequest,
-  Info
+  Info,
+  RotateCcw
 } from 'lucide-react'
-import ReactDiffViewer, { DiffMethod } from 'react-diff-viewer-continued'
+import { DiffEditor } from '@monaco-editor/react'
 
-interface DiffPreviewDialogProps {
+interface MonacoDiffDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   fileName: string
@@ -29,16 +30,44 @@ interface DiffPreviewDialogProps {
   branch: string
   originalContent: string
   modifiedContent: string
+  language?: string
   onCreatePullRequest?: () => void
+  onRevert?: () => void
 }
 
-interface DiffStats {
-  additions: number
-  deletions: number
-  changes: number
+// Calculate diff statistics
+function calculateDiffStats(original: string, modified: string) {
+  const originalLines = original.split('\n')
+  const modifiedLines = modified.split('\n')
+  
+  let additions = 0
+  let deletions = 0
+  let changes = 0
+  
+  const maxLength = Math.max(originalLines.length, modifiedLines.length)
+  
+  for (let i = 0; i < maxLength; i++) {
+    const origLine = originalLines[i] || ''
+    const modLine = modifiedLines[i] || ''
+    
+    if (i >= originalLines.length) {
+      additions++
+    } else if (i >= modifiedLines.length) {
+      deletions++
+    } else if (origLine !== modLine) {
+      changes++
+    }
+  }
+  
+  return {
+    additions,
+    deletions,
+    changes,
+    total: additions + deletions + changes
+  }
 }
 
-export function DiffPreviewDialog({
+export function MonacoDiffDialog({
   open,
   onOpenChange,
   fileName,
@@ -46,90 +75,49 @@ export function DiffPreviewDialog({
   branch,
   originalContent,
   modifiedContent,
+  language = 'yaml',
   onCreatePullRequest,
-}: DiffPreviewDialogProps) {
+  onRevert,
+}: MonacoDiffDialogProps) {
   // Calculate diff statistics
-  const diffStats = useMemo((): DiffStats => {
-    const originalLines = originalContent.split('\n')
-    const modifiedLines = modifiedContent.split('\n')
-    
-    let additions = 0
-    let deletions = 0
-    
-    // Simple line-by-line comparison
-    const maxLines = Math.max(originalLines.length, modifiedLines.length)
-    
-    for (let i = 0; i < maxLines; i++) {
-      const originalLine = originalLines[i] || ''
-      const modifiedLine = modifiedLines[i] || ''
-      
-      if (i >= originalLines.length) {
-        additions++
-      } else if (i >= modifiedLines.length) {
-        deletions++
-      } else if (originalLine !== modifiedLine) {
-        // Count as both addition and deletion for changed lines
-        if (originalLine.trim() !== '') deletions++
-        if (modifiedLine.trim() !== '') additions++
-      }
-    }
-    
-    const changes = Math.min(additions, deletions)
-    
-    const stats = {
-      additions: additions - changes,
-      deletions: deletions - changes,
-      changes,
-    }
-    
-    console.log('Diff stats:', stats, 'Original lines:', originalLines.length, 'Modified lines:', modifiedLines.length)
-    
-    return stats
-  }, [originalContent, modifiedContent])
+  const diffStats = useMemo(() => 
+    calculateDiffStats(originalContent, modifiedContent), 
+    [originalContent, modifiedContent]
+  )
 
   // Detect theme for diff viewer
   const isDarkMode = document.documentElement.classList.contains('dark')
 
-  const diffViewerStyles = {
-    variables: {
-      light: {
-        diffViewerBackground: '#ffffff',
-        diffViewerColor: '#212121',
-        addedBackground: '#e6ffed',
-        addedColor: '#24292e',
-        removedBackground: '#ffeef0',
-        removedColor: '#24292e',
-        wordAddedBackground: '#acf2bd',
-        wordRemovedBackground: '#fdb8c0',
-        addedGutterBackground: '#cdffd8',
-        removedGutterBackground: '#ffdce0',
-        gutterBackground: '#f6f8fa',
-        gutterBackgroundDark: '#f0f0f0',
-        highlightBackground: '#fffbdd',
-        highlightGutterBackground: '#fff5b1',
-      },
-      dark: {
-        diffViewerBackground: '#1a1a1a',
-        diffViewerColor: '#e1e1e1',
-        addedBackground: '#044B53',
-        addedColor: '#e1e1e1',
-        removedBackground: '#632F34',
-        removedColor: '#e1e1e1',
-        wordAddedBackground: '#055d67',
-        wordRemovedBackground: '#7d383f',
-        addedGutterBackground: '#034148',
-        removedGutterBackground: '#632b30',
-        gutterBackground: '#262626',
-        gutterBackgroundDark: '#1e1e1e',
-        highlightBackground: '#3d3d00',
-        highlightGutterBackground: '#4d4d00',
-      },
-    },
+  const hasChanges = diffStats.total > 0
+
+  const getMonacoLanguage = (lang: string): string => {
+    switch (lang) {
+      case 'yaml':
+        return 'yaml'
+      case 'json':
+        return 'json'
+      case 'markdown':
+        return 'markdown'
+      case 'javascript':
+        return 'javascript'
+      case 'typescript':
+        return 'typescript'
+      case 'hcl':
+        return 'hcl'
+      case 'shell':
+        return 'shell'
+      case 'toml':
+        return 'ini'
+      case 'cue':
+        return 'go'
+      default:
+        return 'plaintext'
+    }
   }
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[95vw] max-w-[1400px] max-h-[90vh] flex flex-col">
+      <DialogContent className="sm:max-w-[95vw] max-w-[1400px] h-[90vh] max-h-[90vh] flex flex-col overflow-hidden">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <FileText className="h-5 w-5" />
@@ -173,7 +161,7 @@ export function DiffPreviewDialog({
             </Badge>
           )}
           
-          {diffStats.additions === 0 && diffStats.deletions === 0 && (
+          {!hasChanges && (
             <span className="text-sm text-muted-foreground">No changes detected</span>
           )}
         </div>
@@ -182,24 +170,40 @@ export function DiffPreviewDialog({
         <Alert>
           <Info className="h-4 w-4" />
           <AlertDescription>
-            Review the changes below. Green lines are additions, red lines are deletions.
+            Review the changes below. Lines with green background are additions, red background are deletions.
             {onCreatePullRequest && ' Click "Stage Changes" to add this file to your staged changes.'}
           </AlertDescription>
         </Alert>
 
-        {/* Diff Viewer */}
-        <div className="flex-1 overflow-auto border rounded-md">
-          <ReactDiffViewer
-            oldValue={originalContent}
-            newValue={modifiedContent}
-            splitView={true}
-            compareMethod={DiffMethod.WORDS}
-            useDarkTheme={isDarkMode}
-            styles={diffViewerStyles}
-            leftTitle="Original"
-            rightTitle="Modified"
-            showDiffOnly={false}
-            hideLineNumbers={false}
+        {/* Monaco Diff Editor */}
+        <div className="flex-1 min-h-0 max-h-[60vh] overflow-hidden border rounded-md">
+          <DiffEditor
+            key={`${fileName}-${originalContent.length}-${modifiedContent.length}`}
+            height="100%"
+            language={getMonacoLanguage(language)}
+            original={originalContent}
+            modified={modifiedContent}
+            theme={isDarkMode ? 'vs-dark' : 'vs'}
+            options={{
+              readOnly: true,
+              renderSideBySide: true,
+              minimap: { enabled: false },
+              fontSize: 14,
+              fontFamily: 'JetBrains Mono, Fira Code, Consolas, Monaco, monospace',
+              fontLigatures: true,
+              lineNumbers: 'on',
+              wordWrap: 'on',
+              scrollBeyondLastLine: false,
+              automaticLayout: true,
+              renderWhitespace: 'selection',
+              scrollbar: {
+                vertical: 'visible',
+                horizontal: 'visible',
+                useShadows: false,
+                verticalScrollbarSize: 14,
+                horizontalScrollbarSize: 14,
+              },
+            }}
           />
         </div>
 
@@ -210,10 +214,23 @@ export function DiffPreviewDialog({
           <div className="flex items-center justify-between w-full">
             <div className="text-xs text-muted-foreground">
               <span>
-                Total: {diffStats.additions + diffStats.deletions + diffStats.changes} line{diffStats.additions + diffStats.deletions + diffStats.changes !== 1 ? 's' : ''} changed
+                Total: {diffStats.total} line{diffStats.total !== 1 ? 's' : ''} changed
               </span>
             </div>
             <div className="flex gap-2">
+              {onRevert && hasChanges && (
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    onRevert()
+                    onOpenChange(false)
+                  }}
+                  className="gap-2"
+                >
+                  <RotateCcw className="h-4 w-4" />
+                  Revert Changes
+                </Button>
+              )}
               <Button
                 variant="outline"
                 onClick={() => onOpenChange(false)}
@@ -226,7 +243,7 @@ export function DiffPreviewDialog({
                     onCreatePullRequest()
                     onOpenChange(false)
                   }}
-                  disabled={diffStats.additions === 0 && diffStats.deletions === 0 && diffStats.changes === 0}
+                  disabled={!hasChanges}
                 >
                   <GitPullRequest className="mr-2 h-4 w-4" />
                   Stage Changes

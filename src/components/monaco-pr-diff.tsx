@@ -1,22 +1,51 @@
-
 import { Badge } from '@/components/ui/badge'
 import { FileText } from 'lucide-react'
-import { CodeMirrorDiffViewer, calculateDiffStats } from './codemirror-diff-viewer'
+import { DiffEditor } from '@monaco-editor/react'
 
 interface FileDiff {
   path: string
   diff: string
 }
 
-interface CodeMirrorPRDiffProps {
+interface MonacoPRDiffProps {
   fileDiffs: FileDiff[]
   theme?: 'light' | 'dark'
 }
 
-export function CodeMirrorPRDiff({ fileDiffs, theme = 'light' }: CodeMirrorPRDiffProps) {
-  // Parse unified diff content - this is the WRONG approach for PR diffs
-  // PR diffs from Git APIs usually only contain the changed hunks, not complete files
-  // We need to show just the changes, not reconstruct full files
+// Calculate diff statistics
+function calculateDiffStats(original: string, modified: string) {
+  const originalLines = original.split('\n')
+  const modifiedLines = modified.split('\n')
+  
+  let additions = 0
+  let deletions = 0
+  let changes = 0
+  
+  const maxLength = Math.max(originalLines.length, modifiedLines.length)
+  
+  for (let i = 0; i < maxLength; i++) {
+    const origLine = originalLines[i] || ''
+    const modLine = modifiedLines[i] || ''
+    
+    if (i >= originalLines.length) {
+      additions++
+    } else if (i >= modifiedLines.length) {
+      deletions++
+    } else if (origLine !== modLine) {
+      changes++
+    }
+  }
+  
+  return {
+    additions,
+    deletions,
+    changes,
+    total: additions + deletions + changes
+  }
+}
+
+export function MonacoPRDiff({ fileDiffs, theme = 'light' }: MonacoPRDiffProps) {
+  // Parse unified diff content
   const parseHunksOnly = (diff: string) => {
     console.log('Parsing diff hunks for:', diff.substring(0, 200) + '...')
     
@@ -28,7 +57,6 @@ export function CodeMirrorPRDiff({ fileDiffs, theme = 'light' }: CodeMirrorPRDif
     const changeLines: string[] = []
     
     let inHunk = false
-    let hunkContext: string[] = []
     
     for (const line of lines) {
       // Skip diff headers
@@ -42,7 +70,7 @@ export function CodeMirrorPRDiff({ fileDiffs, theme = 'light' }: CodeMirrorPRDif
       // Hunk header (@@)
       if (line.startsWith('@@')) {
         inHunk = true
-        if (hunkContext.length > 0) {
+        if (changeLines.length > 0) {
           changeLines.push('') // Add separator between hunks
         }
         changeLines.push(line) // Include hunk header for context
@@ -59,7 +87,7 @@ export function CodeMirrorPRDiff({ fileDiffs, theme = 'light' }: CodeMirrorPRDif
     
     const changesText = changeLines.join('\n')
     
-    // For now, show the raw diff - this is more honest about what we have
+    // For now, show the raw diff
     return { 
       oldContent: changesText || 'No changes found',
       newContent: changesText || 'No changes found'
@@ -71,10 +99,12 @@ export function CodeMirrorPRDiff({ fileDiffs, theme = 'light' }: CodeMirrorPRDif
     const lower = filename.toLowerCase()
     if (lower.endsWith('.yaml') || lower.endsWith('.yml')) return 'yaml'
     if (lower.endsWith('.json')) return 'json'
-    if (lower.endsWith('.tf') || lower.endsWith('.hcl') || lower.endsWith('.tfvars')) return 'javascript' // Use JS for HCL
+    if (lower.endsWith('.tf') || lower.endsWith('.hcl') || lower.endsWith('.tfvars')) return 'hcl'
     if (lower.endsWith('.md') || lower.endsWith('.markdown')) return 'markdown'
-    if (lower.endsWith('.js') || lower.endsWith('.ts')) return 'javascript'
-    return 'yaml'
+    if (lower.endsWith('.js')) return 'javascript'
+    if (lower.endsWith('.ts')) return 'typescript'
+    if (lower.endsWith('.sh')) return 'shell'
+    return 'plaintext'
   }
 
   if (fileDiffs.length === 0) {
@@ -99,8 +129,6 @@ export function CodeMirrorPRDiff({ fileDiffs, theme = 'light' }: CodeMirrorPRDif
           rawDiff: file.diff,
           oldContentLength: oldContent.length,
           newContentLength: newContent.length,
-          oldContent: oldContent.substring(0, 200) + '...',
-          newContent: newContent.substring(0, 200) + '...',
           stats
         })
         
@@ -134,17 +162,35 @@ export function CodeMirrorPRDiff({ fileDiffs, theme = 'light' }: CodeMirrorPRDif
               </div>
             </div>
             
-            {/* Diff Viewer */}
+            {/* Monaco Diff Viewer */}
             <div className="h-96">
-              <CodeMirrorDiffViewer
-                key={`diff-${file.path}-${idx}-${oldContent.length}-${newContent.length}`}
-                originalContent={oldContent}
-                modifiedContent={newContent}
+              <DiffEditor
+                key={`${file.path}-${idx}-${oldContent.length}-${newContent.length}`}
+                height="100%"
                 language={language}
-                theme={theme}
-                className="h-full"
-                orientation="horizontal"
-                readOnly={true}
+                original={oldContent}
+                modified={newContent}
+                theme={theme === 'dark' ? 'vs-dark' : 'vs'}
+                options={{
+                  readOnly: true,
+                  renderSideBySide: true,
+                  minimap: { enabled: false },
+                  fontSize: 14,
+                  fontFamily: 'JetBrains Mono, Fira Code, Consolas, Monaco, monospace',
+                  fontLigatures: true,
+                  lineNumbers: 'on',
+                  wordWrap: 'on',
+                  scrollBeyondLastLine: false,
+                  automaticLayout: true,
+                  renderWhitespace: 'selection',
+                  scrollbar: {
+                    vertical: 'visible',
+                    horizontal: 'visible',
+                    useShadows: false,
+                    verticalScrollbarSize: 14,
+                    horizontalScrollbarSize: 14,
+                  },
+                }}
               />
             </div>
           </div>

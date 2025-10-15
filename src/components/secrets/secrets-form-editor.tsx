@@ -10,7 +10,7 @@ import { useStagedChanges } from '@/hooks/use-staged-changes'
 import { SecretsTable } from '@/components/secrets/secrets-table'
 import { SecretEditModal } from '@/components/secrets/secret-edit-modal'
 import { VaultAuthDialog } from '@/components/secrets/vault-auth-dialog'
-import { CodeMirrorDiffDialog } from '@/components/codemirror-diff-dialog'
+import { MonacoDiffDialog } from '@/components/monaco-diff-dialog'
 import { useSecretsFormManager } from '@/hooks/use-secrets-form-manager'
 import type { SecretItem } from '@/types/secrets'
 
@@ -551,7 +551,7 @@ export function SecretsFormEditor({
       />
 
       {/* Diff Preview Dialog */}
-      <CodeMirrorDiffDialog
+      <MonacoDiffDialog
         open={showDiffPreview}
         onOpenChange={setShowDiffPreview}
         fileName={filePath.split('/').pop() || 'secrets.yaml'}

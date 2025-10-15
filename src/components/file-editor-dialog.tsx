@@ -21,10 +21,10 @@ import { Button } from '@/components/ui/button'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Loader2, FileText, GitBranch as GitBranchIcon, CheckCircle2, AlertCircle, Info, FileCode, FormInput } from 'lucide-react'
 import Editor, { loader } from '@monaco-editor/react'
-import { configureMonacoYaml } from 'monaco-yaml'
+
 import * as yaml from 'js-yaml'
 import type { editor as MonacoEditor } from 'monaco-editor'
-import { DiffPreviewDialog } from './diff-preview-dialog'
+import { MonacoDiffDialog } from './monaco-diff-dialog'
 import Form from '@rjsf/core'
 import validator from '@rjsf/validator-ajv8'
 import { customTheme } from './json-schema-form-theme'
@@ -365,16 +365,6 @@ export function FileEditorDialog({
   // Configure Monaco Editor on mount
   useEffect(() => {
     loader.init().then((monaco) => {
-      // Configure YAML language support with validation
-      configureMonacoYaml(monaco, {
-        enableSchemaRequest: false,
-        hover: true,
-        completion: true,
-        validate: true,
-        format: true,
-        schemas: [],
-      })
-
       // Register HCL language if not already registered
       const languages = monaco.languages.getLanguages()
       const hclExists = languages.some((lang) => lang.id === 'hcl')
@@ -952,8 +942,8 @@ export function FileEditorDialog({
       </DialogContent>
     </Dialog>
 
-    {/* Diff Preview Dialog */}
-    <DiffPreviewDialog
+    {/* Monaco Diff Preview Dialog */}
+    <MonacoDiffDialog
       open={showDiffPreview}
       onOpenChange={setShowDiffPreview}
       fileName={fileName}

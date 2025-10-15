@@ -23,7 +23,7 @@ import {
   FileText,
   AlertCircle,
 } from 'lucide-react'
-import { BulletproofDiffViewer } from './bulletproof-diff-viewer'
+import { MonacoBulletproofDiffViewer } from './monaco-bulletproof-diff-viewer'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import type { PullRequest } from '@/types/git'
@@ -443,7 +443,7 @@ export function PRDetailDialog({
                   {/* BULLETPROOF: Handles any backend format */}
                   {showDiff && (
                     <div className="mt-4">
-                      <BulletproofDiffViewer
+                      <MonacoBulletproofDiffViewer
                         fileDiffs={fileDiffs}
                         theme={document.documentElement.classList.contains('dark') ? 'dark' : 'light'}
                       />

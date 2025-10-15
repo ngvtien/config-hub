@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { FileEditorDialog } from '@/components/file-editor-dialog'
-import { DiffPreviewDialog } from '@/components/diff-preview-dialog'
+import { MonacoDiffDialog } from '@/components/monaco-diff-dialog'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Alert, AlertDescription } from '@/components/ui/alert'
@@ -274,7 +274,7 @@ export function TestFileEditor() {
             onSave={handleSave}
           />
           
-          <DiffPreviewDialog
+          <MonacoDiffDialog
             open={diffDialogOpen}
             onOpenChange={setDiffDialogOpen}
             fileName={selectedFile.name}

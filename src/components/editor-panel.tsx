@@ -18,8 +18,8 @@ import {
   GitCompare
 } from 'lucide-react'
 import * as yaml from 'js-yaml'
-import { CodeMirrorEditor } from './codemirror-editor'
-import { CodeMirrorDiffDialog } from './codemirror-diff-dialog'
+import { MonacoEditorWrapper } from './monaco-editor'
+import { MonacoDiffDialog } from './monaco-diff-dialog'
 import { SchemaEditorForm } from './schema-editor-form'
 import { useSchemaEditorStore } from '@/stores/schema-editor-store'
 import { SecretsFormEditor } from './secrets/secrets-form-editor'
@@ -392,7 +392,7 @@ export function EditorPanel({
     onSaveFile(activeFile.id, activeFile.content)
   }
 
-  // Handle validation status changes from CodeMirror
+  // Handle validation status changes from Monaco
   const handleValidationChange = (status: 'valid' | 'invalid' | 'validating' | 'idle', errors: string[]) => {
     setValidationStatus(status)
     setValidationErrors(errors)
@@ -672,7 +672,7 @@ export function EditorPanel({
           {/* Editor Area - YAML or Form View */}
           <div className="flex-1 min-h-0">
             {viewMode === 'yaml' || viewMode === 'json' ? (
-              <CodeMirrorEditor
+              <MonacoEditorWrapper
                 value={activeFile.content}
                 onChange={handleContentChange}
                 language={getLanguage(activeFile.name)}
@@ -703,7 +703,7 @@ export function EditorPanel({
                 <ResizableHandle withHandle />
                 <ResizablePanel defaultSize={35} minSize={20}>
                   <div className="h-full">
-                    <CodeMirrorEditor
+                    <MonacoEditorWrapper
                       value={activeFile.content}
                       onChange={handleContentChange}
                       language="yaml"
@@ -727,7 +727,7 @@ export function EditorPanel({
                 <ResizableHandle withHandle />
                 <ResizablePanel defaultSize={40} minSize={20}>
                   <div className="h-full">
-                    <CodeMirrorEditor
+                    <MonacoEditorWrapper
                       value={activeFile.content}
                       onChange={handleContentChange}
                       language={getLanguage(activeFile.name)}
@@ -758,9 +758,9 @@ export function EditorPanel({
         </>
       )}
 
-      {/* CodeMirror Diff Preview Dialog */}
+      {/* Monaco Diff Preview Dialog */}
       {activeFile && (
-        <CodeMirrorDiffDialog
+        <MonacoDiffDialog
           open={showDiffPreview}
           onOpenChange={(open) => {
             setShowDiffPreview(open)

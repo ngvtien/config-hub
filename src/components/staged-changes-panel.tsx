@@ -5,7 +5,7 @@ import { X, FileText, GitPullRequest, Eye } from 'lucide-react'
 import { useStagedChanges, type StagedFile } from '@/hooks/use-staged-changes'
 import { useState } from 'react'
 import { PullRequestDialog } from './pull-request-dialog'
-import { CodeMirrorDiffDialog } from './codemirror-diff-dialog'
+import { MonacoDiffDialog } from './monaco-diff-dialog'
 
 interface StagedChangesPanelProps {
   repoUrl: string
@@ -146,9 +146,9 @@ export function StagedChangesPanel({
         stagedFiles={stagedFiles}
       />
 
-      {/* CodeMirror Diff Preview for Staged File */}
+      {/* Monaco Diff Preview for Staged File */}
       {viewingFile && (
-        <CodeMirrorDiffDialog
+        <MonacoDiffDialog
           open={!!viewingFile}
           onOpenChange={(open) => !open && setViewingFile(null)}
           fileName={viewingFile.name}
