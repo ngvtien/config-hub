@@ -62,8 +62,10 @@ export function useSecretsFormManager(_initialContent: string, _onChange: (conte
 
   const updateFormData = useCallback((newData: SecretsFormData) => {
     setFormData(newData)
-    // Don't call onChange here - let the parent component decide when to persist
-  }, [])
+    // Call onChange to update YAML in real-time
+    const yamlContent = generateYaml(newData)
+    _onChange(yamlContent)
+  }, [_onChange, generateYaml])
 
   const addSecret = useCallback((secret?: SecretItem): number => {
     const newSecret: SecretItem = secret || {
