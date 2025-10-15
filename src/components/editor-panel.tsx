@@ -94,6 +94,7 @@ export function EditorPanel({
     originalContent: string
     modifiedContent: string
   } | null>(null)
+  const previousFileIdRef = useRef<string | null>(null)
   
   const activeFile = openFiles.find(f => f.id === activeFileId)
 
@@ -301,6 +302,12 @@ export function EditorPanel({
 
     if (newMode === 'form') {
       // Switching from YAML to Form
+      // Only allow form view for secrets.yaml or files with schema
+      if (!isSecretsFile && !schema && !schemaLoading) {
+        console.log('Cannot switch to form view - no schema available')
+        return
+      }
+      
       try {
         const parsedData = yaml.load(activeFile.content)
         setFormData(parsedData)
@@ -406,20 +413,29 @@ export function EditorPanel({
   // Reset state when active file changes (only when switching files, not on content changes)
   useEffect(() => {
     if (activeFile) {
-      console.log('File changed effect triggered for:', activeFile.id, 'current viewMode:', viewMode)
+      const isNewFile = previousFileIdRef.current !== activeFile.id
+      console.log('File changed effect triggered for:', activeFile.id, 'isNewFile:', isNewFile, 'current viewMode:', viewMode)
       
-      // Don't reset if we're already viewing this file in form mode
-      if (viewMode === 'form' && formData) {
-        console.log('Skipping reset - already in form view with data')
+      // Only skip reset if it's the SAME file and we're in form mode
+      if (!isNewFile && viewMode === 'form' && formData) {
+        console.log('Skipping reset - same file, already in form view with data')
         return
       }
       
-      // Restore saved view mode for this file, or default to YAML
+      // Update the previous file ID
+      previousFileIdRef.current = activeFile.id
+      
+      // Restore saved view mode for this file, or default to YAML/JSON based on file type
       const savedViewMode = fileViewModes[activeFile.id]
       if (savedViewMode) {
         setViewModeState(savedViewMode)
       } else {
-        setViewModeState('yaml') // Default to YAML view for new files
+        // Default view mode based on file type
+        if (activeFile.name.endsWith('.schema.json')) {
+          setViewModeState('json')
+        } else {
+          setViewModeState('yaml')
+        }
       }
       setSchema(null)
       setFormData(null)
