@@ -1,129 +1,155 @@
-# Electron React TypeScript App
+# Certificate Management System
 
-A modern Electron application built with React, TypeScript, Vite, Tailwind CSS, and shadcn/ui components.
+Complete certificate management for ArgoCD applications with Vault integration and External Secrets Operator (ESO) support.
 
-## Features
+---
 
-- ⚡ **Vite** - Fast build tool and development server
-- ⚛️ **React 18** - Modern React with hooks
-- 🔷 **TypeScript** - Type safety and better developer experience
-- 🎨 **Tailwind CSS** - Utility-first CSS framework
-- 🧩 **shadcn/ui** - Beautiful and accessible UI components
-- 📦 **Electron** - Cross-platform desktop app framework
-- 🔧 **ESLint** - Code linting and formatting
-
-## Project Structure
-
-```
-├── electron/           # Electron main and preload scripts
-│   ├── main.ts        # Main process
-│   └── preload.ts     # Preload script
-├── src/               # React application source
-│   ├── components/    # React components
-│   │   └── ui/       # shadcn/ui components
-│   ├── lib/          # Utility functions
-│   ├── App.tsx       # Main App component
-│   ├── main.tsx      # React entry point
-│   └── index.css     # Global styles with Tailwind
-├── public/           # Static assets
-└── dist/            # Built web application
-```
-
-## Getting Started
-
-### Prerequisites
-
-- Node.js (v18 or higher)
-- npm or yarn
-
-### Installation
-
-1. Install dependencies:
-```bash
-npm install
-```
-
-2. Start development server:
-```bash
-npm run dev
-```
-
-3. In another terminal, start Electron:
-```bash
-npm run electron
-```
-
-## Available Scripts
-
-- `npm run dev` - Start Vite development server
-- `npm run electron` - Start Electron in development mode
-- `npm run build` - Build for production
-- `npm run build:web` - Build web version only
-- `npm run build:electron` - Build Electron app
-- `npm run preview` - Preview production build
-- `npm run lint` - Run ESLint
-- `npm run lint:fix` - Fix ESLint errors
-
-## Adding shadcn/ui Components
-
-To add new shadcn/ui components:
+## 🚀 Quick Start
 
 ```bash
-npx shadcn-ui@latest add [component-name]
+# 1. Create a certificate file
+cat > environments/dev/certificates.yaml << EOF
+certificates: []
+chains: {}
+EOF
+
+# 2. Open in UI
+# Navigate to ArgoCD Application → Configuration → certificates.yaml
+
+# 3. Click "Form" button to manage certificates
 ```
 
-For example:
-```bash
-npx shadcn-ui@latest add dialog
-npx shadcn-ui@latest add input
-npx shadcn-ui@latest add form
+**[→ Full Quick Start Guide](docs/getting-started/QUICK_START.md)**
+
+---
+
+## 📚 Documentation
+
+### Start Here
+- **[docs/README.md](docs/README.md)** - Complete documentation hub
+- **[README-CERTIFICATES.md](README-CERTIFICATES.md)** - System overview
+- **[DOCUMENTATION_INDEX.md](DOCUMENTATION_INDEX.md)** - Find anything
+
+### Quick Links
+- [Quick Start](docs/getting-started/QUICK_START.md) - Get started in 2 minutes
+- [Certificate Relationships](docs/guides/certificate-relationships-explained.md) - Understand signs, trusts, validates
+- [Integration Guide](docs/getting-started/INTEGRATION_GUIDE.md) - How to integrate
+- [Examples](docs/examples/) - Sample files
+
+---
+
+## ✨ Features
+
+- ✅ Form-based certificate management
+- ✅ 4 certificate types (server, client, root-ca, intermediate-ca)
+- ✅ Certificate relationships (signs, trusts, validates)
+- ✅ Certificate chain builder
+- ✅ Vault integration with metadata
+- ✅ ESO (External Secrets Operator) support
+- ✅ Split view (form + YAML)
+
+---
+
+## 🔐 Certificate Relationships
+
+Three types of relationships to model your PKI:
+
+- **signs** - "I am signed by..." (CA hierarchy)
+- **trusts** - "I trust..." (Trust establishment)
+- **validates** - "I authenticate to..." (mTLS, client auth)
+
+**[→ Learn More](docs/guides/certificate-relationships-explained.md)**
+
+---
+
+## 📖 Documentation Structure
+
+```
+docs/
+├── README.md                    # Documentation hub
+├── getting-started/             # Tutorials and quick starts
+│   ├── QUICK_START.md
+│   ├── INTEGRATION_COMPLETE.md
+│   └── INTEGRATION_GUIDE.md
+├── guides/                      # In-depth guides
+│   ├── certificate-relationships-explained.md
+│   ├── vault-metadata-approach.md
+│   └── ...
+├── reference/                   # Quick references
+│   ├── certificate-relationships-cheatsheet.md
+│   ├── vault-metadata-quick-reference.md
+│   └── ...
+└── examples/                    # Sample files
+    ├── test-certificates.yaml
+    └── example-certificate-structure.yaml
 ```
 
-## Building for Production
+---
 
-1. Build the application:
-```bash
-npm run build
+## 🎯 Use Cases
+
+### Simple HTTPS Server
+```yaml
+certificates:
+  - name: WebServer
+    type: server
+    vaultRef:
+      path: kv-v2/prod/certs/servers
+      key: WebServer
+    relationships:
+      - type: signs
+        targetKey: LetsEncrypt
 ```
 
-2. The built application will be in the `release` directory.
+### Mutual TLS (mTLS)
+```yaml
+certificates:
+  - name: APIServer
+    type: server
+    relationships:
+      - type: signs
+        targetKey: CompanyCA
+      - type: trusts
+        targetKey: CompanyCA
 
-## Tech Stack
+  - name: ServiceClient
+    type: client
+    relationships:
+      - type: signs
+        targetKey: CompanyCA
+      - type: validates
+        targetKey: APIServer
+```
 
-- **Electron** - Desktop app framework
-- **React** - UI library
-- **TypeScript** - Type safety
-- **Vite** - Build tool
-- **Tailwind CSS** - Styling
-- **shadcn/ui** - UI components
-- **Radix UI** - Headless UI primitives
-- **Lucide React** - Icons
+**[→ More Examples](docs/examples/)**
 
-## Documentation
+---
 
-Comprehensive documentation is available in the [docs/](./docs/) directory, organized by feature:
+## 🛠️ Integration
 
-- **[ArgoCD Integration](./docs/argocd/)** - ArgoCD features, integration, and UI guides
-- **[Git Integration](./docs/git/)** - Git repository integration and configuration management
-- **[Vault Integration](./docs/vault/)** - HashiCorp Vault secrets management
-- **[User Interface](./docs/ui/)** - UI components and user experience
-- **[Deployment](./docs/deployment/)** - Deployment guides and sample applications
-- **[Security](./docs/security/)** - Security implementation and best practices
-- **[Development](./docs/development/)** - Development notes and project documentation
+The system is already integrated and ready to use!
 
-See the [Documentation Index](./docs/README.md) for a complete list of available documentation.
+1. Open any `certificates.yaml` file
+2. Click "Form" button
+3. Start managing certificates
 
-## Scripts
+**[→ Integration Details](docs/getting-started/INTEGRATION_COMPLETE.md)**
 
-Utility scripts are available in the [scripts/](./scripts/) directory, organized by feature:
+---
 
-- **[ArgoCD Scripts](./scripts/argocd/)** - Setup, configuration, and testing scripts
-- **[Vault Scripts](./scripts/vault/)** - Vault configuration scripts
-- **[Deployment Scripts](./scripts/deployment/)** - Sample app deployment scripts
-- **[Development Scripts](./scripts/development/)** - Development workflow scripts
+## 🆘 Need Help?
 
-See the [Scripts Index](./scripts/README.md) for usage instructions.
+- 📖 [Documentation Hub](docs/README.md)
+- 🚀 [Quick Start](docs/getting-started/QUICK_START.md)
+- 📋 [Cheat Sheet](docs/reference/certificate-relationships-cheatsheet.md)
+- 💡 [Examples](docs/examples/)
 
-## License
+---
 
-MIT
+## 📝 License
+
+[Your License Here]
+
+---
+
+**Built with ❤️ for secure certificate management** 🔐✨

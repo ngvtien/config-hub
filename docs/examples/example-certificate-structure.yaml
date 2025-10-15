@@ -1,0 +1,134 @@
+# Complete Certificate Management Example
+# This shows both approaches working together
+
+certificates:
+  # Root CA
+  - name: RootCA1-TrustedRootCertificate
+    type: root-ca
+    vaultRef:
+      path: kv-v2/dev/org1/cai/certs/roots
+      key: rootca1
+    data:
+      thumbprint: "AABBCCDD11223344"
+      definition: |
+        -----BEGIN CERTIFICATE-----
+        MIID...
+        -----END CERTIFICATE-----
+      password: ""
+    # No relationships - it's the root!
+
+  # Intermediate CA
+  - name: intermediateCA-IntermediateCertificate
+    type: intermediate-ca
+    vaultRef:
+      path: kv-v2/dev/org1/cai/certs/intermediates
+      key: intermediateca
+    data:
+      thumbprint: "CCBBAADDFFEE1122"
+      definition: |
+        -----BEGIN CERTIFICATE-----
+        MIID...
+        -----END CERTIFICATE-----
+      password: ""
+    relationships:
+      # This intermediate is signed by the root CA
+      - type: signs
+        targetPath: kv-v2/dev/org1/cai/certs/roots
+        targetKey: rootca1
+
+  # Server Certificate
+  - name: CaiServerCertificate
+    type: server
+    vaultRef:
+      path: kv-v2/dev/org1/cai/certs/servers
+      key: caiservercer
+    data:
+      thumbprint: "ABCD1234EFGH5678"
+      definition: |
+        -----BEGIN CERTIFICATE-----
+        MIID...
+        -----END CERTIFICATE-----
+      password: "server-cert-pass"
+    relationships:
+      # This server cert is signed by the intermediate CA
+      - type: signs
+        targetPath: kv-v2/dev/org1/cai/certs/intermediates
+        targetKey: intermediateca
+      # This server cert trusts the root CA
+      - type: trusts
+        targetPath: kv-v2/dev/org1/cai/certs/roots
+        targetKey: rootca1
+
+  # Client Certificate
+  - name: clientA-ClientCertificate
+    type: client
+    vaultRef:
+      path: kv-v2/dev/org1/cai/certs/clients
+      key: clienta
+    data:
+      thumbprint: "9988776655443322"
+      definition: |
+        -----BEGIN CERTIFICATE-----
+        MIID...
+        -----END CERTIFICATE-----
+      password: "clientA-pass"
+    relationships:
+      # This client cert is signed by the intermediate CA
+      - type: signs
+        targetPath: kv-v2/dev/org1/cai/certs/intermediates
+        targetKey: intermediateca
+      # This client cert validates against the server
+      - type: validates
+        targetPath: kv-v2/dev/org1/cai/certs/servers
+        targetKey: caiservercer
+
+# Certificate Chains - Predefined trust chains for deployment
+chains:
+  # Production Server Chain
+  ProductionServerChain:
+    server:
+      path: kv-v2/dev/org1/cai/certs/servers
+      key: caiservercer
+      type: server
+    intermediate:
+      - path: kv-v2/dev/org1/cai/certs/intermediates
+        key: intermediateca
+        type: intermediate-ca
+    rootCA:
+      path: kv-v2/dev/org1/cai/certs/roots
+      key: rootca1
+      type: root-ca
+
+  # Client Authentication Chain
+  ClientAuthChain:
+    client:
+      path: kv-v2/dev/org1/cai/certs/clients
+      key: clienta
+      type: client
+    intermediate:
+      - path: kv-v2/dev/org1/cai/certs/intermediates
+        key: intermediateca
+        type: intermediate-ca
+    rootCA:
+      path: kv-v2/dev/org1/cai/certs/roots
+      key: rootca1
+      type: root-ca
+
+  # Mutual TLS Chain (both server and client)
+  MutualTLSChain:
+    server:
+      path: kv-v2/dev/org1/cai/certs/servers
+      key: caiservercer
+      type: server
+    client:
+      path: kv-v2/dev/org1/cai/certs/clients
+      key: clienta
+      type: client
+    intermediate:
+      - path: kv-v2/dev/org1/cai/certs/intermediates
+        key: intermediateca
+        type: intermediate-ca
+    rootCA:
+      path: kv-v2/dev/org1/cai/certs/roots
+      key: rootca1
+      type: root-ca

@@ -23,6 +23,7 @@ import { MonacoDiffDialog } from './monaco-diff-dialog'
 import { SchemaEditorForm } from './schema-editor-form'
 import { useSchemaEditorStore } from '@/stores/schema-editor-store'
 import { SecretsFormEditor } from './secrets/secrets-form-editor'
+import { CertificateFormEditor } from './secrets/certificate-form-editor'
 import { ImprovedFormEditor } from './improved-form-editor'
 import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from '@/components/ui/resizable'
 
@@ -134,7 +135,10 @@ export function EditorPanel({
     activeFile.content.includes(' }}')
   )
   const isSecretsFile = activeFile && activeFile.name.toLowerCase() === 'secrets.yaml'
-  const canHaveSchema = isYamlFile && !isTemplateFile && !isSecretsFile
+  const isCertificatesFile = activeFile && 
+    (activeFile.name.toLowerCase() === 'certificates.yaml' ||
+     activeFile.name.toLowerCase() === 'certs.yaml')
+  const canHaveSchema = isYamlFile && !isTemplateFile && !isSecretsFile && !isCertificatesFile
 
   // Detect theme changes
   useEffect(() => {
@@ -302,8 +306,8 @@ export function EditorPanel({
 
     if (newMode === 'form') {
       // Switching from YAML to Form
-      // Only allow form view for secrets.yaml or files with schema
-      if (!isSecretsFile && !schema && !schemaLoading) {
+      // Only allow form view for secrets.yaml, certificates.yaml, or files with schema
+      if (!isSecretsFile && !isCertificatesFile && !schema && !schemaLoading) {
         console.log('Cannot switch to form view - no schema available')
         return
       }
@@ -603,8 +607,12 @@ export function EditorPanel({
                     size="sm" 
                     className="h-6 px-2"
                     onClick={() => handleViewModeChange('form')}
-                    disabled={!isSecretsFile && !schema && !schemaLoading}
-                    title={isSecretsFile ? 'Switch to secrets form view' : (!schema ? 'No schema available for form view' : 'Switch to form view')}
+                    disabled={!isSecretsFile && !isCertificatesFile && !schema && !schemaLoading}
+                    title={
+                      isSecretsFile ? 'Switch to secrets form view' : 
+                      isCertificatesFile ? 'Switch to certificates form view' :
+                      (!schema ? 'No schema available for form view' : 'Switch to form view')
+                    }
                   >
                     <FormInput className="h-3 w-3 mr-1" />
                     Form
@@ -690,6 +698,34 @@ export function EditorPanel({
                 <ResizablePanel defaultSize={65} minSize={40}>
                   <div className="h-full bg-background">
                     <SecretsFormEditor
+                      content={activeFile.content}
+                      onChange={handleContentChange}
+                      environment="dev"
+                      filePath={activeFile.path}
+                      repoUrl={repoUrl}
+                      branch={currentBranch}
+                      credentialId={credentialId || ''}
+                    />
+                  </div>
+                </ResizablePanel>
+                <ResizableHandle withHandle />
+                <ResizablePanel defaultSize={35} minSize={20}>
+                  <div className="h-full">
+                    <MonacoEditorWrapper
+                      value={activeFile.content}
+                      onChange={handleContentChange}
+                      language="yaml"
+                      theme={theme}
+                      onValidationChange={handleValidationChange}
+                    />
+                  </div>
+                </ResizablePanel>
+              </ResizablePanelGroup>
+            ) : viewMode === 'form' && isCertificatesFile ? (
+              <ResizablePanelGroup direction="horizontal" className="h-full">
+                <ResizablePanel defaultSize={65} minSize={40}>
+                  <div className="h-full bg-background">
+                    <CertificateFormEditor
                       content={activeFile.content}
                       onChange={handleContentChange}
                       environment="dev"

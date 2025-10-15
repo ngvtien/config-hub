@@ -107,9 +107,13 @@ export function ImprovedFormEditor({ schema, formData, onChange }: ImprovedFormE
     const fieldSchema = schema?.properties?.[key]
     const title = getPropertyTitle(schema, key)
 
-    // Array handling
-    if (Array.isArray(value)) {
-      const isObjectArray = value.length > 0 && typeof value[0] === 'object'
+    // Array handling - check schema type if value is undefined
+    const isArrayType = fieldSchema?.type === 'array' || Array.isArray(value)
+    
+    if (isArrayType) {
+      const arrayValue = Array.isArray(value) ? value : []
+      const isObjectArray = arrayValue.length > 0 && typeof arrayValue[0] === 'object'
+      const itemType = fieldSchema?.items?.type || (isObjectArray ? 'object' : 'string')
       
       return (
         <div key={pathKey} className="space-y-2">
@@ -120,12 +124,12 @@ export function ImprovedFormEditor({ schema, formData, onChange }: ImprovedFormE
             >
               {isCollapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
               {title}
-              <span className="text-xs text-muted-foreground ml-1">({value.length})</span>
+              <span className="text-xs text-muted-foreground ml-1">({arrayValue.length})</span>
             </button>
             <Button
               size="sm"
               variant="ghost"
-              onClick={() => addArrayItem(fullPath, isObjectArray ? 'object' : typeof value[0])}
+              onClick={() => addArrayItem(fullPath, itemType)}
               className="h-7 px-2"
             >
               <Plus className="h-3 w-3" />
@@ -134,7 +138,7 @@ export function ImprovedFormEditor({ schema, formData, onChange }: ImprovedFormE
 
           {!isCollapsed && (
             <div className="space-y-2 pl-4">
-              {value.map((item, index) => (
+              {arrayValue.map((item, index) => (
                 <div key={`${pathKey}-${index}`} className="flex gap-2 items-start">
                   <div className="flex-1">
                     {typeof item === 'object' && item !== null ? (
@@ -145,7 +149,7 @@ export function ImprovedFormEditor({ schema, formData, onChange }: ImprovedFormE
                             <Input
                               value={itemValue as string}
                               onChange={(e) => {
-                                const newArray = [...value]
+                                const newArray = [...arrayValue]
                                 newArray[index] = { ...newArray[index], [itemKey]: e.target.value }
                                 updateValue(fullPath, newArray)
                               }}
@@ -159,7 +163,7 @@ export function ImprovedFormEditor({ schema, formData, onChange }: ImprovedFormE
                         type={typeof item === 'number' ? 'number' : 'text'}
                         value={item}
                         onChange={(e) => {
-                          const newArray = [...value]
+                          const newArray = [...arrayValue]
                           newArray[index] = typeof item === 'number' ? Number(e.target.value) : e.target.value
                           updateValue(fullPath, newArray)
                         }}
@@ -183,8 +187,20 @@ export function ImprovedFormEditor({ schema, formData, onChange }: ImprovedFormE
       )
     }
 
-    // Object handling
-    if (typeof value === 'object' && value !== null) {
+    // Object handling - check schema type if value is undefined
+    const isObjectType = fieldSchema?.type === 'object' || (typeof value === 'object' && value !== null)
+    
+    if (isObjectType) {
+      // Get properties from schema if value is undefined/null
+      const objectValue = value || {}
+      const schemaProperties = fieldSchema?.properties || {}
+      
+      // Combine schema properties with actual data properties
+      const allSubKeys = new Set([
+        ...Object.keys(schemaProperties),
+        ...Object.keys(objectValue)
+      ])
+      
       return (
         <div key={pathKey} className="space-y-2">
           <button
@@ -196,8 +212,8 @@ export function ImprovedFormEditor({ schema, formData, onChange }: ImprovedFormE
           </button>
           {!isCollapsed && (
             <div className="pl-4 space-y-3">
-              {Object.entries(value).map(([subKey, subValue]) =>
-                renderField(subKey, subValue, fullPath, fieldSchema, level + 1)
+              {Array.from(allSubKeys).map((subKey) =>
+                renderField(subKey, objectValue[subKey], fullPath, fieldSchema, level + 1)
               )}
             </div>
           )}
@@ -239,13 +255,28 @@ export function ImprovedFormEditor({ schema, formData, onChange }: ImprovedFormE
     )
   }, [collapsedSections, getPropertyTitle, toggleSection, addArrayItem, removeArrayItem, updateValue])
 
+  // Get all properties from schema, not just what exists in formData
+  const allProperties = useMemo(() => {
+    if (!schema?.properties) return []
+    
+    const schemaKeys = Object.keys(schema.properties)
+    const dataKeys = memoizedFormData ? Object.keys(memoizedFormData) : []
+    
+    // Combine schema keys with data keys (in case data has extra fields not in schema)
+    const allKeys = new Set([...schemaKeys, ...dataKeys])
+    
+    return Array.from(allKeys).map(key => ({
+      key,
+      value: memoizedFormData?.[key],
+      inSchema: schemaKeys.includes(key)
+    }))
+  }, [schema, memoizedFormData])
+
   return (
     <ScrollArea className="h-full">
       <div className="p-4 space-y-3">
-        {memoizedFormData && typeof memoizedFormData === 'object' && (
-          Object.entries(memoizedFormData).map(([key, value]) =>
-            renderField(key, value, [], schema, 0)
-          )
+        {allProperties.map(({ key, value }) =>
+          renderField(key, value, [], schema, 0)
         )}
       </div>
     </ScrollArea>

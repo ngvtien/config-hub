@@ -1,0 +1,79 @@
+# Test Certificate Configuration for ESO (External Secrets Operator)
+# This file defines Vault references for certificates that ESO will sync to Kubernetes
+
+certificates:
+  # Example server certificate
+  - name: CaiServerCertificate
+    type: server
+    vaultRef:
+      path: kv-v2/dev/org1/cai/certs/servers
+      key: CaiServerCertificate
+    relationships:
+      - type: signs
+        targetPath: kv-v2/dev/org1/cai/certs/intermediates
+        targetKey: intermediateCA
+      - type: trusts
+        targetPath: kv-v2/dev/org1/cai/certs/roots
+        targetKey: rootCA1
+
+  # Example root CA certificate
+  - name: RootCA1-TrustedRootCertificate
+    type: root-ca
+    vaultRef:
+      path: kv-v2/dev/org1/cai/certs/roots
+      key: rootCA1
+
+  # Example intermediate CA certificate
+  - name: intermediateCA-IntermediateCertificate
+    type: intermediate-ca
+    vaultRef:
+      path: kv-v2/dev/org1/cai/certs/intermediates
+      key: intermediateCA
+    relationships:
+      - type: signs
+        targetPath: kv-v2/dev/org1/cai/certs/roots
+        targetKey: rootCA1
+
+  # Example client certificate
+  - name: clientA-ClientCertificate
+    type: client
+    vaultRef:
+      path: kv-v2/dev/org1/cai/certs/clients
+      key: clientA
+    relationships:
+      - type: signs
+        targetPath: kv-v2/dev/org1/cai/certs/intermediates
+        targetKey: intermediateCA
+      - type: validates
+        targetPath: kv-v2/dev/org1/cai/certs/servers
+        targetKey: CaiServerCertificate
+
+# Certificate chains for deployment
+chains:
+  ProductionServerChain:
+    server:
+      path: kv-v2/dev/org1/cai/certs/servers
+      key: CaiServerCertificate
+      type: server
+    intermediate:
+      - path: kv-v2/dev/org1/cai/certs/intermediates
+        key: intermediateCA
+        type: intermediate-ca
+    rootCA:
+      path: kv-v2/dev/org1/cai/certs/roots
+      key: rootCA1
+      type: root-ca
+
+  ClientAuthChain:
+    client:
+      path: kv-v2/dev/org1/cai/certs/clients
+      key: clientA
+      type: client
+    intermediate:
+      - path: kv-v2/dev/org1/cai/certs/intermediates
+        key: intermediateCA
+        type: intermediate-ca
+    rootCA:
+      path: kv-v2/dev/org1/cai/certs/roots
+      key: rootCA1
+      type: root-ca

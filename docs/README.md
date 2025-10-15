@@ -1,71 +1,235 @@
-# Config Hub Documentation
+# Certificate Management Documentation
 
-Welcome to the Config Hub documentation. This directory contains comprehensive documentation organized by feature area.
+Complete documentation for the certificate management system.
 
-## Documentation Structure
+---
 
-### 📦 [ArgoCD Integration](./argocd/)
-Documentation related to ArgoCD integration, features, and UI guides.
+## 📁 Documentation Structure
 
-- [ARGOCD_INTEGRATION.md](./argocd/ARGOCD_INTEGRATION.md) - Core ArgoCD integration details
-- [ARGOCD_NEW_FEATURES.md](./argocd/ARGOCD_NEW_FEATURES.md) - New features and enhancements
-- [ARGOCD_README.md](./argocd/ARGOCD_README.md) - ArgoCD setup and configuration
-- [ARGOCD_UI_GUIDE.md](./argocd/ARGOCD_UI_GUIDE.md) - User interface guide for ArgoCD features
+```
+docs/
+├── getting-started/          # Start here!
+│   ├── QUICK_START.md
+│   ├── INTEGRATION_COMPLETE.md
+│   └── INTEGRATION_GUIDE.md
+│
+├── guides/                   # In-depth guides
+│   ├── certificate-relationships-explained.md
+│   ├── vault-metadata-approach.md
+│   ├── vault-metadata-persistence.md
+│   ├── vault-metadata-updates.md
+│   ├── certificate-encoding-formats.md
+│   └── certificate-storage-comparison.md
+│
+├── reference/                # Quick references
+│   ├── certificate-relationships-cheatsheet.md
+│   ├── vault-metadata-quick-reference.md
+│   ├── vault-metadata-visual-guide.md
+│   ├── pem-vs-base64-visual.md
+│   └── integration-status.md
+│
+└── examples/                 # Sample files
+    ├── test-certificates.yaml
+    └── example-certificate-structure.yaml
+```
 
-### 🔧 [Git Integration](./git/)
-Documentation for Git repository integration and configuration management.
+---
 
-- [GIT_INTEGRATION.md](./git/GIT_INTEGRATION.md) - Git integration architecture and implementation
+## 🚀 Getting Started
 
-### 🔐 [Vault Integration](./vault/)
-HashiCorp Vault integration for secrets management.
+### New Users Start Here:
+1. **[QUICK_START.md](getting-started/QUICK_START.md)** - Get up and running in 2 minutes
+2. **[INTEGRATION_COMPLETE.md](getting-started/INTEGRATION_COMPLETE.md)** - Full integration details
+3. **[Certificate Relationships Explained](guides/certificate-relationships-explained.md)** - Understand signs, trusts, validates
 
-- [VAULT_FINAL_UPDATE.md](./vault/VAULT_FINAL_UPDATE.md) - Latest Vault updates
-- [VAULT_IMPLEMENTATION_SUMMARY.md](./vault/VAULT_IMPLEMENTATION_SUMMARY.md) - Implementation overview
-- [VAULT_INTEGRATION.md](./vault/VAULT_INTEGRATION.md) - Vault integration guide
-- [VAULT_SERVICE_TOKENS.md](./vault/VAULT_SERVICE_TOKENS.md) - Service token management
-- [VAULT_SETUP_PLAN.md](./vault/VAULT_SETUP_PLAN.md) - Vault setup instructions
-- [README_VAULT.md](./vault/README_VAULT.md) - Vault feature overview
+### Quick References:
+- **[Certificate Relationships Cheatsheet](reference/certificate-relationships-cheatsheet.md)** - One-page reference
+- **[Vault Metadata Quick Reference](reference/vault-metadata-quick-reference.md)** - Common operations
 
-### 🎨 [User Interface](./ui/)
-UI components, improvements, and user experience documentation.
+---
 
-- [HELP_SYSTEM_UPDATES.md](./ui/HELP_SYSTEM_UPDATES.md) - Help system features
-- [RESPONSIVE_SETTINGS.md](./ui/RESPONSIVE_SETTINGS.md) - Responsive design implementation
-- [USER_FOOTER_INTEGRATION.md](./ui/USER_FOOTER_INTEGRATION.md) - Footer component integration
-- [USER_MANAGEMENT_ERROR_FIXES.md](./ui/USER_MANAGEMENT_ERROR_FIXES.md) - User management fixes
-- [USERS_PAGE_IMPROVEMENTS.md](./ui/USERS_PAGE_IMPROVEMENTS.md) - Users page enhancements
+## 📚 Documentation by Topic
 
-### 🚀 [Deployment](./deployment/)
-Deployment guides and sample applications.
+### Certificate Relationships
+Understanding how certificates relate to each other:
 
-- [QUICK_DEPLOY.md](./deployment/QUICK_DEPLOY.md) - Quick deployment guide
-- [SAMPLE_APPS_README.md](./deployment/SAMPLE_APPS_README.md) - Sample applications documentation
+- **[Complete Guide](guides/certificate-relationships-explained.md)** ⭐ Start here
+  - What are signs, trusts, validates?
+  - Real-world examples
+  - Use case scenarios
+  - Best practices
 
-### 🔒 [Security](./security/)
-Security implementation and credential management.
+- **[ESO Integration Explained](guides/eso-integration-explained.md)** ⭐ Important
+  - What ESO actually uses
+  - What's metadata only
+  - Why chains are documentation
+  - Data flow
 
-- [SECURE_CREDENTIAL_IMPLEMENTATION.md](./security/SECURE_CREDENTIAL_IMPLEMENTATION.md) - Credential security
-- [SECURITY.md](./security/SECURITY.md) - Security best practices
+- **[Quick Cheatsheet](reference/certificate-relationships-cheatsheet.md)**
+  - One-page reference
+  - Common patterns
+  - Visual diagrams
 
-### 💻 [Development](./development/)
-Development notes, commit summaries, and project documentation.
+### Vault Integration
+How certificates are stored and managed in Vault:
 
-- [COMMIT_MESSAGE.md](./development/COMMIT_MESSAGE.md) - Commit message guidelines
-- [COMMIT_SUMMARY.md](./development/COMMIT_SUMMARY.md) - Recent commit summaries
-- [DOCUMENTATION_SUMMARY.md](./development/DOCUMENTATION_SUMMARY.md) - Documentation overview
-- [FINAL_SUMMARY.md](./development/FINAL_SUMMARY.md) - Project summary
+- **[Vault Metadata Approach](guides/vault-metadata-approach.md)**
+  - Architecture and design
+  - Why use metadata
+  - API operations
 
-## Quick Links
+- **[Metadata Persistence](guides/vault-metadata-persistence.md)**
+  - How metadata survives certificate renewals
+  - What persists, what doesn't
+  - Timeline examples
 
-- [Main README](../README.md) - Project overview and getting started
-- [ArgoCD Sample Apps](../argocd-sample-apps/) - Sample ApplicationSet configurations
-- [Spec: Git Config Management](../.kiro/specs/git-config-management/) - Feature specification for Git-based configuration management
+- **[Updating Metadata](guides/vault-metadata-updates.md)**
+  - Update metadata anytime
+  - Safe update patterns
+  - Common scenarios
 
-## Contributing
+- **[Quick Reference](reference/vault-metadata-quick-reference.md)**
+  - Common commands
+  - Code snippets
+
+- **[Visual Guide](reference/vault-metadata-visual-guide.md)**
+  - Diagrams and visuals
+  - Architecture overview
+
+### Certificate Formats
+Understanding PEM, Base64, and other formats:
+
+- **[Certificate Encoding Formats](guides/certificate-encoding-formats.md)**
+  - PEM vs Base64
+  - When to use each
+  - Conversion examples
+
+- **[Visual Comparison](reference/pem-vs-base64-visual.md)**
+  - Side-by-side comparison
+  - Tool compatibility
+
+### Storage Options
+Where and how to store certificate data:
+
+- **[Storage Comparison](guides/certificate-storage-comparison.md)**
+  - YAML in Git
+  - Vault metadata
+  - Hybrid approach
+  - Recommendations
+
+### Integration
+How to integrate the certificate management system:
+
+- **[Integration Guide](getting-started/INTEGRATION_GUIDE.md)**
+  - Step-by-step integration
+  - Code changes needed
+
+- **[Integration Status](reference/integration-status.md)**
+  - What's implemented
+  - What's pending
+
+---
+
+## 📖 Examples
+
+### Sample Files
+- **[test-certificates.yaml](examples/test-certificates.yaml)** - Complete working example
+- **[example-certificate-structure.yaml](examples/example-certificate-structure.yaml)** - Detailed structure
+
+### Common Scenarios
+See [Certificate Relationships Explained](guides/certificate-relationships-explained.md) for:
+- Simple HTTPS server
+- Mutual TLS (mTLS)
+- Multi-tier CA hierarchy
+- Service-to-service authentication
+
+---
+
+## 🎓 Learning Paths
+
+### Beginner (30 minutes)
+1. [QUICK_START.md](getting-started/QUICK_START.md) - 5 min
+2. [Certificate Relationships Cheatsheet](reference/certificate-relationships-cheatsheet.md) - 5 min
+3. Try [test-certificates.yaml](examples/test-certificates.yaml) - 10 min
+4. [INTEGRATION_COMPLETE.md](getting-started/INTEGRATION_COMPLETE.md) - 10 min
+
+### Intermediate (1 hour)
+1. [Certificate Relationships Explained](guides/certificate-relationships-explained.md) - 20 min
+2. [Vault Metadata Approach](guides/vault-metadata-approach.md) - 20 min
+3. [Certificate Encoding Formats](guides/certificate-encoding-formats.md) - 10 min
+4. Implement your first setup - 10 min
+
+### Advanced (2 hours)
+1. [Vault Metadata Persistence](guides/vault-metadata-persistence.md) - 30 min
+2. [Vault Metadata Updates](guides/vault-metadata-updates.md) - 30 min
+3. [Storage Comparison](guides/certificate-storage-comparison.md) - 30 min
+4. Implement complex hierarchies - 30 min
+
+---
+
+## 🔍 Quick Lookup
+
+### I want to...
+
+**Get started quickly**
+→ [QUICK_START.md](getting-started/QUICK_START.md)
+
+**Understand certificate relationships**
+→ [Certificate Relationships Explained](guides/certificate-relationships-explained.md)
+
+**See a quick reference for relationships**
+→ [Certificate Relationships Cheatsheet](reference/certificate-relationships-cheatsheet.md)
+
+**Learn about Vault integration**
+→ [Vault Metadata Approach](guides/vault-metadata-approach.md)
+
+**Understand PEM vs Base64**
+→ [Certificate Encoding Formats](guides/certificate-encoding-formats.md)
+
+**See example files**
+→ [examples/](examples/)
+
+**Get quick Vault commands**
+→ [Vault Metadata Quick Reference](reference/vault-metadata-quick-reference.md)
+
+**Integrate the system**
+→ [Integration Guide](getting-started/INTEGRATION_GUIDE.md)
+
+---
+
+## 🆘 Troubleshooting
+
+### Common Issues
+
+**Form button is disabled**
+→ Check filename is `certificates.yaml` or `certs.yaml`
+
+**Form view doesn't render**
+→ Check browser console for errors
+
+**Can't save changes**
+→ Verify Git credentials are configured
+
+**Vault push fails**
+→ Check Vault credentials in settings
+
+**Don't understand relationships**
+→ Read [Certificate Relationships Explained](guides/certificate-relationships-explained.md)
+
+---
+
+## 📝 Contributing
 
 When adding new documentation:
-1. Place it in the appropriate feature folder
-2. Update this README with a link to the new document
-3. Follow the existing naming conventions
-4. Include clear headings and examples
+- **Getting Started** - Tutorials and quick starts
+- **Guides** - In-depth explanations and how-tos
+- **Reference** - Quick references and cheat sheets
+- **Examples** - Sample files and code
+
+---
+
+## 🎉 Ready to Start?
+
+Begin with **[QUICK_START.md](getting-started/QUICK_START.md)** and you'll be managing certificates in minutes!
+
+**Happy certificate managing!** 🔐✨
